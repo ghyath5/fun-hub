@@ -131,11 +131,17 @@ footer{margin:72px 0 40px;padding-top:24px;border-top:2px solid var(--ink);
       "@type": "ItemList",
       "@id": "https://funhub.super-dar.com/#games",
       "name": "Games on Fun Hub",
-      "numberOfItems": 1,
+      "numberOfItems": 2,
       "itemListElement": [
         {
           "@type": "ListItem",
           "position": 1,
+          "url": "https://funhub.super-dar.com/airhockey/",
+          "name": "Air Hockey"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
           "url": "https://funhub.super-dar.com/orchard/",
           "name": "Orchard"
         }
@@ -189,6 +195,29 @@ footer{margin:72px 0 40px;padding-top:24px;border-top:2px solid var(--ink);
     },
     {
       "@type": "VideoGame",
+      "@id": "https://funhub.super-dar.com/airhockey/#game",
+      "name": "Air Hockey",
+      "url": "https://funhub.super-dar.com/airhockey/",
+      "description": "Drag your thumb across your own half to slide your mallet and knock the puck into the goal slot behind your opponent. Each phone shows the table from its own end, and seven goals takes the match.",
+      "playMode": "MultiPlayer",
+      "numberOfPlayers": {
+        "@type": "QuantitativeValue",
+        "minValue": 2,
+        "maxValue": 2
+      },
+      "gamePlatform": "Web browser",
+      "applicationCategory": "Game",
+      "operatingSystem": "Any",
+      "isAccessibleForFree": true,
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "VideoGame",
       "@id": "https://funhub.super-dar.com/orchard/#game",
       "name": "Orchard",
       "url": "https://funhub.super-dar.com/orchard/",
@@ -220,7 +249,7 @@ footer{margin:72px 0 40px;padding-top:24px;border-top:2px solid var(--ink);
   <header class="top">
     <p class="eyebrow">Same room · Same WiFi · No install</p>
     <h1 class="display">Two phones.<br><span class="b">One game.</span></h1>
-    <p class="lede">Fun Hub hosts 1 free two-player game that run in a mobile browser. Each game is played by two people on two separate phones in the same room, paired by scanning a QR code. No app install, no account and no internet connection beyond the local network is required.</p>
+    <p class="lede">Fun Hub hosts 2 free two-player games that run in a mobile browser. Each game is played by two people on two separate phones in the same room, paired by scanning a QR code. No app install, no account and no internet connection beyond the local network is required.</p>
 
     <nav class="how" aria-label="How to play">
       <ol>
@@ -233,8 +262,30 @@ footer{margin:72px 0 40px;padding-top:24px;border-top:2px solid var(--ink);
 
   <main>
     <h2 class="display">The games</h2>
-    <p class="sub">1 game, all free, all in the browser.</p>
+    <p class="sub">2 games, all free, all in the browser.</p>
     <ul class="games">
+      <li class="game" style="--accent:#EE4B2B">
+        <p class="pair" role="img" aria-label="Air Hockey icon: two phones playing together">
+          <span class="p1"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+  <rect x="5.2" y="2.4" width="13.6" height="19.2" rx="3" stroke="currentColor" stroke-width="2"/>
+  <path d="M5.2 12h13.6" stroke="currentColor" stroke-width="1.5"/>
+  <path d="M9.6 2.4h4.8M9.6 21.6h4.8" stroke="currentColor" stroke-width="2.4"/>
+  <circle cx="10.2" cy="17.6" r="2.2" fill="#1F86D8"/>
+  <circle cx="14" cy="6.6" r="2.2" fill="#EE4B2B"/>
+  <circle cx="13.4" cy="12.6" r="1.5" fill="#151D28"/>
+</svg></span><span class="p2"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+  <rect x="5.2" y="2.4" width="13.6" height="19.2" rx="3" stroke="currentColor" stroke-width="2"/>
+  <path d="M5.2 12h13.6" stroke="currentColor" stroke-width="1.5"/>
+  <path d="M9.6 2.4h4.8M9.6 21.6h4.8" stroke="currentColor" stroke-width="2.4"/>
+  <circle cx="10.2" cy="17.6" r="2.2" fill="#1F86D8"/>
+  <circle cx="14" cy="6.6" r="2.2" fill="#EE4B2B"/>
+  <circle cx="13.4" cy="12.6" r="1.5" fill="#151D28"/>
+</svg></span>
+        </p>
+        <h3><a href="/airhockey/">Air Hockey</a></h3>
+        <p>Drag your thumb across your own half to slide your mallet and knock the puck into the goal slot behind your opponent. Each phone shows the table from its own end, and seven goals takes the match.</p>
+        <p class="tags"><span>2 players</span><span>3 min</span><span>realtime</span></p>
+      </li>
       <li class="game" style="--accent:#C9A227">
         <p class="pair" role="img" aria-label="Orchard icon: two phones playing together">
           <span class="p1"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
