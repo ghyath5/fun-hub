@@ -1717,9 +1717,10 @@ document.addEventListener('gesturestart', e => e.preventDefault());
  *
  * Both aircraft fly forward for ever; a thumb only ever decides *where the
  * nose is pointed*, never how fast it swings. Touch a spot and the aircraft
- * comes round to it as hard as it can, which is not very hard — the cap on
- * turn rate is what keeps a tail impossible to simply snap onto, and it is
- * where all the difficulty lives now that the input itself is honest.
+ * comes round and flies at it, exactly along the line you can see, and
+ * levels off when it gets there. The cap on turn rate is what keeps a tail
+ * impossible to simply snap onto, and it is where all the difficulty lives
+ * now that the input itself is honest.
  * Guns overheat, so nobody holds the trigger down. Crates drop
  * on parachutes and each one is a timed multiplier — twin guns halve the
  * gap between rounds, armour-piercing doubles the damage, an escort flight
@@ -1791,13 +1792,22 @@ const REPAIR = 42, MINE_DMG = 26, MINE_R = 26;
 const REPAIR_C = '#7FD1B0', MINE_C = '#2B2F33', FUSE_C = '#E2703A';
 
 /* ── flak: the random bombs ──────────────────────────────────────────────
-   Nobody fires these. They pick a spot between the two aircraft, ring it
-   for FLAK_WARN seconds so the sky is never unfair, then burst. */
+   Nobody fires these. Early on they pick the air between the two aircraft,
+   ring it for FLAK_WARN seconds so the sky is never unfair, then burst.
+   Late on they stop being polite and range on an aircraft directly — still
+   with the same warning, and at SPEED you cover 295u in it against a burst
+   only FLAK_R across, so it is always escapable by someone watching. */
 const FLAK_GAP = 9, FLAK_WARN = 1.25, FLAK_BURST = 0.4;
 const FLAK_R = 132, FLAK_DMG = 27, FLAK_MAX = 2;
+const FLAK_HOT = 3.2;                 // the gap it closes to by the bell
 
-/* ── the match ───────────────────────────────────────────────────────── */
-const TARGET = 5, READY = 3.0;
+/* ── the match ───────────────────────────────────────────────────────────
+   Five kills ends it early; otherwise the clock does. A clock is not
+   decoration here — without one, two pilots who both decline to commit can
+   circle each other until the battery dies, and no amount of tuning the
+   guns fixes that. The flak belt tightening as the clock runs down is what
+   stops the last minute being the same stand-off as the first. */
+const TARGET = 5, READY = 3.0, CLOCK = 150;
 const HOST_C = '#D8552F', HOST_D = '#7A2A14';
 const GUEST_C = '#4C93C4', GUEST_D = '#1E4A6B';
 const SKY_HI = '#3A5468', SKY_LO = '#1A252F', SEA = '#16232B';
@@ -1924,12 +1934,13 @@ const SFX = {
 };
 
 /* ── controls ────────────────────────────────────────────────────────────
-   Touch a spot on the sky and the nose comes round to it. The thumb names
-   a place, not a rate, so it means the same thing on every frame and reads
+   Touch a spot on the sky and the nose comes round to it, along the line
+   you can see, and the wings level when it arrives. The thumb names a
+   place, not a rate, so it means the same thing on every frame and reads
    the same whether the aircraft is flying away from you or straight at you
    — which is the whole reason a relative stick is so hard to predict on a
-   phone. The mark stays where it was put when the thumb lifts, so one hand
-   can set a course and the other can work the trigger.
+   phone. Drag and the mark follows the thumb; lift and the course stands,
+   so one hand can fly and the other can work the trigger.
 
    Firing and holding are their own buttons, so neither depends on where a
    finger happens to be. */
@@ -2068,7 +2079,7 @@ function respawn(s, p, side) {
 const game = {
   create() {
     const s = {
-      t: 0, phase: 'ready', phaseT: 0,
+      t: 0, live: 0, phase: 'ready', phaseT: 0,
       score: { host: 0, guest: 0 },
       bul: [], crates: [], flak: [],
       crateT: CRATE_GAP, flakT: FLAK_GAP,
@@ -2088,6 +2099,7 @@ const game = {
       return;
     }
     if (s.phase !== 'live') return;
+    s.live += dt;
 
     dropTimers(s, dt);
     for (const side of ['host', 'guest']) advance(s, s[side], side, dt, api);
@@ -2095,7 +2107,9 @@ const game = {
     strikes(s, api);
     burstFlak(s, dt, api);
 
-    if (s.score.host >= TARGET || s.score.guest >= TARGET) { s.phase = 'done'; s.phaseT = 0; }
+    if (s.score.host >= TARGET || s.score.guest >= TARGET || s.live >= CLOCK) {
+      s.phase = 'done'; s.phaseT = 0;
+    }
   },
 
   /* ── input: stick, trigger, or the hold button ── */
@@ -2149,7 +2163,7 @@ const game = {
     const f = [];
     for (const q of s.flak) f.push(Math.round(q.x), Math.round(q.y), q.st, Math.round(q.t * 20));
     return {
-      ph: s.phase, pt: r1(s.phaseT),
+      ph: s.phase, pt: r1(s.phaseT), lv: r1(s.live),
       sc: [s.score.host, s.score.guest], ev: s.ev,
       h: pack(s.host), g: pack(s.guest),
       b, c, f,
@@ -2158,7 +2172,7 @@ const game = {
 
   apply(v, d, api) {
     RT = api;
-    v.phase = d.ph; v.phaseT = d.pt;
+    v.phase = d.ph; v.phaseT = d.pt; v.live = d.lv;
     v.score = { host: d.sc[0], guest: d.sc[1] };
     v.ev = d.ev;
 
@@ -2213,7 +2227,7 @@ const game = {
       steer(p, dt);
       p.x += Math.cos(p.a) * SPEED * dt;
       p.y += Math.sin(p.a) * SPEED * dt;
-      wrap(p);
+      if (wrap(p)) p.tg = 0;
 
       const ex = wrapD(to.x + to.vx * age - p.x, HW);
       const ey = wrapD(to.y + to.vy * age - p.y, HH);
@@ -2230,6 +2244,7 @@ const game = {
     }
     for (const f of v.flak || []) f.t += dt;
     v.t = (v.t || 0) + dt; v.phaseT += dt;
+    if (v.phase === 'live') v.live = (v.live || 0) + dt;
   },
 
   /* ── drawing ── */
@@ -2253,10 +2268,12 @@ const game = {
     const pips = n => Array.from({ length: TARGET }, (_, i) => i < n);
     const me = v.score[side], you = v.score[other(side)];
     const mine = v[side], foe = v[other(side)];
+    const left = Math.max(0, CLOCK - (v.live || 0));
+    const mm = Math.floor(left / 60), ss = Math.floor(left % 60);
     const out = {
       host: { pips: pips(v.score.host) },
       guest: { pips: pips(v.score.guest) },
-      clock: mine ? `${Math.max(0, Math.round(mine.hp))}%` : '100%',
+      clock: `${mm}:${String(ss).padStart(2, '0')} · ${mine ? Math.max(0, Math.round(mine.hp)) : 100}%`,
       banner: null, key: '', done: null,
     };
 
@@ -2276,6 +2293,9 @@ const game = {
       out.key = 'opz';
       out.banner = { text: 'THEY ARE HELD', color: colOf(other(side)),
                      sub: 'their aircraft is out of play' };
+    } else if (v.phase === 'live' && left < 20) {
+      out.key = 'bell' + Math.ceil(left);
+      out.banner = { text: `${Math.ceil(left)}s`, color: '#E2513A', sub: 'the belt is closing' };
     } else if (v.phase === 'live' && mine && anyMul(mine)) {
       const on = MUL.filter((_, i) => mine.m[i] > 0);
       out.key = 'mul' + on.map(m => m.key).join('');
@@ -2284,12 +2304,20 @@ const game = {
       out.key = 'go';
       out.banner = { text: 'TALLY HO', color: '#F0C24B' };
     } else if (v.phase === 'done') {
-      const win = me > you;
-      out.done = {
-        title: win ? 'The sky is yours' : 'They flew you down',
-        note: `${me}–${you} kills`,
-        color: win ? colOf(side) : colOf(other(side)),
-      };
+      /* Level on kills at the bell goes to whoever is least shot up, which
+         is the only other thing both pilots were doing all match. */
+      const early = me >= TARGET || you >= TARGET;
+      const hpMe = mine ? mine.hp : 0, hpYou = foe ? foe.hp : 0;
+      const win = me > you || (me === you && hpMe > hpYou);
+      const drawn = me === you && Math.round(hpMe) === Math.round(hpYou);
+      out.done = drawn
+        ? { title: 'Level at the bell', note: `${me}–${you} kills`, color: '#F0C24B' }
+        : {
+            title: win ? 'The sky is yours' : 'They flew you down',
+            note: early ? `${me}–${you} kills`
+                        : `${me}–${you} at the bell · ${Math.round(hpMe)}% left`,
+            color: win ? colOf(side) : colOf(other(side)),
+          };
     }
     return out;
   },
@@ -2300,24 +2328,44 @@ const game = {
 /* The one steering rule, used by the host in step and by the guest in
    smooth — the same function on both phones, so a bank bites on the frame
    the thumb makes it and the correcting snapshot has nothing to argue with.
-   The nose closes on the bearing to the mark and is allowed to move TURN
-   radians a second doing it, no more. Fly past the mark and the bearing
-   swings behind you, which turns into a steady 96u orbit around it: hold
-   your thumb on a crate and the aircraft circles the crate. */
+
+   Two things here are deliberately *not* clever. The bearing is measured
+   straight to the mark as it is drawn, never to whichever wrapped copy of
+   it happens to be nearer: the whole sky is on screen, so the short way
+   round an edge would send the aircraft away from your thumb and out the
+   far wall, which is correct and unreadable. And on arrival the mark is
+   consumed and the wings level. Point, fly, straight — no orbiting, and
+   nothing keeps turning after it has done what it was told. */
+/* SPEED/TURN is a 96u turning circle, and that number is why the aircraft
+   was circling. A mark closer to the aircraft than its own turn radius is
+   a place it physically cannot fly to: it leans over as hard as it can,
+   misses, comes round, misses again, for ever. ARRIVE therefore has to sit
+   outside that circle — at 120 the worst possible case, a mark dead in the
+   middle of the turn, is already inside the capture and is taken at once.
+   Anything under 96 here brings the orbiting straight back. */
+const ARRIVE = 120;
+
 function steer(p, dt) {
   let rate;
   if (p.tg) {
-    const dx = wrapD(p.tx - p.x, HW), dy = wrapD(p.ty - p.y, HH);
-    if (dx * dx + dy * dy < 9) return 0;         // sitting on it: hold heading
+    const dx = p.tx - p.x, dy = p.ty - p.y;
+    if (dx * dx + dy * dy < ARRIVE * ARRIVE) { p.tg = 0; return 0; }
     rate = clamp(norm(Math.atan2(dy, dx) - p.a) / dt, -TURN, TURN);
   } else rate = p.st * TURN;
   p.a = norm(p.a + rate * dt);
   return rate;
 }
 
+/* Crossing an edge drops the mark. Keeping it would leave the aircraft
+   pointed back at a spot now on the far side of the sky, so it would haul
+   round and fly the whole width of the world to reach it — which is
+   exactly what it looks like when you tap near a border and the thing
+   turns away from you. Wrap out, wings level, tap again. */
 function wrap(p) {
-  if (p.x > HW) p.x -= W; else if (p.x < -HW) p.x += W;
-  if (p.y > HH) p.y -= H; else if (p.y < -HH) p.y += H;
+  let crossed = 0;
+  if (p.x > HW) { p.x -= W; crossed = 1; } else if (p.x < -HW) { p.x += W; crossed = 1; }
+  if (p.y > HH) { p.y -= H; crossed = 1; } else if (p.y < -HH) { p.y += H; crossed = 1; }
+  return crossed;
 }
 
 /* crates and flak are on their own clocks, and everything with a life rots */
@@ -2332,8 +2380,9 @@ function dropTimers(s, dt) {
     s.crateT = CRATE_GAP + Math.random() * 4;
   }
   if (s.flakT <= 0) {
-    if (s.flak.length < FLAK_MAX) s.flak.push(dropFlak(s));
-    s.flakT = FLAK_GAP + Math.random() * 6;
+    const k = clamp(s.live / CLOCK, 0, 1);
+    if (s.flak.length < (k > 0.6 ? FLAK_MAX + 1 : FLAK_MAX)) s.flak.push(dropFlak(s, k));
+    s.flakT = lerp(FLAK_GAP, FLAK_HOT, k) + Math.random() * lerp(6, 1.5, k);
   }
 }
 
@@ -2355,12 +2404,23 @@ function dropCrate(s) {
 
 /* Flak picks the air between the two aircraft, so it lands where the fight
    already is rather than somewhere nobody was going. */
-function dropFlak(s) {
+function dropFlak(s, k) {
   const h = s.host, g = s.guest;
-  const mx = h.x + wrapD(g.x - h.x, HW) * 0.5, my = h.y + wrapD(g.y - h.y, HH) * 0.5;
-  const p = { x: mx + rand(-150, 150), y: my + rand(-150, 150), st: 0, t: 0 };
-  wrap(p);
-  return p;
+  let cx, cy, spread;
+  if (k > 0.5 && Math.random() < (k - 0.5) * 2) {
+    /* ranged on one aircraft, a little ahead of where it is going */
+    const p = Math.random() < 0.5 ? h : g;
+    cx = p.x + Math.cos(p.a) * SPEED * FLAK_WARN * 0.55;
+    cy = p.y + Math.sin(p.a) * SPEED * FLAK_WARN * 0.55;
+    spread = 60;
+  } else {
+    cx = h.x + wrapD(g.x - h.x, HW) * 0.5;
+    cy = h.y + wrapD(g.y - h.y, HH) * 0.5;
+    spread = 150;
+  }
+  const f = { x: cx + rand(-spread, spread), y: cy + rand(-spread, spread), st: 0, t: 0 };
+  wrap(f);
+  return f;
 }
 
 function advance(s, p, side, dt, api) {
@@ -2386,7 +2446,7 @@ function advance(s, p, side, dt, api) {
   steer(p, dt);
   p.x += Math.cos(p.a) * SPEED * dt;
   p.y += Math.sin(p.a) * SPEED * dt;
-  wrap(p);
+  if (wrap(p)) p.tg = 0;
 
   guns(s, p, side, dt);
   collect(s, p, side, api);
@@ -2703,12 +2763,13 @@ function tracer(x, q) {
 }
 
 /* Where the thumb put the mark, and the line the nose is closing on. Drawn
-   under the aircraft so it never hides one, and drawn at all times — a
-   control you can see is a control you can learn without dying first. */
+   under the aircraft so it never hides one, straight to the mark exactly as
+   the aircraft will fly it, and gone the moment the mark is reached — so
+   the reticle on screen is only ever a course still being flown. */
 function reticle(x, v, side) {
   const p = v[side];
-  if (!AIM || !p || p.dead > 0 || p.pz || v.phase === 'done') return;
-  const tx = p.x + wrapD(AIM.x - p.x, HW), ty = p.y + wrapD(AIM.y - p.y, HH);
+  if (!p || !p.tg || p.dead > 0 || p.pz || v.phase === 'done') return;
+  const tx = p.tx, ty = p.ty;
   const r = HELD ? 22 : 17;
   x.save();
   x.globalAlpha = HELD ? 0.85 : 0.4;
@@ -2736,6 +2797,22 @@ function reticle(x, v, side) {
 const TRAIL = { host: [], guest: [] };
 const LASTA = { host: null, guest: null };
 const BANK = { host: 0, guest: 0 };
+
+/* An aircraft near an edge is also, in a moment, an aircraft at the far
+   edge — so draw it there too, faintly. The wrap stops being a surprise:
+   you can see where you are about to reappear before you get there, which
+   is the difference between a gate and a trapdoor. */
+const GHOST_AT = 150;
+
+function ghosts(p) {
+  const out = [[0, 0]];
+  const gx = p.x > HW - GHOST_AT ? -W : p.x < -HW + GHOST_AT ? W : 0;
+  const gy = p.y > HH - GHOST_AT ? -H : p.y < -HH + GHOST_AT ? H : 0;
+  if (gx) out.push([gx, 0]);
+  if (gy) out.push([0, gy]);
+  if (gx && gy) out.push([gx, gy]);
+  return out;
+}
 
 function drawPlane(x, p, side, t, mine) {
   if (!p) return;
@@ -2779,10 +2856,17 @@ function drawPlane(x, p, side, t, mine) {
     return;
   }
 
+  for (const [ox, oy] of ghosts(p)) airframe(x, p, side, t, mine, ox, oy);
+}
+
+function airframe(x, p, side, t, mine, ox, oy) {
+  const col = colOf(side), deep = deepOf(side);
+  const far = ox || oy;                              // a copy at the far edge
   x.save();
-  x.translate(p.x, p.y);
+  x.translate(p.x + ox, p.y + oy);
   x.rotate(p.a);
-  if (p.pz) x.globalAlpha = 0.45;
+  x.globalAlpha = far ? 0.3 : 1;
+  if (p.pz) x.globalAlpha *= 0.45;
   /* a hard turn shows as a foreshortened wingspan, the way it looks from
      above — the rings and the escort are drawn before it, unsquashed */
 
@@ -2794,21 +2878,23 @@ function drawPlane(x, p, side, t, mine) {
     x.setLineDash([]);
   } else if (p.safe > 0) {
     x.strokeStyle = 'rgba(242,231,213,.75)'; x.lineWidth = 2;
-    x.globalAlpha = 0.35 + Math.abs(Math.sin(t * 9)) * 0.5;
+    const keep = x.globalAlpha;
+    x.globalAlpha = keep * (0.35 + Math.abs(Math.sin(t * 9)) * 0.5);
     x.beginPath(); x.arc(0, 0, PR + 11, 0, TAU); x.stroke();
-    x.globalAlpha = p.pz ? 0.45 : 1;
+    x.globalAlpha = keep;
   }
 
   /* the escort flight: two wingmen tucked in behind while the crate lasts */
   if (p.m[ESCORT] > 0) {
     x.fillStyle = MUL[ESCORT].c;
-    x.globalAlpha = 0.75;
+    const keepE = x.globalAlpha;
+    x.globalAlpha = keepE * 0.75;
     for (const sgn of [-1, 1]) {
       x.beginPath();
       x.moveTo(-26, sgn * 26); x.lineTo(-40, sgn * 34); x.lineTo(-40, sgn * 18);
       x.closePath(); x.fill();
     }
-    x.globalAlpha = p.pz ? 0.45 : 1;
+    x.globalAlpha = keepE;
   }
 
   x.scale(1, 1 - Math.abs(BANK[side]) * 0.5);
@@ -2846,18 +2932,19 @@ function drawPlane(x, p, side, t, mine) {
   }
 
   x.restore();
-  x.globalAlpha = 1;
 
   /* health, above the aircraft and always upright */
   const w = 44, hp = clamp(p.hp / HP0, 0, 1);
+  x.globalAlpha = far ? 0.3 : 1;
   x.fillStyle = 'rgba(20,28,36,.7)';
-  x.fillRect(p.x - w / 2, p.y - PR - 22, w, 6);
+  x.fillRect(p.x + ox - w / 2, p.y + oy - PR - 22, w, 6);
   x.fillStyle = hp > 0.5 ? col : hp > 0.25 ? '#F0C24B' : '#E2513A';
-  x.fillRect(p.x - w / 2, p.y - PR - 22, w * hp, 6);
+  x.fillRect(p.x + ox - w / 2, p.y + oy - PR - 22, w * hp, 6);
   if (mine) {
     x.strokeStyle = '#F2E7D5'; x.lineWidth = 1;
-    x.strokeRect(p.x - w / 2, p.y - PR - 22, w, 6);
+    x.strokeRect(p.x + ox - w / 2, p.y + oy - PR - 22, w, 6);
   }
+  x.globalAlpha = 1;
 }
 
 /* Heat, and whatever multipliers are running, along the bottom of the sky. */
@@ -2887,43 +2974,101 @@ function gauges(x, p, side) {
 }
 
 /* ── the other aircraft, when there is only one phone ─────────────────────
-   It leads its shots, but with a wandering aim error that is re-rolled a
-   couple of times a second, so it is beatable and its bursts miss the way
-   a person's do. */
+   Practice, not a wall. Three things hold it back, and all three are pilot
+   limits rather than rule changes — it flies the same aircraft you do:
+
+     · it cannot pull as hard as you can (BANK), so you can always out-turn
+       it and break away, which is the whole point of a dogfight
+     · it only looks up every REACT seconds and flies the last thing it
+       decided in between, so it is always a beat behind a course change
+     · every so often it simply loses interest for a second or two, and it
+       aims off by a wandering error that is re-rolled each time it looks
+
+   It shoots at close range only, and stops well before the guns lock, so
+   it does not spray. Beating it should feel like beating someone learning. */
+/* ── the other aircraft, when there is only one phone ─────────────────────
+   Deliberately a poor pilot, and the numbers say how. It never uses more
+   than BANK of full stick, so it turns at 1.0 rad/s against your 2.45 and
+   you can simply out-turn it — that one line is most of what makes it
+   escapable. It looks up from the instruments once every REACT seconds and
+   flies on the last thing it decided in between, it aims with half a radian
+   of wander, it under-leads, and past GIVE_UP it loses interest in you
+   entirely and goes shopping for crates. Leave it behind and it will let
+   you go. */
 const bot = {
-  jitter: 0, jt: 0, hunt: 0,
+  /* Every number that decides how hard it is, in one place. Raise BANK
+     toward 1 and it turns as well as you do; drop REACT toward 0 and it
+     stops being surprised. The two that matter most are the first two —
+     at 0.52 of full stick it flies a 178u turning circle against your 96u,
+     so you can always turn inside it, and at four tenths of a second it is
+     always a beat behind a change of mind. */
+  BANK: 0.52,                 // fraction of full bank it is willing to use
+  REACT: 0.4,                 // seconds between one look and the next
+  RANGE: 480,                 // it will not take a shot further out than this
+  GIVE_UP: 780,               // further than this and it stops chasing you
+  CONE: 0.33,                 // radians off the nose it still calls a shot
+  COOL: 73,                   // heat at which it takes its finger off
+  WANDER: 0.15,               // chance per look that it just drifts instead
+  SLOP: 0.48,                 // radians of wander in its aim
+  want: 0, shoot: 0, react: 0, rest: 0, jitter: 0,
 
   think(s, dt) {
     if (s.phase !== 'live') return;
     const me = s.guest, foe = s.host;
     if (!me || !foe || me.dead > 0 || me.pz) return;
 
-    this.jt -= dt;
-    if (this.jt <= 0) {
-      this.jt = 0.35 + Math.random() * 0.5;
-      this.jitter = (Math.random() * 2 - 1) * 0.3;
+    this.react -= dt; this.rest -= dt;
+
+    if (this.rest > 0) {                       // not paying attention
+      game.command(s, 'guest', { t: this.want * 0.3 });
+      game.command(s, 'guest', { f: 0 });
+      return;
     }
 
-    /* a crate worth the detour beats chasing, briefly */
+    if (this.react <= 0) {
+      this.react = this.REACT + Math.random() * 0.35;
+      if (Math.random() < this.WANDER) {       // wander off for a moment
+        this.rest = 1.2 + Math.random() * 1.8;
+        this.want = (Math.random() * 2 - 1) * this.BANK;
+        this.shoot = 0;
+        return;
+      }
+      this.jitter = (Math.random() * 2 - 1) * this.SLOP;
+      this.look(s, me, foe);
+    }
+
+    game.command(s, 'guest', { t: this.want });
+    game.command(s, 'guest', { f: this.shoot });
+  },
+
+  look(s, me, foe) {
     let tx = wrapD(foe.x - me.x, HW), ty = wrapD(foe.y - me.y, HH);
     const d = Math.hypot(tx, ty) || 1;
-    let shooting = true;
+
+    /* a crate nearby is worth more to it than a chase, and a chase it has
+       already lost is worth nothing at all */
     const crate = nearestCrate(s, me);
-    if (crate && crate.d < 260 && crate.d < d) {
-      tx = crate.dx; ty = crate.dy; shooting = false;
+    let chasing = d <= this.GIVE_UP;
+    if (crate && (!chasing || (crate.d < 260 && crate.d < d))) {
+      tx = crate.dx; ty = crate.dy; chasing = false;
+    } else if (!chasing) {
+      this.rest = 1.4 + Math.random() * 1.6;   // nothing to do: potter about
+      this.want = (Math.random() * 2 - 1) * this.BANK;
+      this.shoot = 0;
+      return;
     } else {
-      const lead = Math.min(0.5, d / BSPEED);
+      const lead = Math.min(0.3, d / BSPEED) * 0.5;   // it under-leads, badly
       tx += Math.cos(foe.a) * SPEED * lead;
       ty += Math.sin(foe.a) * SPEED * lead;
     }
 
     const err = norm(Math.atan2(ty, tx) + this.jitter - me.a);
-    game.command(s, 'guest', { t: clamp(err * 2.6, -1, 1) });
+    this.want = clamp(err * 1.8, -this.BANK, this.BANK);
 
-    const aimed = Math.abs(norm(Math.atan2(wrapD(foe.y - me.y, HH), wrapD(foe.x - me.x, HW)) - me.a));
-    game.command(s, 'guest', {
-      f: shooting && aimed < 0.3 && d < 560 && !me.lock && me.ht < 82 ? 1 : 0,
-    });
+    const aimed = Math.abs(norm(Math.atan2(wrapD(foe.y - me.y, HH),
+                                           wrapD(foe.x - me.x, HW)) - me.a));
+    this.shoot = chasing && aimed < this.CONE && d < this.RANGE
+      && !me.lock && me.ht < this.COOL ? 1 : 0;
   },
 };
 
@@ -2942,7 +3087,7 @@ Duel.start({
   meta: {
     title: 'DAWN|PATROL',
     subtitle: 'two fighters, one stretch of sky',
-    tagline: 'Point where to fly, burst, and mind the flak. Five kills takes the patrol.',
+    tagline: 'Point where to fly, burst, and mind the flak. Five kills, or the bell.',
     hint: 'Touch where to fly · hold FIRE',
     eyebrow: 'Same WiFi · phone to phone',
     foot: 'No app, no account. Tap once for sound.',
@@ -2977,7 +3122,7 @@ Duel.start({
     steps: [
       ['Pair', 'One phone opens a patrol, the other scans the code.'],
       ['Fly', 'Touch a spot and the nose comes round to it. Hold FIRE, watch the heat.'],
-      ['Collect', 'Crates multiply your guns. Mines and flak do not care whose they are.'],
+      ['Collect', 'Crates multiply your guns. The flak belt tightens as the clock runs down.'],
     ],
   },
 
@@ -3009,4 +3154,4 @@ Duel.start({
 
 </script>
 </body>
-   </html>
+</html>
