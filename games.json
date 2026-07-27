@@ -33,6 +33,17 @@
       "accent": "#F0A6C8",
       "art": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\">\n  <path d=\"M21.6 8.6A5.2 5.2 0 1 1 15.4 2.4a4.6 4.6 0 0 0 6.2 6.2Z\" fill=\"#FFE0A3\"/>\n  <g fill=\"#C79BEA\">\n    <ellipse cx=\"6.6\" cy=\"14.4\" rx=\"1.7\" ry=\"2.5\"/>\n    <ellipse cx=\"6.6\" cy=\"19.6\" rx=\"1.7\" ry=\"2.5\"/>\n    <ellipse cx=\"4\" cy=\"17\" rx=\"2.5\" ry=\"1.7\"/>\n    <ellipse cx=\"9.2\" cy=\"17\" rx=\"2.5\" ry=\"1.7\"/>\n  </g>\n  <circle cx=\"6.6\" cy=\"17\" r=\"1.4\" fill=\"#FFE0A3\"/>\n  <g fill=\"#FFB27A\">\n    <ellipse cx=\"13.4\" cy=\"9.6\" rx=\"2.3\" ry=\"1.4\" transform=\"rotate(-28 13.4 9.6)\"/>\n    <ellipse cx=\"16.2\" cy=\"11.8\" rx=\"2.3\" ry=\"1.4\" transform=\"rotate(-28 16.2 11.8)\"/>\n  </g>\n  <path d=\"M14.1 8.5 16 12.6\" stroke=\"#C4713A\" stroke-width=\"1.3\"/>\n</svg>",
       "added": "2026-07-27"
+    },
+    {
+      "id": "dawnpatrol",
+      "title": "Dawn Patrol",
+      "blurb": "Drag anywhere to bank your fighter and hold the FIRE button until the guns overheat. Parachuted crates multiply your rate of fire, damage and gun count for a few seconds, while mines and flak bursts hurt whoever is nearest; five kills takes the patrol.",
+      "players": 2,
+      "minutes": "3 min",
+      "mode": "realtime",
+      "accent": "#E2703A",
+      "art": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\">\n  <path d=\"M20.4 3.6 14 10\" stroke=\"#F0C24B\" stroke-width=\"1.8\"/>\n  <path d=\"M11.2 4.6 12.6 9.4 18 11.1 12.6 12.8 11.2 17.6 9.8 12.8 4.4 11.1 9.8 9.4Z\" fill=\"#D8552F\"/>\n  <path d=\"M4.6 18.4a2.4 2.4 0 0 1 4.8 0Z\" fill=\"#4C93C4\"/>\n  <rect x=\"5.6\" y=\"18.4\" width=\"2.8\" height=\"2.6\" fill=\"#9BD17E\"/>\n  <circle cx=\"19.4\" cy=\"19\" r=\"1.7\" fill=\"#2B2F33\"/>\n  <path d=\"M19.4 16.6v-1M19.4 21.4v1M17 19h-1M21.8 19h1\" stroke=\"#E2703A\" stroke-width=\"1.3\"/>\n</svg>",
+      "added": "2026-07-27"
     }
   ]
 }
