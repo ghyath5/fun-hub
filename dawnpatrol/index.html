@@ -1715,8 +1715,12 @@ document.addEventListener('gesturestart', e => e.preventDefault());
 <script>
 /* DAWN PATROL — two fighters over a wrapping stretch of coast.
  *
- * Both aircraft fly forward for ever; a thumb only ever decides how hard
- * they bank. Guns overheat, so nobody holds the trigger down. Crates drop
+ * Both aircraft fly forward for ever; a thumb only ever decides *where the
+ * nose is pointed*, never how fast it swings. Touch a spot and the aircraft
+ * comes round to it as hard as it can, which is not very hard — the cap on
+ * turn rate is what keeps a tail impossible to simply snap onto, and it is
+ * where all the difficulty lives now that the input itself is honest.
+ * Guns overheat, so nobody holds the trigger down. Crates drop
  * on parachutes and each one is a timed multiplier — twin guns halve the
  * gap between rounds, armour-piercing doubles the damage, an escort flight
  * trebles the number of rounds that leave the nose — and they stack, so a
@@ -1738,7 +1742,12 @@ const W = HW * 2, H = HH * 2;
 /* ── the aircraft ────────────────────────────────────────────────────── */
 const PR = 21;                        // fuselage radius, used for every hit
 const SPEED = 236;                    // constant airspeed — no throttle
-const TURN = 2.45;                    // radians a second at full stick
+/* The only limit on steering. An aircraft asked to turn further than this
+   in one frame simply turns this far, which is why holding a thumb on top
+   of the other player does not put you on their tail: SPEED/TURN is a 96u
+   circle, and they can leave it. Raise TURN and the game gets easy; the
+   control scheme above does not have to change to tune the difficulty. */
+const TURN = 2.45;                    // radians a second, hardest bank
 const HP0 = 100;
 const DEAD = 1.4, SAFE = 1.8;         // time down, then time untouchable
 
@@ -1915,13 +1924,18 @@ const SFX = {
 };
 
 /* ── controls ────────────────────────────────────────────────────────────
-   A drag anywhere on the sky is the stick: how far left or right of where
-   the thumb landed decides how hard the aircraft banks, and letting go
-   levels the wings. Firing and holding are their own buttons, so neither
-   depends on where a finger happens to be. */
+   Touch a spot on the sky and the nose comes round to it. The thumb names
+   a place, not a rate, so it means the same thing on every frame and reads
+   the same whether the aircraft is flying away from you or straight at you
+   — which is the whole reason a relative stick is so hard to predict on a
+   phone. The mark stays where it was put when the thumb lifts, so one hand
+   can set a course and the other can work the trigger.
+
+   Firing and holding are their own buttons, so neither depends on where a
+   finger happens to be. */
 let RT = null, VIEW = null, MY = null;                 // handed in by the engine
-let BASE_X = 0, LAST_T = 0, DRAWN = 0;
-const STICK = 92;                                      // pixels for full deflection
+let AIM = null, HELD = false, DRAWN = 0;               // the mark, and the thumb
+const STICK = 92;                                      // pixels per unit of keyboard bank
 
 function fire(msg) { if (RT && RT.dispatch) RT.dispatch(msg); }
 
@@ -2022,7 +2036,8 @@ function plane(dir) {
   return {
     x: dir * HW * 0.42, y: -dir * HH * 0.34,
     a: dir > 0 ? Math.PI : 0,           // heading, radians
-    t: 0, fr: 0,                        // stick, trigger
+    tg: 0, tx: 0, ty: 0,                // the mark: fly at it, if tg is set
+    st: 0, fr: 0,                       // keyboard bank, trigger
     hp: HP0, ht: 0, lock: 0, cd: 0,
     dead: 0, safe: SAFE,
     pz: 0, pzT: 0, pzN: PAUSE_USES,
@@ -2043,7 +2058,7 @@ function respawn(s, p, side) {
   }
   p.x = best.x; p.y = best.y;
   p.a = Math.atan2(-p.y, -p.x);         // nose toward the middle of the sky
-  p.t = 0; p.fr = 0;
+  p.tg = 0; p.st = 0; p.fr = 0;         // a fresh aircraft flies level
   p.hp = HP0; p.ht = 0; p.lock = 0; p.cd = 0;
   p.dead = 0; p.safe = SAFE;
   p.pz = 0; p.pzT = 0;                  // holds left carry across a loss
@@ -2095,28 +2110,33 @@ const game = {
       if (m.z) {
         if (p.pz || p.pzN <= 0) return;
         p.pz = 1; p.pzT = 0; p.pzN--;
-        p.t = 0; p.fr = 0;
+        p.tg = 0; p.st = 0; p.fr = 0;
       } else { p.pz = 0; p.pzT = 0; }
       return;
     }
     if (p.pz || p.dead > 0) return;      // held or downed: no other input lands
 
-    /* a raw drag is accepted too, so a swipe from any source banks the same */
-    if (m.t === undefined && m.dx !== undefined) m = { t: clamp(m.dx / STICK, -1, 1) };
-    if (m.t !== undefined) p.t = clamp(m.t, -1, 1);
+    /* g is the mark, in world units. Everything else is the manual bank the
+       keyboard and the bot use, and a raw drag from any other source lands
+       there too — either way it ends up as one heading, steered the same. */
+    if (m.g) { p.tg = 1; p.tx = m.g[0]; p.ty = m.g[1]; p.st = 0; }
+    else if (m.t !== undefined) { p.tg = 0; p.st = clamp(m.t, -1, 1); }
+    else if (m.dx !== undefined) { p.tg = 0; p.st = clamp(m.dx / STICK, -1, 1); }
     if (m.f !== undefined) p.fr = m.f ? 1 : 0;
   },
   predict(v, side, m) { game.command(v, side, m); },
 
-  /* the stick: how far the thumb has travelled sideways since it landed */
+  /* The thumb names a place. Lifting it changes nothing — the mark stays
+     put and the aircraft keeps flying at it, so the other hand is free for
+     the trigger and a course once set does not quietly expire. */
   pointer(phase, p, api) {
     RT = api;
-    if (phase === 'down') { BASE_X = p.dx; LAST_T = 0; return { t: 0 }; }
-    if (phase === 'up') { LAST_T = 0; return { t: 0 }; }
-    const t = Math.round(clamp((p.dx - BASE_X) / STICK, -1, 1) * 10) / 10;
-    if (t === LAST_T) return null;       // only send when it actually changed
-    LAST_T = t;
-    return { t };
+    if (phase === 'up') { HELD = false; return null; }
+    HELD = true;
+    const gx = Math.round(p.x), gy = Math.round(p.y);
+    if (AIM && AIM.x === gx && AIM.y === gy) return null;   // only when it moved
+    AIM = { x: gx, y: gy };
+    return { g: [gx, gy] };
   },
 
   /* ── the wire ── */
@@ -2190,7 +2210,7 @@ const game = {
       /* My own aircraft flies on its own heading and is only nudged toward
          the host's copy — so a bank bites on the frame I make it, and the
          correction arrives as a drift I cannot feel. */
-      p.a += p.t * TURN * dt;
+      steer(p, dt);
       p.x += Math.cos(p.a) * SPEED * dt;
       p.y += Math.sin(p.a) * SPEED * dt;
       wrap(p);
@@ -2219,6 +2239,7 @@ const game = {
     for (const c of v.crates || []) crate(x, c, v.t);
     for (const f of v.flak || []) flakRing(x, f);
     for (const q of v.bul || []) tracer(x, q);
+    reticle(x, v, r.side);
 
     const foe = other(r.side);
     drawPlane(x, v[foe], foe, v.t, false);
@@ -2274,7 +2295,26 @@ const game = {
   },
 };
 
-/* ── rules helpers ───────────────────────────────────────────────────── */
+/* ── rules helpers ─────────────────────────────────────────────────────── */
+
+/* The one steering rule, used by the host in step and by the guest in
+   smooth — the same function on both phones, so a bank bites on the frame
+   the thumb makes it and the correcting snapshot has nothing to argue with.
+   The nose closes on the bearing to the mark and is allowed to move TURN
+   radians a second doing it, no more. Fly past the mark and the bearing
+   swings behind you, which turns into a steady 96u orbit around it: hold
+   your thumb on a crate and the aircraft circles the crate. */
+function steer(p, dt) {
+  let rate;
+  if (p.tg) {
+    const dx = wrapD(p.tx - p.x, HW), dy = wrapD(p.ty - p.y, HH);
+    if (dx * dx + dy * dy < 9) return 0;         // sitting on it: hold heading
+    rate = clamp(norm(Math.atan2(dy, dx) - p.a) / dt, -TURN, TURN);
+  } else rate = p.st * TURN;
+  p.a = norm(p.a + rate * dt);
+  return rate;
+}
+
 function wrap(p) {
   if (p.x > HW) p.x -= W; else if (p.x < -HW) p.x += W;
   if (p.y > HH) p.y -= H; else if (p.y < -HH) p.y += H;
@@ -2343,7 +2383,7 @@ function advance(s, p, side, dt, api) {
   p.safe = Math.max(0, p.safe - dt);
   for (let i = 0; i < SLOTS; i++) p.m[i] = Math.max(0, p.m[i] - dt);
 
-  p.a = norm(p.a + p.t * TURN * dt);
+  steer(p, dt);
   p.x += Math.cos(p.a) * SPEED * dt;
   p.y += Math.sin(p.a) * SPEED * dt;
   wrap(p);
@@ -2436,7 +2476,7 @@ function wound(s, side, dmg, api, ev) {
 function down(s, side, credit, api) {
   const p = s[side];
   if (p.dead > 0) return;
-  p.hp = 0; p.dead = DEAD; p.fr = 0; p.t = 0;
+  p.hp = 0; p.dead = DEAD; p.fr = 0; p.tg = 0; p.st = 0;
   p.m.fill(0);
   if (credit) s.score[other(side)]++;
   mark(s, 3, side);
@@ -2662,13 +2702,49 @@ function tracer(x, q) {
   x.beginPath(); x.arc(q.x, q.y, BR * 0.6, 0, TAU); x.fill();
 }
 
-/* Contrails are cosmetic and purely local: each phone keeps its own tail
-   behind whatever it is drawing, which is why they never go on the wire. */
+/* Where the thumb put the mark, and the line the nose is closing on. Drawn
+   under the aircraft so it never hides one, and drawn at all times — a
+   control you can see is a control you can learn without dying first. */
+function reticle(x, v, side) {
+  const p = v[side];
+  if (!AIM || !p || p.dead > 0 || p.pz || v.phase === 'done') return;
+  const tx = p.x + wrapD(AIM.x - p.x, HW), ty = p.y + wrapD(AIM.y - p.y, HH);
+  const r = HELD ? 22 : 17;
+  x.save();
+  x.globalAlpha = HELD ? 0.85 : 0.4;
+  x.strokeStyle = colOf(side);
+  x.lineWidth = 2;
+  x.setLineDash([9, 11]);
+  x.beginPath(); x.moveTo(p.x, p.y); x.lineTo(tx, ty); x.stroke();
+  x.setLineDash([]);
+  x.beginPath(); x.arc(tx, ty, r, 0, TAU); x.stroke();
+  x.lineWidth = 3;
+  for (let i = 0; i < 4; i++) {
+    const a = i * (TAU / 4) + Math.PI / 4;
+    x.beginPath();
+    x.moveTo(tx + Math.cos(a) * (r - 7), ty + Math.sin(a) * (r - 7));
+    x.lineTo(tx + Math.cos(a) * (r + 7), ty + Math.sin(a) * (r + 7));
+    x.stroke();
+  }
+  x.restore();
+}
+
+/* Contrails and bank are cosmetic and purely local: each phone keeps its
+   own tail and its own roll behind whatever it is drawing, which is why
+   neither ever goes on the wire. Bank is read straight off the change in
+   heading, so it is right for both aircraft without being told. */
 const TRAIL = { host: [], guest: [] };
+const LASTA = { host: null, guest: null };
+const BANK = { host: 0, guest: 0 };
 
 function drawPlane(x, p, side, t, mine) {
   if (!p) return;
   const col = colOf(side), deep = deepOf(side);
+
+  const was = LASTA[side];
+  LASTA[side] = p.a;
+  const roll = was === null ? 0 : clamp(norm(p.a - was) * 11, -1, 1);
+  BANK[side] = REDUCED ? 0 : lerp(BANK[side], roll, 0.22);
 
   const tail = TRAIL[side];
   if (p.dead > 0) tail.length = 0;
@@ -2707,6 +2783,8 @@ function drawPlane(x, p, side, t, mine) {
   x.translate(p.x, p.y);
   x.rotate(p.a);
   if (p.pz) x.globalAlpha = 0.45;
+  /* a hard turn shows as a foreshortened wingspan, the way it looks from
+     above — the rings and the escort are drawn before it, unsquashed */
 
   /* a held aircraft is out of play — the ring says so at a glance */
   if (p.pz) {
@@ -2732,6 +2810,8 @@ function drawPlane(x, p, side, t, mine) {
     }
     x.globalAlpha = p.pz ? 0.45 : 1;
   }
+
+  x.scale(1, 1 - Math.abs(BANK[side]) * 0.5);
 
   x.fillStyle = deep;                                // wings
   x.beginPath();
@@ -2862,8 +2942,8 @@ Duel.start({
   meta: {
     title: 'DAWN|PATROL',
     subtitle: 'two fighters, one stretch of sky',
-    tagline: 'Bank, burst, and mind the flak. Five kills takes the patrol.',
-    hint: 'Drag to bank · hold FIRE',
+    tagline: 'Point where to fly, burst, and mind the flak. Five kills takes the patrol.',
+    hint: 'Touch where to fly · hold FIRE',
     eyebrow: 'Same WiFi · phone to phone',
     foot: 'No app, no account. Tap once for sound.',
     fonts: 'https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&' +
@@ -2896,7 +2976,7 @@ Duel.start({
     netRetry: 'Try again', netLeave: 'Leave the match',
     steps: [
       ['Pair', 'One phone opens a patrol, the other scans the code.'],
-      ['Fly', 'Drag to bank. Hold FIRE, but watch the heat bar.'],
+      ['Fly', 'Touch a spot and the nose comes round to it. Hold FIRE, watch the heat.'],
       ['Collect', 'Crates multiply your guns. Mines and flak do not care whose they are.'],
     ],
   },
@@ -2929,3 +3009,4 @@ Duel.start({
 
 </script>
 </body>
+   </html>
