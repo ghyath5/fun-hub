@@ -1,0 +1,16 @@
+{
+  "name": "Fun Hub",
+  "short_name": "Fun Hub",
+  "description": "Free two-player browser games you play on two phones in the same room. Scan a QR code to pair, no app, no account, no signup. Works on any modern phone.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F4EFE6",
+  "theme_color": "#2C5FE0",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

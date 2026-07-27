@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fun Hub — Free Two-Player Games You Play on Two Phones</title>
+<meta name="description" content="Free two-player browser games you play on two phones in the same room. Scan a QR code to pair, no app, no account, no signup. Works on any modern phone.">
+<link rel="canonical" href="https://funhub.super-dar.com/">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<meta name="theme-color" content="#2C5FE0">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Fun Hub">
+<meta property="og:title" content="Fun Hub — Free Two-Player Games You Play on Two Phones">
+<meta property="og:description" content="Free two-player browser games you play on two phones in the same room. Scan a QR code to pair, no app, no account, no signup. Works on any modern phone.">
+<meta property="og:url" content="https://funhub.super-dar.com/">
+<meta property="og:locale" content="en">
+<meta property="og:image" content="https://funhub.super-dar.com/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Fun Hub — two phones playing a game together">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Fun Hub — Free Two-Player Games You Play on Two Phones">
+<meta name="twitter:description" content="Free two-player browser games you play on two phones in the same room. Scan a QR code to pair, no app, no account, no signup. Works on any modern phone.">
+<meta name="twitter:image" content="https://funhub.super-dar.com/og.png">
+<link rel="manifest" href="/site.webmanifest">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="sitemap" type="application/xml" href="/sitemap.xml">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<style>
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);
+ font:400 17px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+ -webkit-font-smoothing:antialiased}
+:root{--paper:#F4EFE6;--ink:#152029;--blue:#2C5FE0;--red:#E8452F;
+ --muted:#5C6B78;--rule:#DDD4C6;--card:#FBF8F2}
+.display{font-family:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+ font-weight:800;letter-spacing:-.03em;line-height:.98}
+.wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+a{color:var(--blue)}
+a:focus-visible,button:focus-visible{outline:3px solid var(--red);outline-offset:3px}
+
+header.top{padding:72px 0 40px}
+.eyebrow{font:600 13px/1 ui-monospace,SFMono-Regular,Menlo,monospace;
+ letter-spacing:.14em;text-transform:uppercase;color:var(--blue);margin:0 0 20px}
+h1{margin:0;font-size:clamp(40px,8vw,76px)}
+h1 .b{color:var(--red)}
+.lede{margin:20px 0 0;max-width:34em;font-size:clamp(17px,2.2vw,21px);color:var(--muted)}
+
+.how{border-top:2px solid var(--ink);border-bottom:2px solid var(--ink);
+ padding:26px 0;margin:44px 0 0}
+.how ol{display:grid;gap:18px;grid-template-columns:repeat(3,1fr);
+ margin:0;padding:0;list-style:none;counter-reset:s}
+.how li{counter-increment:s;font-size:15px;color:var(--muted)}
+.how li b{display:block;color:var(--ink);font-size:16px;margin-bottom:3px}
+.how li::before{content:counter(s);display:inline-block;margin-right:8px;
+ font:700 12px/18px ui-monospace,monospace;width:18px;height:18px;text-align:center;
+ border-radius:50%;background:var(--ink);color:var(--paper);vertical-align:2px}
+
+h2{font-size:clamp(24px,3.6vw,34px);margin:64px 0 8px}
+.sub{margin:0 0 28px;color:var(--muted)}
+
+ul.games{list-style:none;margin:0;padding:0;display:grid;gap:20px;
+ grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+.game{background:var(--card);border:2px solid var(--ink);border-radius:14px;
+ padding:22px;display:flex;flex-direction:column;gap:12px;
+ box-shadow:5px 5px 0 var(--ink);transition:transform .15s,box-shadow .15s}
+.game:hover,.game:focus-within{transform:translate(-2px,-2px);
+ box-shadow:8px 8px 0 var(--ink)}
+/* the signature: two overlapping phone screens, one per player */
+.pair{position:relative;width:72px;height:56px;flex:none}
+.pair span{position:absolute;top:0;width:38px;height:56px;border-radius:8px;
+ border:2px solid var(--ink);display:grid;place-items:center;
+ mix-blend-mode:multiply}
+.pair .p1{left:0;background:var(--blue)}
+.pair .p2{right:0;background:var(--accent,var(--red))}
+.pair svg{width:22px;height:22px;color:#fff}
+.game h3{margin:0;font-size:21px}
+.game h3 a{color:var(--ink);text-decoration-thickness:2px;
+ text-underline-offset:3px}
+.game p{margin:0;color:var(--muted);font-size:15.5px}
+.tags{margin-top:auto;padding-top:6px;display:flex;gap:8px;flex-wrap:wrap;
+ font:600 12px/1 ui-monospace,monospace;letter-spacing:.06em;color:var(--muted)}
+.tags span{border:1px solid var(--rule);border-radius:99px;padding:6px 10px}
+
+.faq{margin:0;padding:0}
+.faq div{border-top:1px solid var(--rule);padding:20px 0}
+.faq dt{font-weight:700;margin:0 0 6px}
+.faq dd{margin:0;color:var(--muted);max-width:60em}
+
+footer{margin:72px 0 40px;padding-top:24px;border-top:2px solid var(--ink);
+ color:var(--muted);font-size:14px;display:flex;gap:16px;flex-wrap:wrap;
+ justify-content:space-between}
+
+@media (max-width:720px){
+ header.top{padding:44px 0 28px}
+ .how ol{grid-template-columns:1fr}
+ .game{box-shadow:4px 4px 0 var(--ink)}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+<link rel="stylesheet" media="print" onload="this.media='all'"
+  href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,800&display=swap">
+<noscript><link rel="stylesheet"
+  href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,800&display=swap"></noscript>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://funhub.super-dar.com/#website",
+      "name": "Fun Hub",
+      "url": "https://funhub.super-dar.com/",
+      "description": "Free two-player browser games you play on two phones in the same room. Scan a QR code to pair, no app, no account, no signup. Works on any modern phone.",
+      "inLanguage": "en"
+    },
+    {
+      "@type": "BreadcrumbList",
+      "@id": "https://funhub.super-dar.com/#breadcrumbs",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://funhub.super-dar.com/"
+        }
+      ]
+    },
+    {
+      "@type": "ItemList",
+      "@id": "https://funhub.super-dar.com/#games",
+      "name": "Games on Fun Hub",
+      "numberOfItems": 1,
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "url": "https://funhub.super-dar.com/orchard/",
+          "name": "Orchard"
+        }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://funhub.super-dar.com/#faq",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Do I need to install an app?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. Both games and the hub run in a normal mobile browser. There is nothing to install and no account to create."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How do the two phones connect?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "One phone hosts and shows a QR code; the other scans it. The phones then talk directly to each other over your local WiFi using WebRTC, so no game data passes through a server."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Do both phones need to be on the same WiFi?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. The connection is made directly between the two phones on the local network, which is what keeps it fast enough to play in real time."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can more than two people play?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. Every game here pairs exactly two phones."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I play on my own?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Most games include a practice mode against a bot, which needs only one phone and no connection."
+          }
+        }
+      ]
+    },
+    {
+      "@type": "VideoGame",
+      "@id": "https://funhub.super-dar.com/orchard/#game",
+      "name": "Orchard",
+      "url": "https://funhub.super-dar.com/orchard/",
+      "description": "Swipe to steer your snake around a wrapping orchard and hold to sprint. Fruit makes you longer, bombs cost a hundred, and driving your nose into the other snake scores; five hits wins the match.",
+      "playMode": "MultiPlayer",
+      "numberOfPlayers": {
+        "@type": "QuantitativeValue",
+        "minValue": 2,
+        "maxValue": 2
+      },
+      "gamePlatform": "Web browser",
+      "applicationCategory": "Game",
+      "operatingSystem": "Any",
+      "isAccessibleForFree": true,
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD",
+        "availability": "https://schema.org/InStock"
+      }
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <p class="eyebrow">Same room · Same WiFi · No install</p>
+    <h1 class="display">Two phones.<br><span class="b">One game.</span></h1>
+    <p class="lede">Fun Hub hosts 1 free two-player game that run in a mobile browser. Each game is played by two people on two separate phones in the same room, paired by scanning a QR code. No app install, no account and no internet connection beyond the local network is required.</p>
+
+    <nav class="how" aria-label="How to play">
+      <ol>
+      <li><b>Open the game</b>One phone opens a game and shows a QR code.</li>
+      <li><b>Scan to join</b>The other phone scans it. Same WiFi, no app, no account.</li>
+      <li><b>Play</b>The phones talk directly to each other. One thumb each.</li>
+      </ol>
+    </nav>
+  </header>
+
+  <main>
+    <h2 class="display">The games</h2>
+    <p class="sub">1 game, all free, all in the browser.</p>
+    <ul class="games">
+      <li class="game" style="--accent:#C9A227">
+        <p class="pair" role="img" aria-label="Orchard icon: two phones playing together">
+          <span class="p1"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+  <path d="M3 18h6.5a2.5 2.5 0 0 0 0-5H7a2.5 2.5 0 0 1 0-5h6" stroke="#43B072" stroke-width="2.6"/>
+  <circle cx="18" cy="8" r="2" fill="#D2483F"/>
+  <circle cx="16.5" cy="18" r="1.6" fill="#F0C24B"/>
+  <path d="M13 6.4v3.2" stroke="#8FA06B" stroke-width="1.4"/>
+</svg></span><span class="p2"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+  <path d="M3 18h6.5a2.5 2.5 0 0 0 0-5H7a2.5 2.5 0 0 1 0-5h6" stroke="#43B072" stroke-width="2.6"/>
+  <circle cx="18" cy="8" r="2" fill="#D2483F"/>
+  <circle cx="16.5" cy="18" r="1.6" fill="#F0C24B"/>
+  <path d="M13 6.4v3.2" stroke="#8FA06B" stroke-width="1.4"/>
+</svg></span>
+        </p>
+        <h3><a href="/orchard/">Orchard</a></h3>
+        <p>Swipe to steer your snake around a wrapping orchard and hold to sprint. Fruit makes you longer, bombs cost a hundred, and driving your nose into the other snake scores; five hits wins the match.</p>
+        <p class="tags"><span>2 players</span><span>3 min</span><span>realtime</span></p>
+      </li>
+    </ul>
+
+    <h2 class="display" id="faq">Questions</h2>
+    <dl class="faq">
+      <div><dt>Do I need to install an app?</dt><dd>No. Both games and the hub run in a normal mobile browser. There is nothing to install and no account to create.</dd></div>
+      <div><dt>How do the two phones connect?</dt><dd>One phone hosts and shows a QR code; the other scans it. The phones then talk directly to each other over your local WiFi using WebRTC, so no game data passes through a server.</dd></div>
+      <div><dt>Do both phones need to be on the same WiFi?</dt><dd>Yes. The connection is made directly between the two phones on the local network, which is what keeps it fast enough to play in real time.</dd></div>
+      <div><dt>Can more than two people play?</dt><dd>No. Every game here pairs exactly two phones.</dd></div>
+      <div><dt>Can I play on my own?</dt><dd>Most games include a practice mode against a bot, which needs only one phone and no connection.</dd></div>
+    </dl>
+  </main>
+
+  <footer>
+    <p>Fun Hub · built to be played, not installed.</p>
+    <p><a href="https://github.com/ghyath5/fun-hub">Source on GitHub</a></p>
+  </footer>
+
+</div>
+</body>
+</html>

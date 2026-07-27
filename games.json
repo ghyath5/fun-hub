@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "games": [
+    {
+      "id": "orchard",
+      "title": "Orchard",
+      "blurb": "Swipe to steer your snake around a wrapping orchard and hold to sprint. Fruit makes you longer, bombs cost a hundred, and driving your nose into the other snake scores; five hits wins the match.",
+      "players": 2,
+      "minutes": "3 min",
+      "mode": "realtime",
+      "accent": "#C9A227",
+      "art": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\">\n  <path d=\"M3 18h6.5a2.5 2.5 0 0 0 0-5H7a2.5 2.5 0 0 1 0-5h6\" stroke=\"#43B072\" stroke-width=\"2.6\"/>\n  <circle cx=\"18\" cy=\"8\" r=\"2\" fill=\"#D2483F\"/>\n  <circle cx=\"16.5\" cy=\"18\" r=\"1.6\" fill=\"#F0C24B\"/>\n  <path d=\"M13 6.4v3.2\" stroke=\"#8FA06B\" stroke-width=\"1.4\"/>\n</svg>",
+      "added": "2026-07-27"
+    }
+  ]
+}
