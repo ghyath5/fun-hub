@@ -131,7 +131,7 @@ footer{margin:72px 0 40px;padding-top:24px;border-top:2px solid var(--ink);
       "@type": "ItemList",
       "@id": "https://funhub.super-dar.com/#games",
       "name": "Games on Fun Hub",
-      "numberOfItems": 4,
+      "numberOfItems": 5,
       "itemListElement": [
         {
           "@type": "ListItem",
@@ -142,18 +142,24 @@ footer{margin:72px 0 40px;padding-top:24px;border-top:2px solid var(--ink);
         {
           "@type": "ListItem",
           "position": 2,
+          "url": "https://funhub.super-dar.com/chess/",
+          "name": "Chess"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
           "url": "https://funhub.super-dar.com/dawnpatrol/",
           "name": "Dawn Patrol"
         },
         {
           "@type": "ListItem",
-          "position": 3,
+          "position": 4,
           "url": "https://funhub.super-dar.com/moonbloom/",
           "name": "Moonbloom"
         },
         {
           "@type": "ListItem",
-          "position": 4,
+          "position": 5,
           "url": "https://funhub.super-dar.com/orchard/",
           "name": "Orchard"
         }
@@ -211,6 +217,29 @@ footer{margin:72px 0 40px;padding-top:24px;border-top:2px solid var(--ink);
       "name": "Air Hockey",
       "url": "https://funhub.super-dar.com/airhockey/",
       "description": "Drag your thumb across your own half to slide your mallet and knock the puck into the goal slot behind your opponent. Each phone shows the table from its own end, and seven goals takes the match.",
+      "playMode": "MultiPlayer",
+      "numberOfPlayers": {
+        "@type": "QuantitativeValue",
+        "minValue": 2,
+        "maxValue": 2
+      },
+      "gamePlatform": "Web browser",
+      "applicationCategory": "Game",
+      "operatingSystem": "Any",
+      "isAccessibleForFree": true,
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD",
+        "availability": "https://schema.org/InStock"
+      }
+    },
+    {
+      "@type": "VideoGame",
+      "@id": "https://funhub.super-dar.com/chess/#game",
+      "name": "Chess",
+      "url": "https://funhub.super-dar.com/chess/",
+      "description": "A full game of chess played across two phones, each showing the board from its own side. Tap a man then tap its square; castling, en passant, promotion and threefold repetition are all enforced, with five minutes each and three seconds a move. Practice alone against a computer set to easy, normal or hard.",
       "playMode": "MultiPlayer",
       "numberOfPlayers": {
         "@type": "QuantitativeValue",
@@ -307,7 +336,7 @@ footer{margin:72px 0 40px;padding-top:24px;border-top:2px solid var(--ink);
   <header class="top">
     <p class="eyebrow">Same room · Same WiFi · No install</p>
     <h1 class="display">Two phones.<br><span class="b">One game.</span></h1>
-    <p class="lede">Fun Hub hosts 4 free two-player games that run in a mobile browser. Each game is played by two people on two separate phones in the same room, paired by scanning a QR code. No app install, no account and no internet connection beyond the local network is required.</p>
+    <p class="lede">Fun Hub hosts 5 free two-player games that run in a mobile browser. Each game is played by two people on two separate phones in the same room, paired by scanning a QR code. No app install, no account and no internet connection beyond the local network is required.</p>
 
     <nav class="how" aria-label="How to play">
       <ol>
@@ -320,7 +349,7 @@ footer{margin:72px 0 40px;padding-top:24px;border-top:2px solid var(--ink);
 
   <main>
     <h2 class="display">The games</h2>
-    <p class="sub">4 games, all free, all in the browser.</p>
+    <p class="sub">5 games, all free, all in the browser.</p>
     <ul class="games">
       <li class="game" style="--accent:#EE4B2B">
         <p class="pair" role="img" aria-label="Air Hockey icon: two phones playing together">
@@ -343,6 +372,14 @@ footer{margin:72px 0 40px;padding-top:24px;border-top:2px solid var(--ink);
         <h3><a href="/airhockey/">Air Hockey</a></h3>
         <p>Drag your thumb across your own half to slide your mallet and knock the puck into the goal slot behind your opponent. Each phone shows the table from its own end, and seven goals takes the match.</p>
         <p class="tags"><span>2 players</span><span>3 min</span><span>realtime</span></p>
+      </li>
+      <li class="game" style="--accent:#C9873C">
+        <p class="pair" role="img" aria-label="Chess icon: two phones playing together">
+          <span class="p1"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"><path d="M9 21h6l-1-2.4c1.9-1.6 2.6-3.9 1.6-5.6h-1.3l1.1-2.6-2.3 1.7L12 9.4l-1.1 2.7-2.3-1.7 1.1 2.6H8.4c-1 1.7-.3 4 1.6 5.6z"/><path d="M3 3h6v6H3zM15 3h6v6h-6z" stroke-opacity=".55"/></svg></span><span class="p2"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"><path d="M9 21h6l-1-2.4c1.9-1.6 2.6-3.9 1.6-5.6h-1.3l1.1-2.6-2.3 1.7L12 9.4l-1.1 2.7-2.3-1.7 1.1 2.6H8.4c-1 1.7-.3 4 1.6 5.6z"/><path d="M3 3h6v6H3zM15 3h6v6h-6z" stroke-opacity=".55"/></svg></span>
+        </p>
+        <h3><a href="/chess/">Chess</a></h3>
+        <p>A full game of chess played across two phones, each showing the board from its own side. Tap a man then tap its square; castling, en passant, promotion and threefold repetition are all enforced, with five minutes each and three seconds a move. Practice alone against a computer set to easy, normal or hard.</p>
+        <p class="tags"><span>2 players</span><span>10 min</span><span>turns</span></p>
       </li>
       <li class="game" style="--accent:#E2703A">
         <p class="pair" role="img" aria-label="Dawn Patrol icon: two phones playing together">
@@ -434,8 +471,9 @@ footer{margin:72px 0 40px;padding-top:24px;border-top:2px solid var(--ink);
 
   <footer>
     <p>Fun Hub · built to be played, not installed.</p>
+    <p><a href="https://github.com/ghyath5/fun-hub">Source on GitHub</a></p>
   </footer>
 
 </div>
 </body>
-    </html>
+</html>
