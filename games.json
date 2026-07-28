@@ -44,6 +44,17 @@
       "accent": "#E2703A",
       "art": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\">\n  <path d=\"M20.4 3.6 14 10\" stroke=\"#F0C24B\" stroke-width=\"1.8\"/>\n  <path d=\"M11.2 4.6 12.6 9.4 18 11.1 12.6 12.8 11.2 17.6 9.8 12.8 4.4 11.1 9.8 9.4Z\" fill=\"#D8552F\"/>\n  <path d=\"M4.6 18.4a2.4 2.4 0 0 1 4.8 0Z\" fill=\"#4C93C4\"/>\n  <rect x=\"5.6\" y=\"18.4\" width=\"2.8\" height=\"2.6\" fill=\"#9BD17E\"/>\n  <circle cx=\"19.4\" cy=\"19\" r=\"1.7\" fill=\"#2B2F33\"/>\n  <path d=\"M19.4 16.6v-1M19.4 21.4v1M17 19h-1M21.8 19h1\" stroke=\"#E2703A\" stroke-width=\"1.3\"/>\n</svg>",
       "added": "2026-07-27"
+    },
+    {
+      "id": "chess",
+      "title": "Chess",
+      "blurb": "A full game of chess played across two phones, each showing the board from its own side. Tap a man then tap its square; castling, en passant, promotion and threefold repetition are all enforced, with five minutes each and three seconds a move. Practice alone against a computer set to easy, normal or hard.",
+      "players": 2,
+      "minutes": "10 min",
+      "mode": "turns",
+      "accent": "#C9873C",
+      "art": "<svg viewBox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.4\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><path d=\"M9 21h6l-1-2.4c1.9-1.6 2.6-3.9 1.6-5.6h-1.3l1.1-2.6-2.3 1.7L12 9.4l-1.1 2.7-2.3-1.7 1.1 2.6H8.4c-1 1.7-.3 4 1.6 5.6z\"/><path d=\"M3 3h6v6H3zM15 3h6v6h-6z\" stroke-opacity=\".55\"/></svg>",
+      "added": "2026-07-28"
     }
   ]
 }
