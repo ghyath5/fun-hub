@@ -1,0 +1,40 @@
+# Fun Hub
+
+> Five free two-player games that run in a mobile browser. Two people each use
+> their own phone in the same room, paired by scanning a QR code. No app
+> install, no account, no signup, no advertising. The two phones exchange game
+> data directly over the local WiFi using a WebRTC data channel, so no game
+> data passes through a server.
+
+Requirements: two phones on the same WiFi network, each with a modern browser
+that supports WebRTC data channels (Safari on iOS, Chrome on Android, Edge,
+Brave, Samsung Internet). Mobile data does not work for pairing. Public and
+guest WiFi with client isolation enabled will block pairing.
+
+## Games
+
+- [Air Hockey](https://funhub.super-dar.com/airhockey/): Real time. 2 players,
+  ~3 min. Drag your thumb across your own half to slide your mallet. Each phone
+  shows the table from its own end. First to 7 goals wins. Practice bot available.
+- [Chess](https://funhub.super-dar.com/chess/): Turn based. 1-2 players, ~10 min.
+  Full rules including castling, en passant, promotion and threefold repetition.
+  Five minutes each with a three second increment. Single-player computer
+  opponent at easy, normal or hard.
+- [Dawn Patrol](https://funhub.super-dar.com/dawnpatrol/): Real time. 2 players,
+  ~3 min. Dogfight. Drag to bank, hold FIRE until the guns overheat. Parachuted
+  crates boost rate of fire, damage and gun count. First to 5 kills wins.
+- [Moonbloom](https://funhub.super-dar.com/moonbloom/): Real time. 2 players,
+  ~2 min. Lead a moth with a fingertip and hold it over a closed bud to open it
+  in your colour. Blooms cannot be taken back. First to 8 blossoms wins.
+- [Orchard](https://funhub.super-dar.com/orchard/): Real time. 2 players, ~3 min.
+  Snake in a wrapping orchard. Swipe to steer, hold to sprint. Fruit lengthens
+  you, bombs cost 100 points, ramming the other snake scores. First to 5 hits wins.
+
+## Privacy
+
+No accounts, no tracking cookies, no gameplay analytics, no server-side record
+of any match. Scores exist only in the two browsers until the tab closes.
+
+## Source
+
+- [GitHub repository](https://github.com/ghyath5/fun-hub)
