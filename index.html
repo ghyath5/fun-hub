@@ -2,12 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Free Two-Player Games on Two Phones — No App | Fun Hub</title>
 <meta name="description" content="Five free two-player browser games you play on two phones on the same WiFi. Scan a QR code to pair. No app, no account, no signup. Works on any modern phone.">
 <link rel="canonical" href="https://funhub.super-dar.com/">
 <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
-<meta name="theme-color" content="#2C5FE0">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#F7F8FA" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0D1117" media="(prefers-color-scheme: dark)">
 
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Fun Hub">
@@ -34,97 +36,170 @@
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="manifest" href="/site.webmanifest">
 
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <style>
+/* ---------- tokens ---------- */
+:root{
+  --bg:#F6F7F9; --surface:#FFFFFF; --surface-2:#F0F2F6;
+  --ink:#0F1620; --ink-2:#28323E; --muted:#5B6773;
+  --line:#E2E6EC; --line-2:#CFD6DE;
+  --accent:#2F53E6; --accent-soft:#EAEEFD; --signal:#B4590F;
+  --radius:10px; --pad:clamp(16px,4vw,28px);
+  --shadow:0 1px 2px rgba(15,22,32,.05),0 6px 18px -10px rgba(15,22,32,.22);
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#0D1117; --surface:#141A22; --surface-2:#1A222C;
+    --ink:#E9EEF4; --ink-2:#C6D0DA; --muted:#95A1AE;
+    --line:#222C37; --line-2:#2E3A47;
+    --accent:#8AA5FF; --accent-soft:#1A2340; --signal:#E0A458;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -14px rgba(0,0,0,.8);
+  }
+}
+
 *,*::before,*::after{box-sizing:border-box}
-html{-webkit-text-size-adjust:100%}
-body{margin:0;background:var(--paper);color:var(--ink);
- font:400 17px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
- -webkit-font-smoothing:antialiased}
-:root{--paper:#F4EFE6;--ink:#152029;--blue:#2C5FE0;--red:#E8452F;
- --muted:#5C6B78;--rule:#DDD4C6;--card:#FBF8F2}
-.display{font-family:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
- font-weight:800;letter-spacing:-.03em;line-height:.98}
-.wrap{max-width:1080px;margin:0 auto;padding:0 24px}
-a{color:var(--blue)}
-a:focus-visible,button:focus-visible{outline:3px solid var(--red);outline-offset:3px}
-.skip{position:absolute;left:-9999px;top:0;background:var(--ink);color:var(--paper);
- padding:10px 16px;border-radius:0 0 8px 0;z-index:9}
+html{-webkit-text-size-adjust:100%;scroll-behavior:smooth;scroll-padding-top:68px}
+body{
+  margin:0;background:var(--bg);color:var(--ink-2);
+  font:400 15.5px/1.55 var(--sans);
+  font-feature-settings:"kern","liga","cv05";
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+}
+img,svg{max-width:100%}
+a{color:var(--accent);text-underline-offset:2px;text-decoration-thickness:1px}
+a:hover{text-decoration-thickness:2px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+
+.wrap{max-width:1140px;margin:0 auto;padding:0 var(--pad)}
+.display{letter-spacing:-.028em;line-height:1.04;font-weight:760;color:var(--ink)}
+.mono{font-family:var(--mono);font-size:11.5px;letter-spacing:.1em;text-transform:uppercase}
+
+.skip{position:absolute;left:-9999px;top:0;background:var(--ink);color:var(--bg);
+  padding:10px 16px;border-radius:0 0 8px 0;z-index:99}
 .skip:focus{left:0}
 
-header.top{padding:72px 0 40px}
-.eyebrow{font:600 13px/1 ui-monospace,SFMono-Regular,Menlo,monospace;
- letter-spacing:.14em;text-transform:uppercase;color:var(--blue);margin:0 0 20px}
-h1{margin:0;font-size:clamp(40px,8vw,76px)}
-h1 .b{color:var(--red)}
-.lede{margin:20px 0 0;max-width:34em;font-size:clamp(17px,2.2vw,21px);color:var(--muted)}
+/* ---------- top bar ---------- */
+.bar{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 88%,transparent);
+  backdrop-filter:saturate(160%) blur(10px);border-bottom:1px solid var(--line)}
+.bar .wrap{display:flex;align-items:center;gap:20px;height:52px}
+.brand{display:flex;align-items:center;gap:9px;font-weight:700;color:var(--ink);
+  font-size:14.5px;letter-spacing:-.01em;margin:0}
+.brand .dot{width:9px;height:9px;border-radius:50%;background:var(--accent);flex:none;
+  box-shadow:0 0 0 3px var(--accent-soft)}
+.bar nav{margin-left:auto}
+.bar nav ul{display:flex;gap:4px;list-style:none;margin:0;padding:0}
+.bar nav a{display:block;padding:6px 10px;border-radius:7px;color:var(--muted);
+  text-decoration:none;font-size:13.5px;font-weight:500}
+.bar nav a:hover{color:var(--ink);background:var(--surface-2)}
+@media (max-width:640px){.bar nav a{padding:6px 7px;font-size:13px}}
 
-.how{border-top:2px solid var(--ink);border-bottom:2px solid var(--ink);
- padding:26px 0;margin:44px 0 0}
-.how ol{display:grid;gap:18px;grid-template-columns:repeat(3,1fr);
- margin:0;padding:0;list-style:none;counter-reset:s}
-.how li{counter-increment:s;font-size:15px;color:var(--muted)}
-.how li b{display:block;color:var(--ink);font-size:16px;margin-bottom:3px}
-.how li::before{content:counter(s);display:inline-block;margin-right:8px;
- font:700 12px/18px ui-monospace,monospace;width:18px;height:18px;text-align:center;
- border-radius:50%;background:var(--ink);color:var(--paper);vertical-align:2px}
+/* ---------- hero ---------- */
+header.top{padding:clamp(38px,7vw,64px) 0 clamp(28px,4vw,40px)}
+.eyebrow{margin:0 0 14px;color:var(--accent);font-family:var(--mono);font-size:11.5px;
+  letter-spacing:.12em;text-transform:uppercase;font-weight:600}
+h1{margin:0;font-size:clamp(34px,5.6vw,58px);letter-spacing:-.032em;line-height:1.02;
+  font-weight:780;color:var(--ink)}
+h1 .b{color:var(--accent)}
+.lede{margin:16px 0 0;max-width:60ch;font-size:clamp(15.5px,1.5vw,17px);color:var(--muted)}
 
-h2{font-size:clamp(24px,3.6vw,34px);margin:64px 0 8px}
-h3{font-size:clamp(18px,2.4vw,21px);margin:32px 0 6px}
-.sub{margin:0 0 28px;color:var(--muted)}
-.answer{margin:0 0 14px;max-width:62em}
-.answer.lead{color:var(--ink)}
-section p{max-width:62em;color:var(--muted)}
-
-ul.games{list-style:none;margin:0;padding:0;display:grid;gap:20px;
- grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
-.game{background:var(--card);border:2px solid var(--ink);border-radius:14px;
- padding:22px;display:flex;flex-direction:column;gap:12px;
- box-shadow:5px 5px 0 var(--ink);transition:transform .15s,box-shadow .15s}
-.game:hover,.game:focus-within{transform:translate(-2px,-2px);
- box-shadow:8px 8px 0 var(--ink)}
-.pair{position:relative;width:72px;height:56px;flex:none}
-.pair span{position:absolute;top:0;width:38px;height:56px;border-radius:8px;
- border:2px solid var(--ink);display:grid;place-items:center;
- mix-blend-mode:multiply}
-.pair .p1{left:0;background:var(--blue)}
-.pair .p2{right:0;background:var(--accent,var(--red))}
-.pair svg{width:22px;height:22px;color:#fff}
-.game h3{margin:0;font-size:21px}
-.game h3 a{color:var(--ink);text-decoration-thickness:2px;text-underline-offset:3px}
-.game p{margin:0;color:var(--muted);font-size:15.5px}
-ul.tags{list-style:none;margin:auto 0 0;padding:6px 0 0;display:flex;gap:8px;
- flex-wrap:wrap;font:600 12px/1 ui-monospace,monospace;letter-spacing:.06em;
- color:var(--muted)}
-ul.tags li{border:1px solid var(--rule);border-radius:99px;padding:6px 10px}
-
-.tablewrap{overflow-x:auto;margin:24px 0 0;-webkit-overflow-scrolling:touch}
-table{border-collapse:collapse;width:100%;min-width:560px;font-size:15.5px}
-caption{text-align:left;color:var(--muted);font-size:15px;padding-bottom:12px}
-th,td{text-align:left;padding:12px 14px;border-bottom:1px solid var(--rule)}
-thead th{border-bottom:2px solid var(--ink);font-size:13px;letter-spacing:.06em;
- text-transform:uppercase;font-family:ui-monospace,monospace}
-tbody th{font-weight:700}
-td{color:var(--muted)}
-
-.faq h3{border-top:1px solid var(--rule);padding-top:20px}
-
-footer{margin:72px 0 40px;padding-top:24px;border-top:2px solid var(--ink);
- color:var(--muted);font-size:14px;display:flex;gap:16px;flex-wrap:wrap;
- justify-content:space-between}
-
+/* ---------- steps ---------- */
+.how{margin:26px 0 0;border:1px solid var(--line);border-radius:var(--radius);
+  background:var(--surface);box-shadow:var(--shadow);overflow:hidden}
+.how ol{margin:0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(3,1fr);
+  counter-reset:s}
+.how li{counter-increment:s;padding:16px 18px;font-size:13.8px;color:var(--muted);
+  border-left:1px solid var(--line)}
+.how li:first-child{border-left:0}
+.how li b{display:flex;align-items:center;gap:8px;color:var(--ink);font-size:14.5px;
+  font-weight:650;margin-bottom:4px;letter-spacing:-.01em}
+.how li b::before{content:counter(s,decimal-leading-zero);font-family:var(--mono);
+  font-size:10.5px;font-weight:600;color:var(--accent);background:var(--accent-soft);
+  border-radius:5px;padding:3px 5px;letter-spacing:.04em}
 @media (max-width:720px){
- header.top{padding:44px 0 28px}
- .how ol{grid-template-columns:1fr}
- .game{box-shadow:4px 4px 0 var(--ink)}
+  .how ol{grid-template-columns:1fr}
+  .how li{border-left:0;border-top:1px solid var(--line)}
+  .how li:first-child{border-top:0}
 }
-@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* ---------- sections ---------- */
+main{padding-bottom:8px}
+section{padding-top:clamp(44px,6vw,64px)}
+h2{margin:0 0 6px;font-size:clamp(22px,2.9vw,30px);letter-spacing:-.026em;
+  font-weight:760;color:var(--ink);line-height:1.12}
+h3{margin:26px 0 6px;font-size:clamp(16px,1.7vw,17.5px);letter-spacing:-.012em;
+  font-weight:660;color:var(--ink);line-height:1.3}
+.sub{margin:0 0 22px;color:var(--muted);font-size:14.5px}
+section p{max-width:74ch;color:var(--muted);margin:0 0 12px}
+.answer.lead{color:var(--ink-2);font-size:16.5px;max-width:70ch;
+  border-left:2px solid var(--accent);padding-left:16px;margin-top:14px}
+
+/* ---------- game cards ---------- */
+ul.games{list-style:none;margin:0;padding:0;display:grid;gap:14px;
+  grid-template-columns:repeat(auto-fill,minmax(280px,1fr))}
+.game{position:relative;background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--radius);padding:16px 16px 14px;display:flex;flex-direction:column;
+  gap:9px;transition:border-color .18s ease,box-shadow .18s ease,transform .18s ease}
+.game:hover,.game:focus-within{border-color:var(--line-2);box-shadow:var(--shadow);
+  transform:translateY(-2px)}
+/* signature: the peer link between two devices */
+.pair{position:relative;display:flex;align-items:center;gap:0;width:76px;height:40px;
+  margin:0}
+.pair span{width:27px;height:40px;border-radius:6px;border:1px solid var(--line-2);
+  background:var(--surface-2);display:grid;place-items:center;flex:none}
+.pair .p1{color:var(--accent)}
+.pair .p2{color:var(--accent-2,var(--signal))}
+.pair svg{width:17px;height:17px}
+.pair::before{content:"";flex:1;height:1px;margin:0 4px;
+  background:repeating-linear-gradient(90deg,var(--line-2) 0 3px,transparent 3px 6px);
+  background-size:6px 1px}
+.game:hover .pair::before{animation:flow .7s linear infinite}
+@keyframes flow{to{background-position:6px 0}}
+.game h3{margin:0;font-size:17px;font-weight:680;letter-spacing:-.015em}
+.game h3 a{color:var(--ink);text-decoration:none}
+.game h3 a::after{content:"";position:absolute;inset:0;border-radius:var(--radius)}
+.game h3 a:hover{color:var(--accent)}
+.game p{margin:0;color:var(--muted);font-size:13.8px;line-height:1.5;max-width:none}
+ul.tags{list-style:none;margin:auto 0 0;padding:10px 0 0;display:flex;gap:6px;flex-wrap:wrap;
+  border-top:1px solid var(--line);font-family:var(--mono);font-size:10.5px;
+  letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+ul.tags li{background:var(--surface-2);border-radius:5px;padding:4px 7px}
+
+/* ---------- table ---------- */
+.tablewrap{margin:22px 0 0;border:1px solid var(--line);border-radius:var(--radius);
+  background:var(--surface);overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;min-width:620px;font-size:13.8px}
+caption{text-align:left;color:var(--muted);font-size:13px;padding:12px 14px;
+  border-bottom:1px solid var(--line)}
+th,td{text-align:left;padding:9px 14px;border-bottom:1px solid var(--line)}
+thead th{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--muted);font-weight:600;background:var(--surface-2);
+  border-bottom:1px solid var(--line-2);position:sticky;top:0}
+tbody tr:last-child th,tbody tr:last-child td{border-bottom:0}
+tbody th{font-weight:600;color:var(--ink);white-space:nowrap}
+tbody th a{color:var(--ink);text-decoration:none}
+tbody th a:hover{color:var(--accent);text-decoration:underline}
+td{color:var(--muted);white-space:nowrap}
+tbody tr:hover td,tbody tr:hover th{background:var(--surface-2)}
+
+/* ---------- faq ---------- */
+.faq .grid{display:grid;gap:0 40px;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));
+  margin-top:18px}
+.faq h3{margin:0;padding:16px 0 0;border-top:1px solid var(--line)}
+.faq .answer{margin:5px 0 16px;font-size:14.3px;max-width:60ch}
+
+/* ---------- footer ---------- */
+footer{margin-top:clamp(48px,6vw,72px);padding:18px 0 32px;border-top:1px solid var(--line);
+  color:var(--muted);font-size:13.2px;display:flex;gap:14px;flex-wrap:wrap;
+  justify-content:space-between;align-items:center}
+footer p{margin:0}
+
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *{transition:none!important;animation:none!important}
+}
 </style>
-<link rel="stylesheet" media="print" onload="this.media='all'"
-  href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,800&display=swap">
-<noscript><link rel="stylesheet"
-  href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,800&display=swap"></noscript>
+
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -471,6 +546,19 @@ footer{margin:72px 0 40px;padding-top:24px;border-top:2px solid var(--ink);
 
 <a class="skip" href="#main">Skip to content</a>
 
+<div class="bar">
+  <div class="wrap">
+    <p class="brand"><span class="dot" aria-hidden="true"></span>Fun Hub</p>
+    <nav aria-label="Sections">
+      <ul>
+        <li><a href="#games-heading">Games</a></li>
+        <li><a href="#how-heading">How it works</a></li>
+        <li><a href="#faq-heading">Questions</a></li>
+      </ul>
+    </nav>
+  </div>
+</div>
+
 <div class="wrap">
 
   <header class="top">
@@ -492,7 +580,7 @@ footer{margin:72px 0 40px;padding-top:24px;border-top:2px solid var(--ink);
       <h2 class="display" id="games-heading">The games</h2>
       <p class="sub">Five games, all free, all in the browser.</p>
       <ul class="games">
-        <li class="game" style="--accent:#EE4B2B">
+        <li class="game" style="--accent-2:#EE4B2B">
           <p class="pair" role="img" aria-label="Air Hockey icon: two phones playing together">
             <span class="p1"><svg aria-hidden="true"><use href="#i-airhockey"/></svg></span><span class="p2"><svg aria-hidden="true"><use href="#i-airhockey"/></svg></span>
           </p>
@@ -500,7 +588,7 @@ footer{margin:72px 0 40px;padding-top:24px;border-top:2px solid var(--ink);
           <p>Drag your thumb across your own half to slide your mallet and knock the puck into the goal slot behind your opponent. Each phone shows the table from its own end, and seven goals takes the match.</p>
           <ul class="tags"><li>2 players</li><li>3 min</li><li>realtime</li></ul>
         </li>
-        <li class="game" style="--accent:#C9873C">
+        <li class="game" style="--accent-2:#C9873C">
           <p class="pair" role="img" aria-label="Chess icon: two phones playing together">
             <span class="p1"><svg aria-hidden="true"><use href="#i-chess"/></svg></span><span class="p2"><svg aria-hidden="true"><use href="#i-chess"/></svg></span>
           </p>
@@ -508,7 +596,7 @@ footer{margin:72px 0 40px;padding-top:24px;border-top:2px solid var(--ink);
           <p>A full game of chess played across two phones, each showing the board from its own side. Tap a man then tap its square; castling, en passant, promotion and threefold repetition are all enforced, with five minutes each and three seconds a move. Practice alone against a computer set to easy, normal or hard.</p>
           <ul class="tags"><li>2 players</li><li>10 min</li><li>turns</li></ul>
         </li>
-        <li class="game" style="--accent:#E2703A">
+        <li class="game" style="--accent-2:#E2703A">
           <p class="pair" role="img" aria-label="Dawn Patrol icon: two phones playing together">
             <span class="p1"><svg aria-hidden="true"><use href="#i-dawnpatrol"/></svg></span><span class="p2"><svg aria-hidden="true"><use href="#i-dawnpatrol"/></svg></span>
           </p>
@@ -516,7 +604,7 @@ footer{margin:72px 0 40px;padding-top:24px;border-top:2px solid var(--ink);
           <p>Drag anywhere to bank your fighter and hold the FIRE button until the guns overheat. Parachuted crates multiply your rate of fire, damage and gun count for a few seconds, while mines and flak bursts hurt whoever is nearest; five kills takes the patrol.</p>
           <ul class="tags"><li>2 players</li><li>3 min</li><li>realtime</li></ul>
         </li>
-        <li class="game" style="--accent:#F0A6C8">
+        <li class="game" style="--accent-2:#F0A6C8">
           <p class="pair" role="img" aria-label="Moonbloom icon: two phones playing together">
             <span class="p1"><svg aria-hidden="true"><use href="#i-moonbloom"/></svg></span><span class="p2"><svg aria-hidden="true"><use href="#i-moonbloom"/></svg></span>
           </p>
@@ -524,7 +612,7 @@ footer{margin:72px 0 40px;padding-top:24px;border-top:2px solid var(--ink);
           <p>Lead your moth with a fingertip and hold it over a closed bud until the bud opens in your colour. Both phones can work the same bud and nothing you have grown can be taken back; eight blossoms wins the night.</p>
           <ul class="tags"><li>2 players</li><li>2 min</li><li>realtime</li></ul>
         </li>
-        <li class="game" style="--accent:#C9A227">
+        <li class="game" style="--accent-2:#C9A227">
           <p class="pair" role="img" aria-label="Orchard icon: two phones playing together">
             <span class="p1"><svg aria-hidden="true"><use href="#i-orchard"/></svg></span><span class="p2"><svg aria-hidden="true"><use href="#i-orchard"/></svg></span>
           </p>
@@ -574,6 +662,8 @@ footer{margin:72px 0 40px;padding-top:24px;border-top:2px solid var(--ink);
     <section class="faq" aria-labelledby="faq-heading">
       <h2 class="display" id="faq-heading">Questions</h2>
 
+      <div class="grid">
+      <div>
       <h3>Do I need to install an app?</h3>
       <p class="answer">No. Every game and the hub itself run in a normal mobile browser. There is nothing to install, no account to create and no email address to hand over.</p>
 
@@ -585,7 +675,9 @@ footer{margin:72px 0 40px;padding-top:24px;border-top:2px solid var(--ink);
 
       <h3>Can more than two people play?</h3>
       <p class="answer">No. Every game on Fun Hub pairs exactly two phones. Players can swap between rounds, but only two devices are in a match at a time.</p>
+      </div>
 
+      <div>
       <h3>Can I play on my own?</h3>
       <p class="answer">Most games include a practice mode against a bot, which needs only one phone and no connection at all. Chess offers easy, normal and hard computer opponents.</p>
 
@@ -597,6 +689,8 @@ footer{margin:72px 0 40px;padding-top:24px;border-top:2px solid var(--ink);
 
       <h3>What happens if the connection drops mid-game?</h3>
       <p class="answer">The game pauses and both phones show a reconnect prompt. Because pairing is tied to the room the host opened, rescanning the same QR code or reopening the join link puts you back in the same match.</p>
+      </div>
+      </div>
     </section>
   </main>
 
