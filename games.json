@@ -55,6 +55,17 @@
       "accent": "#C9873C",
       "art": "<svg viewBox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.4\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><path d=\"M9 21h6l-1-2.4c1.9-1.6 2.6-3.9 1.6-5.6h-1.3l1.1-2.6-2.3 1.7L12 9.4l-1.1 2.7-2.3-1.7 1.1 2.6H8.4c-1 1.7-.3 4 1.6 5.6z\"/><path d=\"M3 3h6v6H3zM15 3h6v6h-6z\" stroke-opacity=\".55\"/></svg>",
       "added": "2026-07-28"
+    },
+    {
+      "id": "scrapwar",
+      "title": "Scrap War",
+      "blurb": "Two allied tanks hold one yard against a machine army, and only the higher tally wins. Drag anywhere to drive while the turret finds, leads and fires on its own target, grab railguns, shields and stun pulses off the sand, and watch the last thirty seconds pay double.",
+      "players": 2,
+      "minutes": "4 min",
+      "mode": "realtime",
+      "accent": "#C4562B",
+      "art": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\">\n  <rect x=\"2.4\" y=\"2.6\" width=\"7.4\" height=\"5.2\" rx=\".6\" fill=\"#3C4247\"/>\n  <circle cx=\"6.1\" cy=\"5.2\" r=\"1.3\" fill=\"#FF5C5C\"/>\n  <path d=\"M9 12.4 15.4 15\" stroke=\"#FFE9A8\" stroke-width=\"1.5\"/>\n  <rect x=\"6.6\" y=\"16.2\" width=\"2.2\" height=\"5.4\" rx=\".5\" fill=\"#2C2620\"/>\n  <rect x=\"14.4\" y=\"16.2\" width=\"2.2\" height=\"5.4\" rx=\".5\" fill=\"#2C2620\"/>\n  <rect x=\"8.4\" y=\"15.6\" width=\"6.2\" height=\"6.6\" rx=\".8\" fill=\"#C4562B\"/>\n  <circle cx=\"11.5\" cy=\"18.9\" r=\"2.1\" fill=\"#C4562B\" stroke=\"#241F17\" stroke-width=\".9\"/>\n  <path d=\"M12.8 17.3 16.6 13.5\" stroke=\"#241F17\" stroke-width=\"1.7\"/>\n</svg>",
+      "added": "2026-07-30"
     }
   ]
 }

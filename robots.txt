@@ -1,5 +1,3 @@
-# Fun Hub — https://funhub.super-dar.com/
-
 User-agent: *
 Allow: /
 
