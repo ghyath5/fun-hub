@@ -1713,7 +1713,7 @@ document.addEventListener('gesturestart', e => e.preventDefault());
 
 </script>
 <script>
-/* SCRAP WAR — two allied tanks, one machine army, one tally.
+/* SCRAP WAR — two allied tanks, one machine army, one tally.   3D edition.
  *
  * Both phones fight the same machines in the same yard. Nothing you shoot
  * belongs to the other player, so the whole match is a race for the higher
@@ -1723,14 +1723,22 @@ document.addEventListener('gesturestart', e => e.preventDefault());
  * double, a Warlord walks in with ninety seconds left carrying twelve points,
  * and the machines hunt whoever is winning.
  *
- * ── how the drawing works ──────────────────────────────────────────────
- * Every piece of detail is painted once, at boot, into its own offscreen
- * bitmap: the yard, each hull, each turret, each crate. A frame is then a few
- * dozen drawImage calls instead of a few hundred vector paths, which is both
- * far cheaper and the reason the hulls can afford rivets, tread blocks and
- * bevelled armour at all. The yard bitmap is also written to as the match
- * runs — tread scars and scorch marks are burned into it, so the sand ends
- * the match visibly churned.
+ * ── what draws the world ───────────────────────────────────────────────
+ * A real 3D renderer. The engine clears its own 2D canvas every frame, so a
+ * WebGL canvas sits directly underneath it holding lit, solid geometry: the
+ * yard floor, poured concrete with height and real sides, hulls built from
+ * tracks, sponsons, turret rings and barrels, crates as boxes. A tilted
+ * perspective camera frames the whole yard, so nothing about the rules or the
+ * reach of a shot changes — only what you see.
+ *
+ * The 2D canvas above it is left for what text and markers are good at:
+ * health bars, the lock reticle, the tally, the stick. Those are placed by
+ * projecting a world point through the same camera matrix, so a bar sits on
+ * a hull whichever renderer drew it.
+ *
+ * If WebGL is missing or throws, GFX.on drops to 0 and the original sprite
+ * renderer takes over on the 2D canvas, markers and all. Nothing else in the
+ * file knows or cares which one ran.
  *
  * ── how the machines think ─────────────────────────────────────────────
  * A 40-unit navigation grid is built from the wall table at boot. Each player
@@ -1757,9 +1765,10 @@ const WALLS = [
   [-370, 486, 88, 34], [370, 486, 88, 34],
   [-140, -132, 34, 34], [140, 132, 34, 34],
 ];
+const WALL_H = 56;
 
 /* ── match shape ──────────────────────────────────────────────────────── */
-const MATCH = 240, DOUBLE_AT = 30, BOSS_AT = 95, OT_MAX = 60;
+const MATCH = 240, DOUBLE_AT = 30, BOSS_AT = 95, OT_MAX = 60, HELD_MAX = 120;
 
 /* ── the tanks you drive ──────────────────────────────────────────────── */
 const R = 31;
@@ -1769,6 +1778,10 @@ const CD = 420;
 const DASH_CD = 4500, DASH_V = 940;
 const HP0 = 3, DOWN = 3, SAFE = 2;
 const LOCK = 640;
+
+/* Somewhere clear of the concrete to come back in. Every one is checked
+   against the wall table at boot, so a slab can never swallow a respawn. */
+const SPOTS = [[-390, 560], [390, 560], [-390, -560], [390, -560], [0, 548]];
 
 /* ── powers ───────────────────────────────────────────────────────────── */
 const OVERDRIVE = 1, SHIELD = 2, RAIL = 3, SCATTER = 4, PULSE = 5,
@@ -1973,7 +1986,13 @@ const game = {
   /* ── rules. host only ───────────────────────────────────────────────── */
   step(s, dt, api) {
     if (api) RT = api;
-    if (s.pause) { s.pauseT += dt; return; }
+    if (s.pause) {
+      /* A hold nobody lets go of would strand the other player, so it lapses
+         on its own rather than needing the phone that took it. */
+      s.pauseT += dt;
+      if (s.pauseT > HELD_MAX) { s.pause = null; s.pauseT = 0; }
+      return;
+    }
     if (s.phase === 'done') return;
 
     s.t += dt;
@@ -2020,10 +2039,11 @@ const game = {
     if (!p || p.dead > 0) return;
 
     if (m.dx !== undefined) {
-      const len = Math.hypot(m.dx, m.dy);
-      const pow = clamp(m.pow === undefined ? 1 : m.pow, 0, 1);
-      p.mx = len > 1e-4 ? (m.dx / len) * pow : 0;
-      p.my = len > 1e-4 ? (m.dy / len) * pow : 0;
+      const dx = +m.dx || 0, dy = +m.dy || 0;
+      const len = Math.hypot(dx, dy);
+      const pow = clamp(m.pow === undefined ? 1 : +m.pow || 0, 0, 1);
+      p.mx = len > 1e-4 ? (dx / len) * pow : 0;
+      p.my = len > 1e-4 ? (dy / len) * pow : 0;
       return;
     }
     if (m.f !== undefined) { p.fr = m.f === 2 ? 2 : m.f ? 1 : 0; return; }
@@ -2043,34 +2063,6 @@ const game = {
     game.command(v, side, m, null);
   },
 
-  pointer(phase, p) {
-    const now = Date.now();
-    if (phase === 'down') {
-      S.on = 1; S.ox = p.x; S.oy = p.y; S.x = p.x; S.y = p.y;
-      const dbl = now - S.tap < 280;
-      S.tap = now;
-      return dbl ? { d: 1 } : null;                 // double tap the sand to dash
-    }
-    if (phase === 'move') {
-      S.x = p.x; S.y = p.y;
-      /* Deadzone, a squared response near the centre for fine steering, and a
-         base that follows the thumb so a long drag never runs out of travel. */
-      const dead = 8 / SCALE, max = 62 / SCALE;
-      let dx = p.x - S.ox, dy = p.y - S.oy;
-      let len = Math.hypot(dx, dy);
-      if (len > max) {
-        S.ox += (len - max) * dx / len; S.oy += (len - max) * dy / len;
-        dx = p.x - S.ox; dy = p.y - S.oy; len = max;
-      }
-      if (len < dead) { S.pow = 0; return maybe(0, 0, 0); }
-      const eff = clamp((len - dead) / (max - dead), 0, 1);
-      S.pow = eff * eff * 0.55 + eff * 0.45;
-      return maybe(dx / len, dy / len, S.pow);
-    }
-    S.on = 0; S.pow = 0; S.sent = null;
-    return { dx: 0, dy: 0, pow: 0 };
-  },
-
   /* ── the wire ───────────────────────────────────────────────────────── */
   snapshot(s) {
     const p = c => [Math.round(c.x), Math.round(c.y), Math.round(c.vx), Math.round(c.vy),
@@ -2079,8 +2071,11 @@ const game = {
                     c.tg, c.fr];
     const f = [];
     for (const e of s.foes) {
+      /* A hold of under a twentieth of a second used to round to zero and read
+         back as a charge, so an arriving machine flickered solid. Never zero. */
       f.push(e.id, e.k, Math.round(e.x), Math.round(e.y), r1(e.a), e.hp,
-             e.sp > 0 ? -Math.round(e.sp * 10) : Math.round(e.ch * 10));
+             e.sp > 0 ? -Math.max(1, Math.round(e.sp * 10)) : Math.round(e.ch * 10),
+             Math.round(e.vx), Math.round(e.vy));
     }
     const b = [];
     for (let i = Math.max(0, s.shots.length - MAXB); i < s.shots.length; i++) {
@@ -2118,15 +2113,15 @@ const game = {
        survivors jump one slot sideways. */
     const was = new Map((v.foes || []).map(e => [e.id, e]));
     const foes = [];
-    for (let i = 0; i < d.f.length; i += 7) {
+    for (let i = 0; i < d.f.length; i += 9) {
       const id = d.f[i], k = d.f[i + 1], x = d.f[i + 2], y = d.f[i + 3], w = d.f[i + 6];
       const seen = was.get(id);
-      const e = seen || { id, k, x, y, hp: d.f[i + 5] };
+      const e = seen || { id, k, x, y, hp: d.f[i + 5], vx: 0, vy: 0 };
       e.k = k; e.a = d.f[i + 4];
       const before = e.hp;
       e.hp = d.f[i + 5];
       e.sp = w < 0 ? -w / 10 : 0; e.ch = w > 0 ? w / 10 : 0;
-      e.to = { x, y };
+      e.to = { x, y, vx: d.f[i + 7], vy: d.f[i + 8] };
       if (!seen) { e.x = x; e.y = y; }
       else if (e.hp < before) sparks(e.x, e.y, 5);
       foes.push(e);
@@ -2158,14 +2153,30 @@ const game = {
     v.seeded = 1;
   },
 
+  /* The guest drives its own tank forward on its own commands and lets the
+     host pull it back, rather than waiting a round trip for every nudge. That
+     one change is the difference between a stick that answers and one that
+     drags a third of a second behind the thumb. */
   smooth(v, dt, age, api) {
     if (api) RT = api;
     if (!v || v.pause) return;
+    const mine = api && api.side;
     for (const k of SIDES) {
-      const to = v['to_' + k];
-      if (!to) continue;
-      const mine = k === api.side;
-      track(v[k], to, age, mine ? 0.22 : 0.3, mine ? 130 : 90);
+      const to = v['to_' + k], p = v[k];
+      if (!to || !p) continue;
+      if (k === mine && p.dead <= 0 && v.phase !== 'done') {
+        const boost = p.pw === TURBO ? 1.55 : 1;
+        p.vx = lerp(p.vx, (p.mx || 0) * SPD * boost, clamp(ACC * dt, 0, 1));
+        p.vy = lerp(p.vy, (p.my || 0) * SPD * boost, clamp(ACC * dt, 0, 1));
+        p.x += p.vx * dt; p.y += p.vy * dt;
+        clear(p, R);
+        const tx = to.x + to.vx * age, ty = to.y + to.vy * age;
+        const err = Math.hypot(tx - p.x, ty - p.y);
+        const pull = err > 150 ? 1 : clamp(err / 150, 0, 1) * 0.30 + 0.04;
+        p.x += (tx - p.x) * pull; p.y += (ty - p.y) * pull;
+      } else {
+        track(p, to, age, 0.3, 90);
+      }
     }
     for (const e of v.foes || []) track(e, e.to, age, 0.3, 90);
     for (const o of v.shots || []) { o.x += o.vx * dt; o.y += o.vy * dt; }
@@ -2269,16 +2280,20 @@ function shot(s, x, y, a, k, own) {
   if (s.shots.length > MAXB * 2) s.shots.shift();
 }
 
+/* Come back as far from the machines as the yard allows — and never inside a
+   slab, which the old corner spots quietly were. */
 function respawn(s, k) {
-  const p = s[k], spots = [[-380, 520], [380, 520], [-380, -520], [380, -520], [0, 520]];
-  let best = spots[0], far = -1;
-  for (const [x, y] of spots) {
+  const p = s[k];
+  let best = SPOTS[0], far = -1;
+  for (const [x, y] of SPOTS) {
+    if (inWall(x, y, R + 6)) continue;
     let d = 1e9;
     for (const e of s.foes) d = Math.min(d, Math.hypot(e.x - x, e.y - y));
     if (d > far) { far = d; best = [x, y]; }
   }
   Object.assign(p, { x: best[0], y: best[1], vx: 0, vy: 0, mx: 0, my: 0,
                      hp: HP0, sh: 0, inv: SAFE, dead: 0, pw: 0, pwT: 0, cd: 0 });
+  clear(p, R);
 }
 
 function hitCrew(s, k, dmg, api) {
@@ -2321,13 +2336,16 @@ function spawn(s, k, at) {
       if (d > 240 || i > 45) break;
     }
   }
-  s.foes.push({
+  const e = {
     id: s.nid++, k, x, y, vx: 0, vy: 0, a: Math.atan2(-y, -x),
     hp: KIND[k].hp, cd: KIND[k].cd * 0.7, ch: 0, sp: HOLD,
     tg: Math.random() < 0.5 ? 'host' : 'guest', re: 0, spawnT: 0,
     off: (Math.random() * 2 - 1) * 1.1,          // which side it comes round
     flip: (s.nid % 2) ? 1 : -1, lx: x, ly: y, jt: 0.75,
-  });
+  };
+  clear(e, r);                                    // never born inside concrete
+  e.lx = e.x; e.ly = e.y;
+  s.foes.push(e);
 }
 
 /* Where this machine would rather be standing: on its own arc of a ring at
@@ -2366,7 +2384,7 @@ function machines(s, dt, api) {
 
   for (let i = s.foes.length - 1; i >= 0; i--) {
     const e = s.foes[i], K = KIND[e.k];
-    if (e.sp > 0) { e.sp -= dt; continue; }
+    if (e.sp > 0) { e.sp -= dt; e.vx = 0; e.vy = 0; continue; }
 
     const stun = pulses.some(p => Math.hypot(p.x - e.x, p.y - e.y) < PULSE_R);
     const slow = stun ? 0.12 : 1;
@@ -2374,7 +2392,7 @@ function machines(s, dt, api) {
     if ((e.re -= dt) <= 0) { e.re = 1.8 + Math.random() * 1.4; e.tg = choose(s); }
     let p = s[e.tg];
     if (!p || p.dead > 0) p = s[other(e.tg)];
-    if (!p || p.dead > 0) { e.cd = Math.max(e.cd, 0.4); continue; }
+    if (!p || p.dead > 0) { e.cd = Math.max(e.cd, 0.4); e.vx = 0; e.vy = 0; continue; }
     const side = p === s.host ? 'host' : 'guest';
 
     const dx = p.x - e.x, dy = p.y - e.y, d = Math.hypot(dx, dy) || 1;
@@ -2483,7 +2501,8 @@ function hurt(s, e, dmg, by, api) {
   s[by].sc += pts;
   s.kills.push({ x: e.x, y: e.y, pts, own: by === 'host' ? 0 : 1, t: 0 });
   if (s.kills.length > 4) s.kills.shift();
-  s.foes.splice(s.foes.indexOf(e), 1);
+  const at = s.foes.indexOf(e);
+  if (at >= 0) s.foes.splice(at, 1);
   wreck(e.x, e.y, K.r);
   api.kick(e.k === WARLORD ? 26 : e.k === JUGG ? 12 : 6);
   if (e.k === WARLORD) { drop(s, e.x - 60, e.y); drop(s, e.x + 60, e.y); }
@@ -2536,9 +2555,25 @@ function supply(s, dt) {
   }
 }
 
+/* A crate dropped where a Jugg died could land inside concrete and sit there
+   for its whole life, unreachable. Walk it out to the nearest open sand. */
 function drop(s, x, y) {
-  s.crates.push({ x: clamp(x, -HW + 40, HW - 40), y: clamp(y, -HH + 40, HH - 40),
-                  k: DROPS[Math.floor(Math.random() * DROPS.length)], life: CRATE_LIFE });
+  let px = clamp(x, -HW + 44, HW - 44), py = clamp(y, -HH + 44, HH - 44);
+  if (inWall(px, py, 30)) {
+    let out = false;
+    for (const rad of [56, 104, 156, 210]) {
+      for (let i = 0; i < 12; i++) {
+        const a = i / 12 * TAU;
+        const nx = clamp(px + Math.cos(a) * rad, -HW + 44, HW - 44);
+        const ny = clamp(py + Math.sin(a) * rad, -HH + 44, HH - 44);
+        if (!inWall(nx, ny, 30)) { px = nx; py = ny; out = true; break; }
+      }
+      if (out) break;
+    }
+    if (!out) return;
+  }
+  s.crates.push({ x: px, y: py, k: DROPS[Math.floor(Math.random() * DROPS.length)],
+                  life: CRATE_LIFE });
 }
 
 function finish(s, who, api) { s.phase = 'done'; s.win = who; api?.kick?.(22); }
@@ -2593,21 +2628,19 @@ const bot = {
   },
 };
 
-/* ═══ the art, painted once ════════════════════════════════════════════
-   Nothing below here runs per frame except render() and blit().
+/* ═══ shared art ═══════════════════════════════════════════════════════
+   The yard texture, the crate faces and the hull sprites are all painted
+   with Canvas 2D at boot. The 3D renderer uploads them as textures; the
+   fallback renderer stamps them straight onto the board. One set of art,
+   two ways of showing it.
    ─────────────────────────────────────────────────────────────────────── */
 
 const ART = { res: 2, ready: 0, bg: null, bgRes: 1, s: {}, vig: null, vigK: 0, seen: 0 };
 const FX = [];
 let DRAWN = 0, VIEW = null, MY = null, RT = null, SCALE = 0.4;
-const S = { on: 0, ox: 0, oy: 0, x: 0, y: 0, pow: 0, tap: 0, sent: null };
 
-function maybe(dx, dy, pow) {
-  if (S.sent && Math.abs(pow - S.sent.pow) < 0.045 &&
-      dx * S.sent.dx + dy * S.sent.dy > 0.9985) return null;
-  S.sent = { dx, dy, pow };
-  return { dx, dy, pow };
-}
+/* how far a shadow falls, given the light and the height of the thing */
+const WALL_SH_X = 28, WALL_SH_Y = 23, HULL_SH_X = 22, HULL_SH_Y = 18;
 
 const hash = i => { const v = Math.sin(i * 127.1 + 11.7) * 43758.5453; return v - Math.floor(v); };
 
@@ -2666,8 +2699,6 @@ function paintHull(c, P, w, h) {
   }
 }
 
-/* The turret rotates on its own, so it gets its own sprite: mantlet, barrel
-   with a muzzle brake, hatch, and a band that tells the two crews apart. */
 function paintTurret(c, P, len) {
   c.fillStyle = P.dark;
   c.fillRect(4, -4.5, len, 9);
@@ -2684,8 +2715,6 @@ function paintTurret(c, P, len) {
   c.fillRect(9, -7, 4, 3);
 }
 
-/* The machines share a chassis and differ where it counts: the Warlord is
-   wide and quad-barrelled, the sniper is all barrel, the jugg is plated. */
 function paintFoe(c, P, k) {
   const K = KIND[k];
   const w = K.r * 2 - 4, h = K.r * (k === JUGG || k === WARLORD ? 1.9 : 1.6);
@@ -2738,6 +2767,27 @@ const FOE_P = { tread: '#22262A', treadDark: '#15181B', body: '#3C4247',
                 rivet: 'rgba(255,255,255,.22)', band: '#2E353B', plate: '#55606A' };
 const BOSS_P = { ...FOE_P, body: '#2E353B', plate: '#616D78' };
 
+/* The crate face: a colour, a letter, a lid band. Used as the top of the 3D
+   box and as the whole crate in the fallback. */
+function paintCrateFace(c, P, s) {
+  c.fillStyle = '#4A4236'; c.fillRect(-s / 2, -s / 2, s, s);
+  c.fillStyle = '#5C5344'; c.fillRect(-s / 2 + 1.5, -s / 2 + 1.5, s - 3, s - 3);
+  c.fillStyle = P.c; c.fillRect(-s * 0.37, -s * 0.37, s * 0.74, s * 0.74);
+  const g = c.createLinearGradient(0, -s / 2, 0, s / 2);
+  g.addColorStop(0, 'rgba(255,255,255,.34)');
+  g.addColorStop(1, 'rgba(0,0,0,.18)');
+  c.fillStyle = g; c.fillRect(-s * 0.37, -s * 0.37, s * 0.74, s * 0.74);
+  c.fillStyle = '#241F17';
+  c.font = `700 ${Math.round(s * 0.56)}px "Share Tech Mono",ui-monospace,monospace`;
+  c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.fillText(P.tag, 0, s * 0.03);
+}
+
+function paintCrate(c, P) {
+  c.fillStyle = SHADE; c.fillRect(-12, -11, 38, 38);
+  paintCrateFace(c, P, 44);
+}
+
 /* The yard itself: painted once, then written to as the match churns it. */
 function paintYard(res) {
   const s = surface(HW * 2, HH * 2, res || ART.bgRes);
@@ -2761,25 +2811,34 @@ function paintYard(res) {
   }
   c.globalAlpha = 1;
 
-  for (const w of WALLS) {                        // one hard noon shadow each
-    c.fillStyle = SHADE;
-    c.fillRect(w[0] - w[2] + SUN_X, w[1] - w[3] + SUN_Y, w[2] * 2, w[3] * 2);
-  }
+  /* The slabs are only painted flat when the fallback renderer is going to
+     use this as the whole floor. In 3D they are real boxes standing on it,
+     so the texture carries their footprint and their shadow and nothing else. */
+  /* A flat sprite casts a hand's width of shadow; a slab standing 56 units
+     tall throws it much further, and along the same light the geometry is lit
+     by. The two renderers therefore bake different offsets. */
+  const ox = GFX.on ? WALL_SH_X : SUN_X, oy = GFX.on ? WALL_SH_Y : SUN_Y;
   for (const w of WALLS) {
-    c.fillStyle = SLAB;
-    c.fillRect(w[0] - w[2], w[1] - w[3], w[2] * 2, w[3] * 2);
-    c.fillStyle = SLAB_LIT;
-    c.fillRect(w[0] - w[2], w[1] - w[3], w[2] * 2, 8);
-    c.fillStyle = SLAB_DARK;
-    c.fillRect(w[0] - w[2], w[1] + w[3] - 4, w[2] * 2, 4);
-    c.fillRect(w[0] + w[2] - 4, w[1] - w[3], 4, w[3] * 2);
-    c.fillStyle = 'rgba(58,48,34,.16)';           // poured-slab seams
-    for (let sx = w[0] - w[2] + 34; sx < w[0] + w[2] - 8; sx += 34) {
-      c.fillRect(sx, w[1] - w[3] + 8, 2, w[3] * 2 - 12);
+    c.fillStyle = GFX.on ? 'rgba(50,41,28,.34)' : SHADE;
+    c.fillRect(w[0] - w[2] + ox, w[1] - w[3] + oy, w[2] * 2, w[3] * 2);
+  }
+  if (!GFX.on) {
+    for (const w of WALLS) {
+      c.fillStyle = SLAB;
+      c.fillRect(w[0] - w[2], w[1] - w[3], w[2] * 2, w[3] * 2);
+      c.fillStyle = SLAB_LIT;
+      c.fillRect(w[0] - w[2], w[1] - w[3], w[2] * 2, 8);
+      c.fillStyle = SLAB_DARK;
+      c.fillRect(w[0] - w[2], w[1] + w[3] - 4, w[2] * 2, 4);
+      c.fillRect(w[0] + w[2] - 4, w[1] - w[3], 4, w[3] * 2);
+      c.fillStyle = 'rgba(58,48,34,.16)';
+      for (let sx = w[0] - w[2] + 34; sx < w[0] + w[2] - 8; sx += 34) {
+        c.fillRect(sx, w[1] - w[3] + 8, 2, w[3] * 2 - 12);
+      }
+      c.fillStyle = 'rgba(255,255,255,.10)';
+      c.fillRect(w[0] - w[2], w[1] - w[3], 6, 6);
+      c.fillRect(w[0] + w[2] - 6, w[1] + w[3] - 6, 6, 6);
     }
-    c.fillStyle = 'rgba(255,255,255,.10)';        // chipped corners
-    c.fillRect(w[0] - w[2], w[1] - w[3], 6, 6);
-    c.fillRect(w[0] + w[2] - 6, w[1] + w[3] - 6, 6, 6);
   }
 
   c.strokeStyle = 'rgba(110,100,85,.20)';         // faint yard markings
@@ -2796,10 +2855,27 @@ function paintYard(res) {
   return s;
 }
 
-/* Tread scars and scorch marks go into the yard bitmap, so they cost nothing
-   to keep and the sand ends the match visibly churned. */
+function buildArt() {
+  if (ART.ready || typeof document === 'undefined') return;
+  ART.ready = 1;
+  for (const k of SIDES) {
+    const P = crewPalette(COL[k]);
+    sprite(k + 'H', R * 2 + 6, R * 1.9, c => paintHull(c, P, R * 2 - 2, R * 1.7));
+    sprite(k + 'T', 100, 44, c => paintTurret(c, P, 40));
+  }
+  sprite('hullS', R * 2 + 10, R * 2, c => paintHull(c, flat(SHADE), R * 2 - 2, R * 1.7));
+  for (let k = 0; k < KIND.length; k++) {
+    const w = KIND[k].r * 2 + 44, h = KIND[k].r * 2.5;
+    sprite('foe' + k, w, h, c => paintFoe(c, k === WARLORD ? BOSS_P : FOE_P, k));
+    sprite('foeS' + k, w, h, c => paintFoe(c, flat(SHADE), k));
+  }
+  for (const k of DROPS) sprite('crate' + k, 58, 58, c => paintCrate(c, POWERS[k]));
+  ART.bg = paintYard();
+}
+
+/* ── the marks a match leaves ── */
 function scar(x, y, a, w) {
-  if (GL.on) {
+  if (GFX.on) {
     const px = -Math.sin(a) * R * 0.95, py = Math.cos(a) * R * 0.95;
     DECALS.push({ k: 'scar', x: x + px, y: y + py, x2: x - px, y2: y - py, a, w });
     return;
@@ -2815,7 +2891,7 @@ function scar(x, y, a, w) {
 }
 
 function scorch(x, y, r) {
-  if (GL.on) { DECALS.push({ k: 'scorch', x, y, r }); return; }
+  if (GFX.on) { DECALS.push({ k: 'scorch', x, y, r }); return; }
   if (!ART.bg) return;
   const c = ART.bg.c;
   c.fillStyle = 'rgba(52,40,28,.20)';
@@ -2824,29 +2900,8 @@ function scorch(x, y, r) {
   c.beginPath(); c.arc(x, y, r * 1.8, 0, TAU); c.fill();
 }
 
-function buildArt() {
-  if (ART.ready || typeof document === 'undefined') return;
-  ART.ready = 1;
-  for (const k of SIDES) {
-    const P = crewPalette(COL[k]);
-    sprite(k + 'H', R * 2 + 6, R * 1.9, c => paintHull(c, P, R * 2 - 2, R * 1.7));
-    sprite(k + 'T', 100, 44, c => paintTurret(c, P, 40));
-  }
-  sprite('hullS', R * 2 + 10, R * 2, c => paintHull(c, flat(SHADE), R * 2 - 2, R * 1.7));
-  for (let k = 0; k < KIND.length; k++) {
-    const w = KIND[k].r * 2 + 44, h = KIND[k].r * 2.5;
-    sprite('foe' + k, w, h, c => paintFoe(c, k === WARLORD ? BOSS_P : FOE_P, k));
-    sprite('foeS' + k, w, h, c => paintFoe(c, flat(SHADE), k));
-  }
-  for (const k of DROPS) {
-    const P = POWERS[k];
-    sprite('crate' + k, 58, 58, c => paintCrate(c, P));
-  }
-  ART.bg = paintYard();
-}
-
 /* ── particles, all local and all cheap ── */
-function push(f) { if (FX.length < (REDUCED ? 24 : 90)) FX.push(f); }
+function push(f) { if (FX.length < (REDUCED ? 24 : 110)) FX.push(f); }
 function sparks(x, y, n) {
   if (REDUCED) n = Math.min(n, 2);
   for (let i = 0; i < n; i++) {
@@ -2876,161 +2931,371 @@ function wreck(x, y, r) {
   }
 }
 
-/* ═══ the WebGL layer ══════════════════════════════════════════════════
+/* ═══ the 3D layer ═════════════════════════════════════════════════════
  *
- * The engine clears its own canvas with clearRect, so that canvas is
- * transparent and a GL canvas can sit directly underneath it. The world is
- * drawn in GL; text and HUD stay on the 2D canvas above, where text belongs.
- *
- * The camera is not reinvented: every frame the 2D context is asked for its
- * current transform, which already carries the device pixel ratio, the board
- * scale and the engine's screen shake. That matrix goes straight into the
- * vertex shader, so both layers move as one without the engine knowing this
- * layer exists.
+ * The engine clears its own canvas with clearRect every frame, so that canvas
+ * is transparent and a WebGL canvas sits directly underneath it. The world is
+ * drawn there in real geometry; text and markers stay on the 2D canvas above,
+ * where text belongs.
  *
  * Passes, in order:
  *   1. tread scars and scorch marks accumulate into a decal framebuffer
- *   2. the ground quad samples the yard texture and the decals together
- *   3. shadows, hulls, turrets and crates batch into one textured draw
- *   4. fire, sparks, tracers and muzzle flashes batch again, added not mixed
- *   5. the whole scene, drawn into a framebuffer, goes through a final pass
- *      for vignette, damage tint and heat shimmer over the hot spots
+ *   2. the floor quad samples the yard texture and the decals together
+ *   3. soft blob shadows are laid on the floor
+ *   4. concrete, hulls, turrets and crates draw lit and depth-sorted by the
+ *      depth buffer — one draw call each, a few dozen a frame
+ *   5. fire, tracers, muzzle flashes and rings batch into one additive draw
  *
- * If any of it fails to build, GL.on stays 0 and the Canvas 2D renderer
- * takes over unchanged.
+ * There is deliberately no render-to-texture and no post pass: drawing
+ * straight to the canvas keeps multisampling, which matters far more at a
+ * tank's size than any screen effect. Vignette and damage tint are painted by
+ * the 2D layer on top, where they cost nothing.
+ *
+ * If anything here fails to build or throws mid-frame, GFX.on drops to 0, the
+ * canvas is removed and the sprite renderer takes over on the next frame.
  */
 
-const GL = {
-  on: 0, tried: 0, g: null, cv: null,
-  atlas: null, uv: {}, ground: null,
-  sprite: null, groundP: null, postP: null,
-  vbo: null, ibo: null, quad: null,
-  scene: null, sceneTex: null, decal: null, decalTex: null,
-  verts: null, n: 0, mode: 0, cap: 4096,
-  W: 0, H: 0, hurt: 0, shimmer: 0, err: '',
+const GFX = {
+  on: 0, tried: 0, g: null, cv: null, W: 0, H: 0, dpr: 1,
+  mesh: null, floor: null, fx: null,
+  atlas: null, ground: null, uv: {}, packRes: 1,
+  M: {}, unit: null, plane: null,
+  decal: null, verts: null, n: 0, cap: 1400, ibo: null, vbo: null,
+  vp: new Float32Array(16), view: new Float32Array(16),
+  right: [1, 0, 0], up: [0, 1, 0], seen: 0, shots: 0, err: '',
 };
 const DECALS = [];
-const ATLAS = 2048, ATLAS_RES = 3.4;      // px per world unit in the atlas
-const GROUND_W = 1024, GROUND_H = 1352;   // the yard, at better than screen res
-const DECAL_N = 1024;
+const ATLAS = 1024, DECAL_N = 1024;
+const LIGHT = (() => { const l = [-0.42, 0.84, -0.34]; const n = Math.hypot(l[0], l[1], l[2]); return [l[0] / n, l[1] / n, l[2] / n]; })();
 
-/* ── shaders ─────────────────────────────────────────────────────────── */
+/* ── matrices, column major, the way WebGL wants them ── */
+function mMul(a, b, o) {
+  for (let c = 0; c < 4; c++) {
+    const b0 = b[c * 4], b1 = b[c * 4 + 1], b2 = b[c * 4 + 2], b3 = b[c * 4 + 3];
+    o[c * 4]     = a[0] * b0 + a[4] * b1 + a[8]  * b2 + a[12] * b3;
+    o[c * 4 + 1] = a[1] * b0 + a[5] * b1 + a[9]  * b2 + a[13] * b3;
+    o[c * 4 + 2] = a[2] * b0 + a[6] * b1 + a[10] * b2 + a[14] * b3;
+    o[c * 4 + 3] = a[3] * b0 + a[7] * b1 + a[11] * b2 + a[15] * b3;
+  }
+  return o;
+}
+function mPersp(fov, asp, n, f, o) {
+  const t = 1 / Math.tan(fov / 2);
+  o.fill(0);
+  o[0] = t / asp; o[5] = t; o[10] = (f + n) / (n - f); o[11] = -1; o[14] = 2 * f * n / (n - f);
+  return o;
+}
+function mLook(ex, ey, ez, tx, ty, tz, o) {
+  let zx = ex - tx, zy = ey - ty, zz = ez - tz;
+  const zl = Math.hypot(zx, zy, zz) || 1; zx /= zl; zy /= zl; zz /= zl;
+  let xx = zz, xy = 0, xz = -zx;
+  const xl = Math.hypot(xx, xy, xz) || 1; xx /= xl; xy /= xl; xz /= xl;
+  const yx = zy * xz - zz * xy, yy = zz * xx - zx * xz, yz = zx * xy - zy * xx;
+  o[0] = xx; o[1] = yx; o[2] = zx; o[3] = 0;
+  o[4] = xy; o[5] = yy; o[6] = zy; o[7] = 0;
+  o[8] = xz; o[9] = yz; o[10] = zz; o[11] = 0;
+  o[12] = -(xx * ex + xy * ey + xz * ez);
+  o[13] = -(yx * ex + yy * ey + yz * ez);
+  o[14] = -(zx * ex + zy * ey + zz * ez);
+  o[15] = 1;
+  return o;
+}
+/* translate · rotateY · scale, straight into the slots. The game's heading
+   runs clockwise on a screen where y grows downward, so the yaw is negated
+   once, here, and nothing else in the file has to think about it. */
+const MODEL = new Float32Array(16);
+function mModel(tx, ty, tz, gameAngle, sx, sy, sz, o) {
+  const a = -(gameAngle || 0), c = Math.cos(a), s = Math.sin(a);
+  o = o || MODEL;
+  o[0] = c * sx;  o[1] = 0;   o[2] = -s * sx; o[3] = 0;
+  o[4] = 0;       o[5] = sy;  o[6] = 0;       o[7] = 0;
+  o[8] = s * sz;  o[9] = 0;   o[10] = c * sz; o[11] = 0;
+  o[12] = tx;     o[13] = ty; o[14] = tz;     o[15] = 1;
+  return o;
+}
 
-const V_SPRITE = `
-attribute vec2 aPos;
-attribute vec2 aUV;
-attribute vec4 aTint;
-uniform mat3 uCam;
-uniform vec2 uView;
-varying vec2 vUV;
-varying vec4 vTint;
-void main() {
-  vec3 p = uCam * vec3(aPos, 1.0);
-  gl_Position = vec4(p.x / uView.x * 2.0 - 1.0, 1.0 - p.y / uView.y * 2.0, 0.0, 1.0);
-  vUV = aUV;
-  vTint = aTint;
+/* ── mesh building ── */
+const rgb = h => [parseInt(h.slice(1, 3), 16) / 255, parseInt(h.slice(3, 5), 16) / 255,
+                  parseInt(h.slice(5, 7), 16) / 255];
+const shade = (c, k) => [clamp(c[0] * k, 0, 1), clamp(c[1] * k, 0, 1), clamp(c[2] * k, 0, 1)];
+
+function MB() { return { p: [], n: [], c: [], t: [] }; }
+
+/* One quad. The normal is taken from the winding and then pushed away from
+   `ref`, so a face can never end up lit from the inside because four corners
+   were listed the other way round. */
+function quad(m, a, b, c, d, col, uv, ref) {
+  let nx = (b[1] - a[1]) * (c[2] - a[2]) - (b[2] - a[2]) * (c[1] - a[1]);
+  let ny = (b[2] - a[2]) * (c[0] - a[0]) - (b[0] - a[0]) * (c[2] - a[2]);
+  let nz = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+  const l = Math.hypot(nx, ny, nz) || 1; nx /= l; ny /= l; nz /= l;
+  if (ref) {
+    const mx = (a[0] + b[0] + c[0] + d[0]) / 4 - ref[0];
+    const my = (a[1] + b[1] + c[1] + d[1]) / 4 - ref[1];
+    const mz = (a[2] + b[2] + c[2] + d[2]) / 4 - ref[2];
+    if (nx * mx + ny * my + nz * mz < 0) { nx = -nx; ny = -ny; nz = -nz; }
+  }
+  const U = uv || { u0: -1, v0: -1, u1: -1, v1: -1 };
+  const pts = [a, b, c, a, c, d];
+  const uvs = [[U.u0, U.v1], [U.u1, U.v1], [U.u1, U.v0],
+               [U.u0, U.v1], [U.u1, U.v0], [U.u0, U.v0]];
+  for (let i = 0; i < 6; i++) {
+    m.p.push(pts[i][0], pts[i][1], pts[i][2]);
+    m.n.push(nx, ny, nz);
+    m.c.push(col[0], col[1], col[2]);
+    m.t.push(uvs[i][0], uvs[i][1]);
+  }
+}
+
+function box(m, cx, cy, cz, hx, hy, hz, col, topCol, topUV) {
+  const x0 = cx - hx, x1 = cx + hx, y0 = cy - hy, y1 = cy + hy, z0 = cz - hz, z1 = cz + hz;
+  const ref = [cx, cy, cz];
+  const T = topCol || shade(col, 1.1), B = shade(col, 0.55);
+  quad(m, [x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1], T, topUV, ref);   // top
+  quad(m, [x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1], B, null, ref);    // bottom
+  quad(m, [x1, y0, z0], [x1, y1, z0], [x1, y1, z1], [x1, y0, z1], shade(col, 1.02), null, ref);
+  quad(m, [x0, y0, z0], [x0, y1, z0], [x0, y1, z1], [x0, y0, z1], shade(col, 0.9), null, ref);
+  quad(m, [x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], shade(col, 0.95), null, ref);
+  quad(m, [x0, y0, z0], [x1, y0, z0], [x1, y1, z0], [x0, y1, z0], shade(col, 0.88), null, ref);
+}
+
+/* An upright drum: turret rings, hatches, wheels. */
+function cylY(m, cx, cy, cz, r, h, seg, col, capCol) {
+  const ref = [cx, cy + h / 2, cz];
+  for (let i = 0; i < seg; i++) {
+    const a0 = i / seg * TAU, a1 = (i + 1) / seg * TAU;
+    const x0 = cx + Math.cos(a0) * r, z0 = cz + Math.sin(a0) * r;
+    const x1 = cx + Math.cos(a1) * r, z1 = cz + Math.sin(a1) * r;
+    const k = 0.86 + 0.22 * Math.cos(a0 - 2.2);
+    quad(m, [x0, cy, z0], [x1, cy, z1], [x1, cy + h, z1], [x0, cy + h, z0],
+         shade(col, k), null, [cx, cy + h / 2, cz]);
+    quad(m, [cx, cy + h, cz], [x0, cy + h, z0], [x1, cy + h, z1], [cx, cy + h, cz],
+         capCol || shade(col, 1.14), null, [cx, cy, cz]);
+  }
+  void ref;
+}
+
+/* A barrel, lying along +x. */
+function cylX(m, x0, cy, cz, r, len, seg, col) {
+  const x1 = x0 + len, ref = [x0 + len / 2, cy, cz];
+  for (let i = 0; i < seg; i++) {
+    const a0 = i / seg * TAU, a1 = (i + 1) / seg * TAU;
+    const y0 = cy + Math.cos(a0) * r, z0 = cz + Math.sin(a0) * r;
+    const y1 = cy + Math.cos(a1) * r, z1 = cz + Math.sin(a1) * r;
+    const k = 0.8 + 0.34 * Math.max(0, Math.cos(a0));
+    quad(m, [x0, y0, z0], [x1, y0, z0], [x1, y1, z1], [x0, y1, z1], shade(col, k), null, ref);
+    quad(m, [x1, cy, cz], [x1, y0, z0], [x1, y1, z1], [x1, cy, cz], shade(col, 1.1), null,
+         [x0, cy, cz]);
+  }
+}
+
+function spike(m, cx, cy, cz, r, h, seg, col) {
+  const ref = [cx, cy, cz];
+  for (let i = 0; i < seg; i++) {
+    const a0 = i / seg * TAU, a1 = (i + 1) / seg * TAU;
+    const x0 = cx + Math.cos(a0) * r, z0 = cz + Math.sin(a0) * r;
+    const x1 = cx + Math.cos(a1) * r, z1 = cz + Math.sin(a1) * r;
+    quad(m, [x0, cy, z0], [x1, cy, z1], [cx, cy + h, cz], [cx, cy + h, cz],
+         shade(col, 0.9 + 0.2 * Math.cos(a0)), null, ref);
+  }
+}
+
+/* ── the models ── */
+const STEEL = [0.30, 0.33, 0.36], DARK = [0.12, 0.13, 0.14], TRACK = [0.15, 0.14, 0.13];
+
+function crewHull(side) {
+  const m = MB(), C = rgb(COL[side]);
+  const L = 70, W = 60;
+  for (const sz of [-1, 1]) {
+    const z = sz * (W / 2 - 7);
+    box(m, 0, 11, z, L / 2, 10, 7, TRACK);                       // track run
+    for (let i = 0; i < 9; i++) {                                 // tread blocks
+      box(m, -L / 2 + (i + 0.5) * L / 9, 21, z, L / 26, 2.6, 8, shade(TRACK, 1.5));
+    }
+    box(m, 0, 24, sz * (W / 2 - 12), L / 2 - 6, 2, 4, shade(C, 0.7));   // fender
+  }
+  box(m, 0, 16, 0, L / 2 - 6, 9, W / 2 - 13, shade(C, 0.86));     // lower hull
+  box(m, -3, 27, 0, L / 2 - 11, 5, W / 2 - 15, C, shade(C, 1.16));// deck
+  box(m, L / 2 - 12, 24, 0, 6, 5, W / 2 - 17, shade(C, 1.05));    // glacis
+  box(m, -L / 2 + 5, 30, 0, 3, 4, W / 2 - 20, [0.93, 0.90, 0.84]);// stripe
+  box(m, -L / 2 + 2, 25, W / 2 - 16, 5, 3, 3, DARK);              // exhaust
+  box(m, -8, 31, W / 2 - 17, 7, 3, 3, shade(C, 0.6));             // stowage
+  return m;
+}
+
+function crewTurret(side) {
+  const m = MB(), C = rgb(COL[side]);
+  const base = 32;
+  cylY(m, 0, base, 0, 15.5, 12, 16, C, shade(C, 1.2));
+  box(m, 8, base + 4, 0, 9, 5, 8, shade(C, 1.05));                 // mantlet
+  cylX(m, 14, base + 5, 0, 3.6, 30, 10, DARK);                     // barrel
+  box(m, 47, base + 5, 0, 4, 4.4, 4.4, shade(DARK, 1.5));          // muzzle brake
+  cylY(m, -5, base + 12, 0, 5, 3, 10, shade(DARK, 1.6));           // hatch
+  box(m, 0, base + 12, 0, 2, 3, 15, [0.95, 0.93, 0.88]);           // recognition band
+  return m;
+}
+
+function foeModel(k) {
+  const m = MB(), K = KIND[k];
+  const big = k === JUGG || k === WARLORD;
+  const body = k === WARLORD ? [0.17, 0.19, 0.21] : [0.21, 0.24, 0.26];
+  const plate = big ? [0.35, 0.40, 0.44] : [0.28, 0.31, 0.34];
+  const L = K.r * 2, W = K.r * (big ? 1.9 : 1.65);
+  for (const sz of [-1, 1]) {
+    const z = sz * (W / 2 - 5);
+    box(m, 0, 9, z, L / 2, 9, 5.5, TRACK);
+    for (let i = 0; i < 7; i++) {
+      box(m, -L / 2 + (i + 0.5) * L / 7, 18, z, L / 22, 2.4, 6.5, shade(TRACK, 1.5));
+    }
+  }
+  box(m, 0, 15, 0, L / 2 - 4, 8, W / 2 - 9, body);
+  box(m, -2, 25, 0, L / 2 - 9, 5, W / 2 - 12, plate, shade(plate, 1.15));
+
+  const top = big ? 30 : 28;
+  if (k === HUNTER) {                                   // ram blades
+    box(m, L / 2 - 2, 16, 0, 5, 3, W / 2 - 8, [0.46, 0.20, 0.16]);
+    box(m, L / 2 + 3, 14, 0, 4, 2, W / 2 - 14, [0.55, 0.24, 0.18]);
+  }
+  if (big) {                                            // bolted armour
+    for (let i = 0; i < 4; i++) {
+      box(m, -L / 2 + 8 + i * (L - 16) / 3, 30, 0, 3, 3, W / 2 - 13, shade(plate, 0.8));
+    }
+  }
+  cylY(m, 0, top, 0, k === WARLORD ? 20 : 11, k === WARLORD ? 15 : 10, 14,
+       shade(body, 1.2), shade(body, 1.4));
+  const eye = top + (k === WARLORD ? 8 : 5);
+  const bl = k === SNIPER ? K.r + 26 : k === WARLORD ? K.r + 16 : K.r + 12;
+  if (k === WARLORD) {
+    for (const off of [-10, 10]) cylX(m, 16, eye, off, 3.4, bl, 8, DARK);
+    for (const off of [-21, 21]) cylX(m, 16, eye - 4, off, 2.8, bl * 0.7, 8, DARK);
+    for (let i = 0; i < 5; i++) {
+      const a = -1 + i * 0.5;
+      spike(m, Math.cos(a) * 18, top + 15, Math.sin(a) * 18, 4, 13, 6, plate);
+    }
+  } else {
+    cylX(m, k === WARLORD ? 16 : 8, eye, 0, k === SNIPER ? 2.8 : 3.6, bl, 8, DARK);
+    if (k === SNIPER) box(m, 8 + bl, eye, 0, 3, 4, 4, shade(DARK, 1.6));
+  }
+  /* the optic, bright enough to read as the thing that is looking at you */
+  box(m, k === WARLORD ? 12 : 6, eye + (k === WARLORD ? 6 : 4), 0,
+      3, 3.4, k === WARLORD ? 8 : 5, [1, 0.30, 0.26], [1, 0.55, 0.45]);
+  return m;
+}
+
+function crateModel(uv) {
+  const m = MB(), wood = [0.33, 0.29, 0.22];
+  box(m, 0, 0, 0, 15, 15, 15, wood, [1, 1, 1], uv);
+  for (const sz of [-1, 1]) box(m, 0, 0, sz * 15.4, 15, 4, 0.6, shade(wood, 1.4));
+  return m;
+}
+
+function unitBox() {
+  const m = MB();
+  box(m, 0, 0, 0, 0.5, 0.5, 0.5, [0.60, 0.57, 0.52], [0.74, 0.71, 0.65]);
+  return m;
+}
+
+function planeMesh() {
+  const m = MB();
+  quad(m, [-HW, 0, -HH], [HW, 0, -HH], [HW, 0, HH], [-HW, 0, HH],
+       [1, 1, 1], { u0: 0, v0: 0, u1: 1, v1: 1 }, [0, -1, 0]);
+  return m;
+}
+
+/* ── shaders ── */
+const V_MESH = `
+attribute vec3 aPos; attribute vec3 aNrm; attribute vec3 aCol; attribute vec2 aUV;
+uniform mat4 uVP; uniform mat4 uModel;
+varying vec3 vNrm; varying vec3 vCol; varying vec2 vUV; varying float vY;
+void main(){
+  vec4 w = uModel * vec4(aPos, 1.0);
+  vNrm = mat3(uModel) * aNrm;
+  vCol = aCol; vUV = aUV; vY = w.y;
+  gl_Position = uVP * w;
 }`;
 
-const F_SPRITE = `
+const F_MESH = `
 precision mediump float;
-uniform sampler2D uTex;
-varying vec2 vUV;
-varying vec4 vTint;
-void main() {
-  vec4 c = texture2D(uTex, vUV);
-  gl_FragColor = vec4(c.rgb * vTint.rgb, c.a * vTint.a);
+uniform sampler2D uTex; uniform vec3 uLight; uniform vec3 uTint; uniform float uAlpha;
+varying vec3 vNrm; varying vec3 vCol; varying vec2 vUV; varying float vY;
+void main(){
+  vec3 n = normalize(vNrm);
+  vec3 col = vCol * uTint;
+  if (vUV.x >= 0.0) col *= texture2D(uTex, vUV).rgb;
+  float d = max(dot(n, uLight), 0.0);
+  float sky = 0.34 + 0.20 * max(n.y, 0.0);
+  float bounce = 0.10 * max(-n.y, 0.0);
+  vec3 lit = col * (sky + bounce + d * 0.86);
+  lit += vec3(1.0, 0.94, 0.80) * pow(d, 22.0) * 0.28;
+  lit *= 0.94 + 0.06 * clamp(vY / 60.0, 0.0, 1.0);
+  gl_FragColor = vec4(lit, uAlpha);
 }`;
 
-/* The ground is the yard texture with the decal buffer burned over it, plus
-   a slow large-scale warp so the sand is never a flat repeat. */
-const F_GROUND = `
-precision mediump float;
-uniform sampler2D uTex;
-uniform sampler2D uDecal;
+const V_FLOOR = `
+attribute vec3 aPos; attribute vec2 aUV;
+uniform mat4 uVP;
 varying vec2 vUV;
-varying vec4 vTint;
-void main() {
-  vec4 g = texture2D(uTex, vUV);
+void main(){ vUV = aUV; gl_Position = uVP * vec4(aPos, 1.0); }`;
+
+const F_FLOOR = `
+precision mediump float;
+uniform sampler2D uTex; uniform sampler2D uDecal;
+varying vec2 vUV;
+void main(){
+  vec3 g = texture2D(uTex, vUV).rgb;
   vec4 d = texture2D(uDecal, vUV);
-  vec3 c = mix(g.rgb, d.rgb, clamp(d.a, 0.0, 1.0));
-  gl_FragColor = vec4(c * vTint.rgb, 1.0);
+  vec3 c = mix(g, d.rgb, clamp(d.a, 0.0, 1.0));
+  gl_FragColor = vec4(c * 0.98, 1.0);
 }`;
 
-const V_POST = `
-attribute vec2 aPos;
-varying vec2 vUV;
-void main() {
-  vUV = aPos * 0.5 + 0.5;
-  gl_Position = vec4(aPos, 0.0, 1.0);
-}`;
+const V_FX = `
+attribute vec3 aPos; attribute vec2 aUV; attribute vec4 aCol;
+uniform mat4 uVP;
+varying vec2 vUV; varying vec4 vCol;
+void main(){ vUV = aUV; vCol = aCol; gl_Position = uVP * vec4(aPos, 1.0); }`;
 
-/* Vignette, a damage tint that pulls the red channel outward, and a heat
-   wobble whose strength rides on how much is currently on fire. */
-const F_POST = `
+const F_FX = `
 precision mediump float;
-uniform sampler2D uScene;
-uniform float uHurt;
-uniform float uShimmer;
-uniform float uTime;
-varying vec2 vUV;
-void main() {
-  vec2 uv = vUV;
-  float wob = uShimmer * 0.004;
-  if (wob > 0.0001) {
-    uv.x += sin(uv.y * 60.0 + uTime * 7.0) * wob;
-    uv.y += cos(uv.x * 52.0 + uTime * 6.0) * wob * 0.6;
-  }
-  vec3 c = texture2D(uScene, uv).rgb;
-  if (uHurt > 0.01) {
-    vec2 off = (uv - 0.5) * uHurt * 0.012;
-    c.r = texture2D(uScene, uv + off).r;
-    c.b = texture2D(uScene, uv - off).b;
-  }
-  float d = distance(vUV, vec2(0.5, 0.5));
-  c *= 1.0 - smoothstep(0.42, 0.95, d) * 0.55;
-  c = mix(c, vec3(0.66, 0.12, 0.10), smoothstep(0.30, 0.95, d) * uHurt * 0.75);
-  gl_FragColor = vec4(c, 1.0);
+uniform sampler2D uTex;
+varying vec2 vUV; varying vec4 vCol;
+void main(){
+  vec4 t = texture2D(uTex, vUV);
+  gl_FragColor = vec4(t.rgb * vCol.rgb, t.a * vCol.a);
 }`;
 
-/* ── plumbing ────────────────────────────────────────────────────────── */
-
+/* ── plumbing ── */
 function glShader(g, type, src) {
   const s = g.createShader(type);
-  g.shaderSource(s, src);
-  g.compileShader(s);
+  g.shaderSource(s, src); g.compileShader(s);
   if (!g.getShaderParameter(s, g.COMPILE_STATUS)) {
-    GL.err = g.getShaderInfoLog(s) || 'shader failed';
-    return null;
+    GFX.err = g.getShaderInfoLog(s) || 'shader failed'; return null;
   }
   return s;
 }
-
 function glProgram(g, vs, fs, attrs, unis) {
   const v = glShader(g, g.VERTEX_SHADER, vs), f = glShader(g, g.FRAGMENT_SHADER, fs);
   if (!v || !f) return null;
   const p = g.createProgram();
   g.attachShader(p, v); g.attachShader(p, f); g.linkProgram(p);
   if (!g.getProgramParameter(p, g.LINK_STATUS)) {
-    GL.err = g.getProgramInfoLog(p) || 'link failed';
-    return null;
+    GFX.err = g.getProgramInfoLog(p) || 'link failed'; return null;
   }
   const o = { p, a: {}, u: {} };
   for (const k of attrs) o.a[k] = g.getAttribLocation(p, k);
   for (const k of unis) o.u[k] = g.getUniformLocation(p, k);
   return o;
 }
-
-function glTexture(g, src, smooth) {
+function glTex(g, src) {
   const t = g.createTexture();
   g.bindTexture(g.TEXTURE_2D, t);
+  g.pixelStorei(g.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
   g.texImage2D(g.TEXTURE_2D, 0, g.RGBA, g.RGBA, g.UNSIGNED_BYTE, src);
   g.texParameteri(g.TEXTURE_2D, g.TEXTURE_WRAP_S, g.CLAMP_TO_EDGE);
   g.texParameteri(g.TEXTURE_2D, g.TEXTURE_WRAP_T, g.CLAMP_TO_EDGE);
-  g.texParameteri(g.TEXTURE_2D, g.TEXTURE_MIN_FILTER, smooth ? g.LINEAR : g.NEAREST);
-  g.texParameteri(g.TEXTURE_2D, g.TEXTURE_MAG_FILTER, smooth ? g.LINEAR : g.NEAREST);
+  g.texParameteri(g.TEXTURE_2D, g.TEXTURE_MIN_FILTER, g.LINEAR);
+  g.texParameteri(g.TEXTURE_2D, g.TEXTURE_MAG_FILTER, g.LINEAR);
   return t;
 }
-
 function glTarget(g, w, h) {
   const t = g.createTexture();
   g.bindTexture(g.TEXTURE_2D, t);
@@ -3042,475 +3307,630 @@ function glTarget(g, w, h) {
   const fb = g.createFramebuffer();
   g.bindFramebuffer(g.FRAMEBUFFER, fb);
   g.framebufferTexture2D(g.FRAMEBUFFER, g.COLOR_ATTACHMENT0, g.TEXTURE_2D, t, 0);
-  const ready = g.checkFramebufferStatus(g.FRAMEBUFFER) === g.FRAMEBUFFER_COMPLETE;
+  const ok = g.checkFramebufferStatus(g.FRAMEBUFFER) === g.FRAMEBUFFER_COMPLETE;
   g.bindFramebuffer(g.FRAMEBUFFER, null);
-  if (!ready) { GL.err = 'framebuffer incomplete'; return null; }
+  if (!ok) { GFX.err = 'framebuffer incomplete'; return null; }
   return { fb, tex: t, w, h };
 }
 
-/* ── the atlas ───────────────────────────────────────────────────────── */
+function upload(g, m) {
+  const n = m.p.length / 3;
+  const buf = new Float32Array(n * 11);
+  for (let i = 0; i < n; i++) {
+    const o = i * 11;
+    buf[o] = m.p[i * 3]; buf[o + 1] = m.p[i * 3 + 1]; buf[o + 2] = m.p[i * 3 + 2];
+    buf[o + 3] = m.n[i * 3]; buf[o + 4] = m.n[i * 3 + 1]; buf[o + 5] = m.n[i * 3 + 2];
+    buf[o + 6] = m.c[i * 3]; buf[o + 7] = m.c[i * 3 + 1]; buf[o + 8] = m.c[i * 3 + 2];
+    buf[o + 9] = m.t[i * 2]; buf[o + 10] = m.t[i * 2 + 1];
+  }
+  const b = g.createBuffer();
+  g.bindBuffer(g.ARRAY_BUFFER, b);
+  g.bufferData(g.ARRAY_BUFFER, buf, g.STATIC_DRAW);
+  return { b, n };
+}
 
-/* A shelf packer: everything the world needs, on one texture, so the whole
-   scene is one draw call per blend mode. */
-function glPackAtlas(res) {
+/* ── the atlas: crate faces, and the sprites the additive pass needs ── */
+function packAtlas() {
   const cv = document.createElement('canvas');
   cv.width = cv.height = ATLAS;
-  GL.uv = {}; GL.dropped = 0;
   const c = cv.getContext('2d');
   c.clearRect(0, 0, ATLAS, ATLAS);
-  let x = 2, y = 2, shelf = 0;
+  GFX.uv = {};
+  let x = 2, y = 2, shelf = 0, over = 0;
 
   const put = (name, w, h, paint) => {
-    const pw = Math.ceil(w * res) + 4, ph = Math.ceil(h * res) + 4;
-    if (x + pw > ATLAS) { x = 2; y += shelf + 2; shelf = 0; }
-    if (y + ph > ATLAS) { GL.dropped++; return; }
-    c.save();
-    c.translate(x + pw / 2, y + ph / 2);
-    c.scale(res, res);
-    paint(c);
-    c.restore();
-    GL.uv[name] = { u0: (x + 2) / ATLAS, v0: (y + 2) / ATLAS,
-                    u1: (x + pw - 2) / ATLAS, v1: (y + ph - 2) / ATLAS,
-                    w: (pw - 4) / res, h: (ph - 4) / res };
-    x += pw + 2;
-    shelf = Math.max(shelf, ph);
+    if (x + w + 4 > ATLAS) { x = 2; y += shelf + 4; shelf = 0; }
+    if (y + h + 4 > ATLAS) { over = 1; return; }
+    c.save(); c.translate(x + w / 2, y + h / 2); paint(c, w, h); c.restore();
+    GFX.uv[name] = { u0: (x + 0.5) / ATLAS, v0: (y + 0.5) / ATLAS,
+                     u1: (x + w - 0.5) / ATLAS, v1: (y + h - 0.5) / ATLAS };
+    x += w + 4; shelf = Math.max(shelf, h);
   };
 
-  for (const k of SIDES) {
-    const P = crewPalette(COL[k]);
-    put(k + 'H', R * 2 + 8, R * 2, cc => paintHull(cc, P, R * 2 - 2, R * 1.7));
-    put(k + 'T', 104, 46, cc => paintTurret(cc, P, 42));
-  }
-  put('hullS', R * 2 + 12, R * 2 + 4, cc => paintHull(cc, flat(SHADE), R * 2 - 2, R * 1.7));
-  for (let k = 0; k < KIND.length; k++) {
-    const w = KIND[k].r * 2 + 48, h = KIND[k].r * 2.6;
-    put('foe' + k, w, h, cc => paintFoe(cc, k === WARLORD ? BOSS_P : FOE_P, k));
-    put('foeS' + k, w, h, cc => paintFoe(cc, flat(SHADE), k));
-  }
-  for (const k of DROPS) put('crate' + k, 58, 58, cc => paintCrate(cc, POWERS[k]));
-
-  /* the pieces only the additive pass uses */
+  for (const k of DROPS) put('face' + k, 128, 128, cc => paintCrateFace(cc, POWERS[k], 128));
   put('glow', 128, 128, cc => {
-    const g = cc.createRadialGradient(0, 0, 0, 0, 0, 62);
+    const g = cc.createRadialGradient(0, 0, 0, 0, 0, 63);
     g.addColorStop(0, 'rgba(255,255,255,1)');
-    g.addColorStop(0.35, 'rgba(255,255,255,.45)');
+    g.addColorStop(0.34, 'rgba(255,255,255,.42)');
     g.addColorStop(1, 'rgba(255,255,255,0)');
-    cc.fillStyle = g;
-    cc.beginPath(); cc.arc(0, 0, 62, 0, TAU); cc.fill();
+    cc.fillStyle = g; cc.fillRect(-64, -64, 128, 128);
   });
   put('disc', 64, 64, cc => {
-    cc.fillStyle = '#fff';
-    cc.beginPath(); cc.arc(0, 0, 30, 0, TAU); cc.fill();
-  });
-  put('ring', 160, 160, cc => {
-    cc.strokeStyle = '#fff'; cc.lineWidth = 9;
-    cc.beginPath(); cc.arc(0, 0, 70, 0, TAU); cc.stroke();
-  });
-  put('bar', 64, 16, cc => { cc.fillStyle = '#fff'; cc.fillRect(-30, -6, 60, 12); });
-  put('smoke', 128, 128, cc => {
-    const g = cc.createRadialGradient(0, 0, 0, 0, 0, 60);
-    g.addColorStop(0, 'rgba(255,255,255,.85)');
-    g.addColorStop(0.6, 'rgba(255,255,255,.35)');
+    const g = cc.createRadialGradient(0, 0, 0, 0, 0, 31);
+    g.addColorStop(0, 'rgba(255,255,255,1)');
+    g.addColorStop(0.62, 'rgba(255,255,255,.95)');
     g.addColorStop(1, 'rgba(255,255,255,0)');
-    cc.fillStyle = g;
-    cc.beginPath(); cc.arc(0, 0, 60, 0, TAU); cc.fill();
+    cc.fillStyle = g; cc.fillRect(-32, -32, 64, 64);
   });
-  put('flash', 120, 80, cc => {                    // a muzzle star, pointing +x
+  put('soft', 64, 64, cc => {
+    const g = cc.createRadialGradient(0, 0, 0, 0, 0, 31);
+    g.addColorStop(0, 'rgba(255,255,255,.95)');
+    g.addColorStop(0.55, 'rgba(255,255,255,.55)');
+    g.addColorStop(1, 'rgba(255,255,255,0)');
+    cc.fillStyle = g; cc.fillRect(-32, -32, 64, 64);
+  });
+  put('ring', 192, 192, cc => {
+    cc.strokeStyle = '#fff'; cc.lineWidth = 9;
+    cc.beginPath(); cc.arc(0, 0, 86, 0, TAU); cc.stroke();
+    cc.globalAlpha = 0.35; cc.lineWidth = 3;
+    cc.beginPath(); cc.arc(0, 0, 76, 0, TAU); cc.stroke();
+  });
+  put('bar', 64, 16, cc => { cc.fillStyle = '#fff'; cc.fillRect(-32, -8, 64, 16); });
+  put('flash', 160, 96, cc => {
     cc.fillStyle = '#fff';
     cc.beginPath();
-    cc.moveTo(-16, 0); cc.lineTo(6, -17); cc.lineTo(52, 0); cc.lineTo(6, 17);
+    cc.moveTo(-26, 0); cc.lineTo(4, -30); cc.lineTo(74, 0); cc.lineTo(4, 30);
     cc.closePath(); cc.fill();
-    cc.beginPath(); cc.arc(0, 0, 13, 0, TAU); cc.fill();
+    cc.beginPath(); cc.arc(-4, 0, 20, 0, TAU); cc.fill();
   });
-  return cv;
+  put('smoke', 128, 128, cc => {
+    const g = cc.createRadialGradient(0, 0, 0, 0, 0, 62);
+    g.addColorStop(0, 'rgba(255,255,255,.9)');
+    g.addColorStop(0.55, 'rgba(255,255,255,.4)');
+    g.addColorStop(1, 'rgba(255,255,255,0)');
+    cc.fillStyle = g; cc.fillRect(-64, -64, 128, 128);
+  });
+  return over ? null : cv;
 }
 
-function paintCrate(c, P) {
-  c.fillStyle = SHADE; c.fillRect(-12, -11, 38, 38);
-  c.fillStyle = '#4A4236'; c.fillRect(-22, -22, 44, 44);
-  c.fillStyle = '#5C5344'; c.fillRect(-21, -21, 42, 42);
-  c.fillStyle = P.c; c.fillRect(-16, -16, 32, 32);
-  const g = c.createLinearGradient(0, -16, 0, 16);
-  g.addColorStop(0, 'rgba(255,255,255,.34)');
-  g.addColorStop(1, 'rgba(0,0,0,.16)');
-  c.fillStyle = g; c.fillRect(-16, -16, 32, 32);
-  c.fillStyle = '#241F17';
-  c.font = '700 25px "Share Tech Mono",ui-monospace,monospace';
-  c.textAlign = 'center'; c.textBaseline = 'middle';
-  c.fillText(P.tag, 0, 1);
-}
-
-/* ── build ───────────────────────────────────────────────────────────── */
-
-function glInit() {
-  if (GL.tried) return GL.on;
-  GL.tried = 1;
+/* ── build ── */
+function gfxInit() {
+  if (GFX.tried) return GFX.on;
+  GFX.tried = 1;
   try {
     const board = document.getElementById('board');
-    if (!board || !board.parentNode) { GL.err = 'no board'; return 0; }
+    if (!board || !board.parentNode || typeof WebGLRenderingContext === 'undefined') {
+      GFX.err = 'no board'; return 0;
+    }
     const cv = document.createElement('canvas');
-    cv.id = 'glboard';
+    cv.id = 'yard3d';
     cv.setAttribute('aria-hidden', 'true');
     cv.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block';
     board.parentNode.insertBefore(cv, board);
-    const g = cv.getContext('webgl', { alpha: true, antialias: true, depth: false,
-                                       premultipliedAlpha: false })
-           || cv.getContext('experimental-webgl', { alpha: true, antialias: true });
-    if (!g) { GL.err = 'no webgl context'; return 0; }
-    GL.cv = cv; GL.g = g;
+    const opts = { alpha: false, antialias: true, depth: true, stencil: false,
+                   premultipliedAlpha: false, powerPreference: 'high-performance' };
+    const g = cv.getContext('webgl', opts) || cv.getContext('experimental-webgl', opts);
+    if (!g) { GFX.err = 'no webgl'; cv.remove(); return 0; }
+    GFX.cv = cv; GFX.g = g;
+    cv.addEventListener('webglcontextlost', e => { e.preventDefault(); gfxDown('context lost'); });
 
-    GL.sprite = glProgram(g, V_SPRITE, F_SPRITE, ['aPos', 'aUV', 'aTint'],
-                          ['uCam', 'uView', 'uTex']);
-    GL.groundP = glProgram(g, V_SPRITE, F_GROUND, ['aPos', 'aUV', 'aTint'],
-                           ['uCam', 'uView', 'uTex', 'uDecal']);
-    GL.postP = glProgram(g, V_POST, F_POST, ['aPos'],
-                         ['uScene', 'uHurt', 'uShimmer', 'uTime']);
-    if (!GL.sprite || !GL.groundP || !GL.postP) return 0;
+    GFX.mesh = glProgram(g, V_MESH, F_MESH, ['aPos', 'aNrm', 'aCol', 'aUV'],
+                         ['uVP', 'uModel', 'uTex', 'uLight', 'uTint', 'uAlpha']);
+    GFX.floor = glProgram(g, V_FLOOR, F_FLOOR, ['aPos', 'aUV'], ['uVP', 'uTex', 'uDecal']);
+    GFX.fx = glProgram(g, V_FX, F_FX, ['aPos', 'aUV', 'aCol'], ['uVP', 'uTex']);
+    if (!GFX.mesh || !GFX.floor || !GFX.fx) { gfxDown(GFX.err); return 0; }
 
-    /* one interleaved buffer: x, y, u, v, r, g, b, a */
-    GL.verts = new Float32Array(GL.cap * 4 * 8);
-    GL.vbo = g.createBuffer();
-    g.bindBuffer(g.ARRAY_BUFFER, GL.vbo);
-    g.bufferData(g.ARRAY_BUFFER, GL.verts.byteLength, g.DYNAMIC_DRAW);
+    const sheet = packAtlas();
+    if (!sheet) { gfxDown('atlas overflow'); return 0; }
+    GFX.atlas = glTex(g, sheet);
+    GFX.on = 1;                                   // paintYard reads this
+    GFX.ground = glTex(g, paintYard(1024 / (HW * 2)).cv);
 
-    const idx = new Uint16Array(GL.cap * 6);
-    for (let i = 0; i < GL.cap; i++) {
+    for (const k of SIDES) {
+      GFX.M[k + 'H'] = upload(g, crewHull(k));
+      GFX.M[k + 'T'] = upload(g, crewTurret(k));
+    }
+    for (let k = 0; k < KIND.length; k++) GFX.M['foe' + k] = upload(g, foeModel(k));
+    for (const k of DROPS) GFX.M['crate' + k] = upload(g, crateModel(GFX.uv['face' + k]));
+    GFX.M.unit = upload(g, unitBox());
+    GFX.M.plane = upload(g, planeMesh());
+
+    GFX.verts = new Float32Array(GFX.cap * 4 * 9);
+    GFX.vbo = g.createBuffer();
+    g.bindBuffer(g.ARRAY_BUFFER, GFX.vbo);
+    g.bufferData(g.ARRAY_BUFFER, GFX.verts.byteLength, g.DYNAMIC_DRAW);
+    const idx = new Uint16Array(GFX.cap * 6);
+    for (let i = 0; i < GFX.cap; i++) {
       const o = i * 4;
       idx.set([o, o + 1, o + 2, o, o + 2, o + 3], i * 6);
     }
-    GL.ibo = g.createBuffer();
-    g.bindBuffer(g.ELEMENT_ARRAY_BUFFER, GL.ibo);
+    GFX.ibo = g.createBuffer();
+    g.bindBuffer(g.ELEMENT_ARRAY_BUFFER, GFX.ibo);
     g.bufferData(g.ELEMENT_ARRAY_BUFFER, idx, g.STATIC_DRAW);
 
-    GL.quad = g.createBuffer();
-    g.bindBuffer(g.ARRAY_BUFFER, GL.quad);
-    g.bufferData(g.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), g.STATIC_DRAW);
-
-    let sheet = null;
-    for (const res of [ATLAS_RES, 2.6, 2.0, 1.5]) {   // drop detail before dropping art
-      sheet = glPackAtlas(res);
-      if (!GL.dropped) break;
-    }
-    if (GL.dropped) { GL.err = 'atlas overflow'; return 0; }
-    GL.uv.__ground = { u0: 0, v0: 0, u1: 1, v1: 1, w: HW * 2, h: HH * 2 };
-    GL.atlas = glTexture(g, sheet, true);
-    GL.ground = glTexture(g, paintYard(GROUND_W / (HW * 2)).cv, true);
-
-    GL.decal = glTarget(g, DECAL_N, DECAL_N);
-    if (!GL.decal) return 0;
-    g.bindFramebuffer(g.FRAMEBUFFER, GL.decal.fb);
-    g.clearColor(0, 0, 0, 0);
-    g.clear(g.COLOR_BUFFER_BIT);
+    GFX.decal = glTarget(g, DECAL_N, DECAL_N);
+    if (!GFX.decal) { gfxDown('no decal target'); return 0; }
+    g.bindFramebuffer(g.FRAMEBUFFER, GFX.decal.fb);
+    g.clearColor(0, 0, 0, 0); g.clear(g.COLOR_BUFFER_BIT);
     g.bindFramebuffer(g.FRAMEBUFFER, null);
 
-    g.disable(g.DEPTH_TEST);
+    g.enable(g.DEPTH_TEST);
+    g.depthFunc(g.LEQUAL);
+    /* Every face carries a normal that was pushed outward when it was built,
+       so lighting is right whichever way the corners were listed — but that
+       also means the winding is not dependable, and culling has to stay off. */
+    g.disable(g.CULL_FACE);
     g.enable(g.BLEND);
-    GL.on = 1;
     return 1;
   } catch (e) {
-    GL.err = (e && e.message) || 'gl init threw';
+    gfxDown((e && e.message) || 'init threw');
     return 0;
   }
 }
 
-/* ── batching ────────────────────────────────────────────────────────── */
+/* One way down, from anywhere, at any time: drop the canvas and let the
+   sprite renderer have the next frame. */
+function gfxDown(why) {
+  GFX.on = 0; GFX.err = why || GFX.err;
+  DECALS.length = 0;
+  if (GFX.cv && GFX.cv.parentNode) GFX.cv.parentNode.removeChild(GFX.cv);
+  GFX.cv = null; GFX.g = null;
+  ART.bg = null; ART.ready = 0; ART.s = {};      // the yard is repainted flat
+}
 
-function glQuad(name, cx, cy, ang, scale, r, gg, b, a, wOver, hOver) {
-  const uv = GL.uv[name];
-  if (!uv || GL.n >= GL.cap) return;
-  const hw = (wOver || uv.w) * (scale || 1) / 2, hh = (hOver || uv.h) * (scale || 1) / 2;
-  const co = ang ? Math.cos(ang) : 1, si = ang ? Math.sin(ang) : 0;
-  const v = GL.verts;
-  let o = GL.n * 32;
-  const xs = [-hw, hw, hw, -hw], ys = [-hh, -hh, hh, hh];
-  const us = [uv.u0, uv.u1, uv.u1, uv.u0], vs = [uv.v0, uv.v0, uv.v1, uv.v1];
+/* ── the camera ────────────────────────────────────────────────────────
+   Tilted, and framed by fitting the yard rather than by a hand-picked
+   distance, so the same code holds a phone in portrait, a phone on its side
+   and a laptop window. Nothing ever leaves the frame that used to be in it:
+   the whole yard is inside the view at every aspect ratio, exactly as it was
+   when this was drawn flat.
+   ─────────────────────────────────────────────────────────────────────── */
+const CAM = { pitch: 1.06, fov: 0.80, eye: [0, 0, 0], tx: 0, tz: 0 };
+const _proj = new Float32Array(16), _view = new Float32Array(16);
+const DECAL_VP = new Float32Array([1 / HW, 0, 0, 0, 0, 0, 0, 0, 0, 1 / HH, 0, 0, 0, 0, 0, 1]);
+
+function camera(x, v, r) {
+  const asp = GFX.W / GFX.H;
+  const tanV = Math.tan(CAM.fov / 2), tanH = tanV * asp;
+  const sp = Math.sin(CAM.pitch), cp = Math.cos(CAM.pitch);
+  const fwd = [0, -sp, -cp], up = [0, cp, -sp];
+
+  /* a little lean toward your own tank, never enough to lose a corner */
+  const me = v && v[MY];
+  const want = me ? [clamp(me.x * 0.10, -64, 64), clamp(me.y * 0.10, -80, 80)] : [0, 0];
+  CAM.tx += (want[0] - CAM.tx) * 0.04;
+  CAM.tz += (want[1] - CAM.tz) * 0.04;
+  const tx = CAM.tx, tz = CAM.tz;
+
+  let D = 500;
+  for (let i = 0; i < 8; i++) {
+    const px = (i & 1 ? HW + 34 : -HW - 34) - tx;
+    const pz = (i & 2 ? HH + 34 : -HH - 34) - tz;
+    const py = (i & 4) ? 96 : 0;
+    const a = px, b = py * up[1] + pz * up[2], c = py * fwd[1] + pz * fwd[2];
+    D = Math.max(D, Math.abs(a) / tanH - c, Math.abs(b) / tanV - c);
+  }
+  const ex = tx, ey = sp * D, ez = tz + cp * D;
+  CAM.eye = [ex, ey, ez];
+
+  mPersp(CAM.fov, asp, 40, D * 2.6, _proj);
+  mLook(ex, ey, ez, tx, 0, tz, _view);
+  mMul(_proj, _view, GFX.vp);
+
+  /* the engine's screen shake, lifted straight out of its own transform and
+     folded into clip space so both layers shake as one */
+  let sx = 0, sy = 0;
+  try {
+    const m = x.getTransform(), dpr = GFX.W / Math.max(1, r.w);
+    sx = m.e / dpr - r.w / 2; sy = m.f / dpr - r.h / 2;
+  } catch (e) { /* older context, no shake */ }
+  if (sx || sy) {
+    const nx = 2 * sx / Math.max(1, r.w), ny = -2 * sy / Math.max(1, r.h);
+    const P = GFX.vp;
+    for (let c = 0; c < 4; c++) {
+      P[c * 4] += nx * P[c * 4 + 3];
+      P[c * 4 + 1] += ny * P[c * 4 + 3];
+    }
+  }
+  GFX.right = [_view[0], _view[4], _view[8]];
+  GFX.up = [_view[1], _view[5], _view[9]];
+}
+
+/* ── the batch the flat art goes through ── */
+function fxBegin() { GFX.n = 0; }
+
+function fxPush(uv, ax, ay, az, bx, by, bz, cx, cy, cz, dx, dy, dz, r, g, b, a) {
+  if (!uv || GFX.n >= GFX.cap || a <= 0.002) return;
+  const V = GFX.verts;
+  let o = GFX.n * 36;
+  const P = [ax, ay, az, bx, by, bz, cx, cy, cz, dx, dy, dz];
+  const U = [uv.u0, uv.v0, uv.u1, uv.v0, uv.u1, uv.v1, uv.u0, uv.v1];
   for (let i = 0; i < 4; i++) {
-    v[o] = cx + xs[i] * co - ys[i] * si;
-    v[o + 1] = cy + xs[i] * si + ys[i] * co;
-    v[o + 2] = us[i]; v[o + 3] = vs[i];
-    v[o + 4] = r; v[o + 5] = gg; v[o + 6] = b; v[o + 7] = a;
-    o += 8;
+    V[o] = P[i * 3]; V[o + 1] = P[i * 3 + 1]; V[o + 2] = P[i * 3 + 2];
+    V[o + 3] = U[i * 2]; V[o + 4] = U[i * 2 + 1];
+    V[o + 5] = r; V[o + 6] = g; V[o + 7] = b; V[o + 8] = a;
+    o += 9;
   }
-  GL.n++;
+  GFX.n++;
 }
 
-/* a quad between two points, for tracers and beams */
-function glBeam(name, x0, y0, x1, y1, width, r, gg, b, a) {
-  const dx = x1 - x0, dy = y1 - y0;
-  const len = Math.hypot(dx, dy) || 1;
-  glQuad(name, (x0 + x1) / 2, (y0 + y1) / 2, Math.atan2(dy, dx), 1,
-         r, gg, b, a, len, width);
+/* facing the camera: fire, smoke, sparks */
+function fxBill(uv, x, y, z, w, h, r, g, b, a) {
+  const R0 = GFX.right, U0 = GFX.up, hw = w / 2, hh = h / 2;
+  const rx = R0[0] * hw, ry = R0[1] * hw, rz = R0[2] * hw;
+  const ux = U0[0] * hh, uy = U0[1] * hh, uz = U0[2] * hh;
+  fxPush(uv, x - rx + ux, y - ry + uy, z - rz + uz,
+             x + rx + ux, y + ry + uy, z + rz + uz,
+             x + rx - ux, y + ry - uy, z + rz - uz,
+             x - rx - ux, y - ry - uy, z - rz - uz, r, g, b, a);
 }
 
-function glFlush(prog, tex, cam, additive) {
-  const g = GL.g;
-  if (!GL.n) return;
-  g.useProgram(prog.p);
-  g.bindBuffer(g.ARRAY_BUFFER, GL.vbo);
-  g.bufferSubData(g.ARRAY_BUFFER, 0, GL.verts.subarray(0, GL.n * 32));
-  g.bindBuffer(g.ELEMENT_ARRAY_BUFFER, GL.ibo);
-  const st = 32;
-  g.enableVertexAttribArray(prog.a.aPos);
-  g.vertexAttribPointer(prog.a.aPos, 2, g.FLOAT, false, st, 0);
-  g.enableVertexAttribArray(prog.a.aUV);
-  g.vertexAttribPointer(prog.a.aUV, 2, g.FLOAT, false, st, 8);
-  g.enableVertexAttribArray(prog.a.aTint);
-  g.vertexAttribPointer(prog.a.aTint, 4, g.FLOAT, false, st, 16);
-  g.uniformMatrix3fv(prog.u.uCam, false, cam);
-  g.uniform2f(prog.u.uView, GL.W, GL.H);
+/* lying on the sand: shadows, rings, blast waves */
+function fxFlat(uv, x, z, w, h, y, r, g, b, a, ang) {
+  const c = Math.cos(ang || 0), s = Math.sin(ang || 0), hw = w / 2, hh = h / 2;
+  const ax = c * hw, az = s * hw, bx = -s * hh, bz = c * hh;
+  fxPush(uv, x - ax - bx, y, z - az - bz,
+             x + ax - bx, y, z + az - bz,
+             x + ax + bx, y, z + az + bz,
+             x - ax + bx, y, z - az + bz, r, g, b, a);
+}
+
+/* a strip between two points, a hand above the sand: tracers and lances */
+function fxBeam(uv, x0, z0, x1, z1, wide, y, r, g, b, a) {
+  const dx = x1 - x0, dz = z1 - z0;
+  const l = Math.hypot(dx, dz) || 1;
+  const nx = -dz / l * wide / 2, nz = dx / l * wide / 2;
+  fxPush(uv, x0 - nx, y, z0 - nz, x1 - nx, y, z1 - nz,
+             x1 + nx, y, z1 + nz, x0 + nx, y, z0 + nz, r, g, b, a);
+}
+
+function fxFlush(vp, additive) {
+  const g = GFX.g, P = GFX.fx;
+  if (!GFX.n) return;
+  g.useProgram(P.p);
+  g.bindBuffer(g.ARRAY_BUFFER, GFX.vbo);
+  g.bufferSubData(g.ARRAY_BUFFER, 0, GFX.verts.subarray(0, GFX.n * 36));
+  g.bindBuffer(g.ELEMENT_ARRAY_BUFFER, GFX.ibo);
+  g.enableVertexAttribArray(P.a.aPos);
+  g.vertexAttribPointer(P.a.aPos, 3, g.FLOAT, false, 36, 0);
+  g.enableVertexAttribArray(P.a.aUV);
+  g.vertexAttribPointer(P.a.aUV, 2, g.FLOAT, false, 36, 12);
+  g.enableVertexAttribArray(P.a.aCol);
+  g.vertexAttribPointer(P.a.aCol, 4, g.FLOAT, false, 36, 20);
+  g.uniformMatrix4fv(P.u.uVP, false, vp);
   g.activeTexture(g.TEXTURE0);
-  g.bindTexture(g.TEXTURE_2D, tex);
-  g.uniform1i(prog.u.uTex, 0);
-  if (prog.u.uDecal) {
-    g.activeTexture(g.TEXTURE1);
-    g.bindTexture(g.TEXTURE_2D, GL.decal.tex);
-    g.uniform1i(prog.u.uDecal, 1);
-  }
+  g.bindTexture(g.TEXTURE_2D, GFX.atlas);
+  g.uniform1i(P.u.uTex, 0);
   g.blendFunc(g.SRC_ALPHA, additive ? g.ONE : g.ONE_MINUS_SRC_ALPHA);
-  g.drawElements(g.TRIANGLES, GL.n * 6, g.UNSIGNED_SHORT, 0);
-  GL.n = 0;
+  g.drawElements(g.TRIANGLES, GFX.n * 6, g.UNSIGNED_SHORT, 0);
+  GFX.n = 0;
 }
 
-/* ── decals ──────────────────────────────────────────────────────────── */
-
-/* Scars are stamped into a framebuffer the size of the yard and stay there,
-   so four minutes of driving costs nothing to keep on screen. */
-function glDecals() {
-  if (!DECALS.length) return;
-  const g = GL.g;
-  g.bindFramebuffer(g.FRAMEBUFFER, GL.decal.fb);
+/* Scars are stamped into a texture the size of the yard and stay there, so
+   four minutes of driving costs one draw call a frame to keep on screen. */
+function stampDecals() {
+  if (!DECALS.length || !GFX.decal) { DECALS.length = 0; return; }
+  const g = GFX.g;
+  g.bindFramebuffer(g.FRAMEBUFFER, GFX.decal.fb);
   g.viewport(0, 0, DECAL_N, DECAL_N);
-  const sx = DECAL_N / (HW * 2), sy = DECAL_N / (HH * 2);
-  const cam = new Float32Array([sx, 0, 0, 0, sy, 0, DECAL_N / 2, DECAL_N / 2, 1]);
-  const wasW = GL.W, wasH = GL.H;
-  GL.W = DECAL_N; GL.H = DECAL_N;
+  g.disable(g.DEPTH_TEST);
+  fxBegin();
   for (const d of DECALS) {
     if (d.k === 'scar') {
-      glQuad('bar', d.x, d.y, d.a, 1, 0.30, 0.25, 0.17, 0.20, d.w, 7);
-      glQuad('bar', d.x2, d.y2, d.a, 1, 0.30, 0.25, 0.17, 0.20, d.w, 7);
+      fxBeam(GFX.uv.bar, d.x, d.y, d.x2, d.y2, 8, 0, 0.30, 0.25, 0.17, 0.22);
     } else {
-      glQuad('glow', d.x, d.y, 0, 1, 0.16, 0.12, 0.08, 0.55, d.r * 3, d.r * 3);
+      fxBill(GFX.uv.soft, d.x, 0, d.y, d.r * 3.4, d.r * 3.4, 0.16, 0.12, 0.08, 0.5);
+      /* the billboard basis is the camera's; on this pass it must lie flat */
+      const q = GFX.n - 1;
+      if (q >= 0) {
+        const V = GFX.verts, o = q * 36, s = d.r * 1.7;
+        const pts = [[-s, -s], [s, -s], [s, s], [-s, s]];
+        for (let i = 0; i < 4; i++) {
+          V[o + i * 9] = d.x + pts[i][0];
+          V[o + i * 9 + 1] = 0;
+          V[o + i * 9 + 2] = d.y + pts[i][1];
+        }
+      }
     }
-    if (GL.n > GL.cap - 4) glFlush(GL.sprite, GL.atlas, cam, false);
+    if (GFX.n >= GFX.cap - 2) fxFlush(DECAL_VP, false);
   }
-  glFlush(GL.sprite, GL.atlas, cam, false);
+  fxFlush(DECAL_VP, false);
   DECALS.length = 0;
-  GL.W = wasW; GL.H = wasH;
+  g.enable(g.DEPTH_TEST);
   g.bindFramebuffer(g.FRAMEBUFFER, null);
-  g.viewport(0, 0, GL.W, GL.H);
+  g.viewport(0, 0, GFX.W, GFX.H);
 }
 
-function glWipeDecals() {
-  const g = GL.g;
+function wipeDecals() {
   DECALS.length = 0;
-  g.bindFramebuffer(g.FRAMEBUFFER, GL.decal.fb);
+  if (!GFX.on || !GFX.decal) return;
+  const g = GFX.g;
+  g.bindFramebuffer(g.FRAMEBUFFER, GFX.decal.fb);
   g.viewport(0, 0, DECAL_N, DECAL_N);
   g.clearColor(0, 0, 0, 0);
   g.clear(g.COLOR_BUFFER_BIT);
   g.bindFramebuffer(g.FRAMEBUFFER, null);
-  g.viewport(0, 0, GL.W, GL.H);
+  g.viewport(0, 0, GFX.W, GFX.H);
 }
 
-/* ── the frame ───────────────────────────────────────────────────────── */
+/* ── one solid model ── */
+function drawMesh(name, tx, ty, tz, ang, tint, sx, sy, sz) {
+  const M = GFX.M[name];
+  if (!M) return;
+  const g = GFX.g, P = GFX.mesh;
+  mModel(tx, ty, tz, ang, sx === undefined ? 1 : sx,
+         sy === undefined ? (sx === undefined ? 1 : sx) : sy,
+         sz === undefined ? (sx === undefined ? 1 : sx) : sz, MODEL);
+  g.bindBuffer(g.ARRAY_BUFFER, M.b);
+  g.vertexAttribPointer(P.a.aPos, 3, g.FLOAT, false, 44, 0);
+  g.vertexAttribPointer(P.a.aNrm, 3, g.FLOAT, false, 44, 12);
+  g.vertexAttribPointer(P.a.aCol, 3, g.FLOAT, false, 44, 24);
+  g.vertexAttribPointer(P.a.aUV, 2, g.FLOAT, false, 44, 36);
+  g.uniformMatrix4fv(P.u.uModel, false, MODEL);
+  g.uniform3f(P.u.uTint, tint ? tint[0] : 1, tint ? tint[1] : 1, tint ? tint[2] : 1);
+  g.drawArrays(g.TRIANGLES, 0, M.n);
+}
 
-function glRender(x, v, r, t, dt) {
-  const g = GL.g;
-  const board = document.getElementById('board');
-
-  /* match the engine's backing store exactly */
-  const W = board.width, H = board.height;
-  if (W !== GL.W || H !== GL.H) {
-    GL.W = W; GL.H = H;
-    GL.cv.width = W; GL.cv.height = H;
-    if (GL.scene) { g.deleteTexture(GL.scene.tex); g.deleteFramebuffer(GL.scene.fb); }
-    GL.scene = glTarget(g, W, H);
+/* ── the frame ── */
+function gfxFrame(x, v, r, t, dt) {
+  const g = GFX.g, board = document.getElementById('board');
+  const W = Math.max(1, board.width), H = Math.max(1, board.height);
+  if (W !== GFX.W || H !== GFX.H) {
+    GFX.W = W; GFX.H = H; GFX.cv.width = W; GFX.cv.height = H;
   }
-
-  /* the engine's own transform, shake and all */
-  let m;
-  try { m = x.getTransform(); } catch (e) { m = null; }
-  const cam = m ? new Float32Array([m.a, m.b, 0, m.c, m.d, 0, m.e, m.f, 1])
-                : new Float32Array([r.scale, 0, 0, 0, r.scale, 0, W / 2, H / 2, 1]);
-
-  glDecals();
-
-  const target = GL.scene;
-  g.bindFramebuffer(g.FRAMEBUFFER, target ? target.fb : null);
+  GFX.dpr = W / Math.max(1, r.w);
   g.viewport(0, 0, W, H);
-  g.clearColor(0.098, 0.090, 0.071, 1);
-  g.clear(g.COLOR_BUFFER_BIT);
+  camera(x, v, r);
+  stampDecals();
 
-  /* 1 · ground + decals */
-  glQuad('__ground', 0, 0, 0, 1, 1, 1, 1, 1, HW * 2, HH * 2);
-  glFlush(GL.groundP, GL.ground, cam, false);
+  g.clearColor(0.075, 0.068, 0.055, 1);
+  g.depthMask(true);
+  g.clear(g.COLOR_BUFFER_BIT | g.DEPTH_BUFFER_BIT);
 
-  /* 2 · everything solid, one draw */
-  for (const c of v.crates || []) {
-    if (c.life < 4 && Math.sin(t * 18) < 0) continue;
-    const bob = 1 + Math.sin(t * 3 + c.x) * 0.04;
-    glQuad('crate' + c.k, c.x, c.y, 0, bob, 1, 1, 1, 1);
+  /* 1 · the sand, with everything the match has scratched into it */
+  {
+    const P = GFX.floor, M = GFX.M.plane;
+    g.useProgram(P.p);
+    g.bindBuffer(g.ARRAY_BUFFER, M.b);
+    g.enableVertexAttribArray(P.a.aPos);
+    g.vertexAttribPointer(P.a.aPos, 3, g.FLOAT, false, 44, 0);
+    g.enableVertexAttribArray(P.a.aUV);
+    g.vertexAttribPointer(P.a.aUV, 2, g.FLOAT, false, 44, 36);
+    g.uniformMatrix4fv(P.u.uVP, false, GFX.vp);
+    g.activeTexture(g.TEXTURE0); g.bindTexture(g.TEXTURE_2D, GFX.ground);
+    g.uniform1i(P.u.uTex, 0);
+    g.activeTexture(g.TEXTURE1); g.bindTexture(g.TEXTURE_2D, GFX.decal.tex);
+    g.uniform1i(P.u.uDecal, 1);
+    g.disable(g.BLEND);
+    g.drawArrays(g.TRIANGLES, 0, M.n);
+    g.enable(g.BLEND);
+    g.disableVertexAttribArray(P.a.aUV);
   }
-  for (const e of v.foes || []) {
-    if (e.sp <= 0) glQuad('foeS' + e.k, e.x + SUN_X, e.y + SUN_Y, e.a, 1, 1, 1, 1, 1);
-  }
-  for (const k of SIDES) {
-    const p = v[k];
-    if (p && p.dead <= 0) glQuad('hullS', p.x + SUN_X, p.y + SUN_Y, p.a, 1, 1, 1, 1, 1);
-  }
+
+  /* 2 · soft shadows, laid down before anything stands on them */
+  g.depthMask(false);
+  fxBegin();
+  const sh = GFX.uv.soft;
+  for (const c of v.crates || []) fxFlat(sh, c.x + 16, c.y + 13, 76, 76, 0.6, 0, 0, 0, 0.34);
   for (const e of v.foes || []) {
     if (e.sp > 0) continue;
-    const k = clamp(e.hp / KIND[e.k].hp, 0, 1);
-    const burn = 0.55 + k * 0.45;                 // battered hulls go dark
-    glQuad('foe' + e.k, e.x, e.y, e.a, 1, burn, burn, burn, 1);
-  }
-  for (const k of SIDES) {
-    const p = v[k];
-    if (!p) continue;
-    if (p.dead > 0) { glQuad(k + 'H', p.x, p.y, p.a, 1, 0.5, 0.45, 0.4, 0.55); continue; }
-    const f = p.hit > 0 ? 1 + clamp(p.hit / 0.25, 0, 1) * 1.4 : 1;
-    glQuad(k + 'H', p.x, p.y, p.a, 1, f, f, f, 1);
-    glQuad(k + 'T', p.x, p.y, p.ta, 1, f, f, f, 1);
-  }
-  glFlush(GL.sprite, GL.atlas, cam, false);
-
-  /* 3 · light: fire, tracers, flashes, optics — added, not mixed */
-  GL.shimmer = 0;
-  for (const e of v.foes || []) {
-    if (e.sp > 0) {                                // arriving
-      const k = 1 - e.sp / HOLD;
-      glQuad('ring', e.x, e.y, 0, 1, 1, 0.3, 0.3, 0.5 * k,
-             (KIND[e.k].r + 34 * (1 - k)) * 2.4, (KIND[e.k].r + 34 * (1 - k)) * 2.4);
-      continue;
-    }
-    const lit = e.k === WARLORD ? 34 : 17;
-    glQuad('glow', e.x, e.y, 0, 1, 1, 0.28, 0.24, 0.55, lit, lit);
-    if (e.ch > 0) {                                // the sniper laying its line
-      const k = 1 - e.ch / 1.25;
-      glBeam('disc', e.x, e.y, e.x + Math.cos(e.a) * 900, e.y + Math.sin(e.a) * 900,
-             2 + k * 5, 1, 0.24, 0.24, 0.25 + k * 0.55);
-    }
-  }
-  for (const o of v.shots || []) {
-    const SH = SHELL[o.k], tail = o.k === RAILSHOT ? 130 : 34;
-    const c = SH.glow;
-    glBeam('disc', o.x, o.y, o.x - Math.cos(o.a) * tail, o.y - Math.sin(o.a) * tail,
-           SH.r * 1.7, c[0], c[1], c[2], 0.9);
-    glQuad('glow', o.x, o.y, 0, 1, c[0], c[1], c[2], 0.75, SH.r * 9, SH.r * 9);
+    const s = KIND[e.k].r * 3.1;
+    fxFlat(sh, e.x + HULL_SH_X, e.y + HULL_SH_Y, s, s, 0.6, 0, 0, 0, 0.42);
   }
   for (const k of SIDES) {
     const p = v[k];
     if (!p || p.dead > 0) continue;
+    fxFlat(sh, p.x + HULL_SH_X, p.y + HULL_SH_Y, R * 3.2, R * 3.2, 0.6, 0, 0, 0, 0.44);
+  }
+  fxFlush(GFX.vp, false);
+  g.depthMask(true);
+
+  /* 3 · everything solid */
+  {
+    const P = GFX.mesh;
+    g.useProgram(P.p);
+    for (const a of ['aPos', 'aNrm', 'aCol', 'aUV']) g.enableVertexAttribArray(P.a[a]);
+    g.uniformMatrix4fv(P.u.uVP, false, GFX.vp);
+    g.uniform3f(P.u.uLight, LIGHT[0], LIGHT[1], LIGHT[2]);
+    g.uniform1f(P.u.uAlpha, 1);
+    g.activeTexture(g.TEXTURE0); g.bindTexture(g.TEXTURE_2D, GFX.atlas);
+    g.uniform1i(P.u.uTex, 0);
+    g.disable(g.BLEND);
+
+    for (const w of WALLS) {
+      drawMesh('unit', w[0], WALL_H / 2, w[1], 0, null, w[2] * 2, WALL_H, w[3] * 2);
+    }
+    for (const c of v.crates || []) {
+      if (c.life < 4 && Math.sin(t * 18) < 0) continue;
+      const bob = Math.sin(t * 2.6 + c.x * 0.05) * 3;
+      drawMesh('crate' + c.k, c.x, 17 + bob, c.y, -t * 0.7, null, 1);
+    }
+    for (const e of v.foes || []) {
+      if (e.sp > 0) continue;
+      const k = clamp(e.hp / KIND[e.k].hp, 0, 1);
+      const burn = 0.62 + k * 0.38;
+      drawMesh('foe' + e.k, e.x, 0, e.y, e.a, [burn, burn * 0.98, burn * 0.96]);
+    }
+    for (const k of SIDES) {
+      const p = v[k];
+      if (!p) continue;
+      if (p.dead > 0) {
+        drawMesh(k + 'H', p.x, 0, p.y, p.a, [0.34, 0.31, 0.29]);
+        drawMesh(k + 'T', p.x, 0, p.y, p.ta, [0.30, 0.28, 0.26]);
+        continue;
+      }
+      const f = p.hit > 0 ? 1 + clamp(p.hit / 0.25, 0, 1) * 1.5 : 1;
+      drawMesh(k + 'H', p.x, 0, p.y, p.a, [f, f, f]);
+      drawMesh(k + 'T', p.x, 0, p.y, p.ta, [f, f, f]);
+    }
+    g.enable(g.BLEND);
+    for (const a of ['aNrm', 'aCol', 'aUV']) g.disableVertexAttribArray(P.a[a]);
+  }
+
+  /* 4 · light: fire, tracers, optics, rings — added, never mixed */
+  g.depthMask(false);
+  fxBegin();
+  const glow = GFX.uv.glow, disc = GFX.uv.disc, ring = GFX.uv.ring;
+
+  for (const e of v.foes || []) {
+    const K = KIND[e.k];
+    if (e.sp > 0) {
+      const k = 1 - e.sp / HOLD, rr = (K.r + 40 * (1 - k)) * 2.4;
+      fxFlat(ring, e.x, e.y, rr, rr, 1.2, 1, 0.30, 0.30, 0.30 + k * 0.5);
+      continue;
+    }
+    const eye = (e.k === WARLORD ? 44 : 34);
+    const lit = e.k === WARLORD ? 60 : 30;
+    fxBill(glow, e.x + Math.cos(e.a) * 8, eye, e.y + Math.sin(e.a) * 8, lit, lit,
+           1, 0.26, 0.22, 0.55);
+    if (e.ch > 0) {
+      const k = 1 - e.ch / 1.25;
+      fxBeam(disc, e.x, e.y, e.x + Math.cos(e.a) * 900, e.y + Math.sin(e.a) * 900,
+             3 + k * 7, 26, 1, 0.24, 0.24, 0.22 + k * 0.55);
+    }
+  }
+
+  for (const o of v.shots || []) {
+    const SH = SHELL[o.k], tail = o.k === RAILSHOT ? 150 : 40, c = SH.glow;
+    fxBeam(disc, o.x, o.y, o.x - Math.cos(o.a) * tail, o.y - Math.sin(o.a) * tail,
+           SH.r * 2.1, 22, c[0], c[1], c[2], 0.92);
+    fxBill(glow, o.x, 22, o.y, SH.r * 9, SH.r * 9, c[0], c[1], c[2], 0.72);
+  }
+
+  for (const k of SIDES) {
+    const p = v[k];
+    if (!p || p.dead > 0) continue;
     if (p.pw === PULSE) {
-      glQuad('ring', p.x, p.y, 0, 1, 0.37, 0.83, 0.75, 0.5,
-             PULSE_R * 2.05, PULSE_R * 2.05);
-      glQuad('glow', p.x, p.y, 0, 1, 0.37, 0.83, 0.75, 0.10, PULSE_R * 2, PULSE_R * 2);
+      const rr = PULSE_R * 2 * (0.99 + Math.sin(t * 5) * 0.01);
+      fxFlat(ring, p.x, p.y, rr, rr, 1.4, 0.37, 0.83, 0.75, 0.5);
+      fxFlat(GFX.uv.soft, p.x, p.y, rr, rr, 1.3, 0.37, 0.83, 0.75, 0.10);
     }
     if (p.sh > 0) {
-      glQuad('ring', p.x, p.y, 0, 1, 0.44, 0.70, 0.82, 0.55,
-             (R + 14) * 2.3, (R + 14) * 2.3);
+      const rr = (R + 15) * 2.3;
+      fxFlat(ring, p.x, p.y, rr, rr, 30, 0.44, 0.70, 0.82, 0.55);
+      fxBill(glow, p.x, 30, p.y, rr * 0.9, rr * 0.9, 0.44, 0.70, 0.82, 0.14);
     }
-    if (p.inv > 0) glQuad('glow', p.x, p.y, 0, 1, 1, 1, 1, 0.28, R * 4, R * 4);
+    if (p.inv > 0) fxBill(glow, p.x, 28, p.y, R * 4.4, R * 4.4, 1, 1, 1, 0.22);
+    if (p.pw && p.pw !== PULSE && p.pwT > 0) {
+      const c = rgb(POWERS[p.pw].c);
+      fxBill(glow, p.x, 46, p.y, 70, 70, c[0], c[1], c[2], 0.34);
+    }
   }
-  glParticles(dt);
-  glFlush(GL.sprite, GL.atlas, cam, true);
+  fx3D(dt);
+  fxFlush(GFX.vp, true);
+  g.depthMask(true);
 
-  /* 4 · the screen pass */
-  const me = v[r.side];
-  const low = me && me.dead <= 0 && me.hp <= 1 ? 0.5 + Math.sin(t * 6) * 0.16 : 0;
-  GL.hurt = Math.max(low, me ? clamp(me.hit / 0.25, 0, 1) : 0);
-  if (target) {
-    g.bindFramebuffer(g.FRAMEBUFFER, null);
-    g.viewport(0, 0, W, H);
-    g.useProgram(GL.postP.p);
-    g.bindBuffer(g.ARRAY_BUFFER, GL.quad);
-    g.enableVertexAttribArray(GL.postP.a.aPos);
-    g.vertexAttribPointer(GL.postP.a.aPos, 2, g.FLOAT, false, 0, 0);
-    g.activeTexture(g.TEXTURE0);
-    g.bindTexture(g.TEXTURE_2D, target.tex);
-    g.uniform1i(GL.postP.u.uScene, 0);
-    g.uniform1f(GL.postP.u.uHurt, GL.hurt);
-    g.uniform1f(GL.postP.u.uShimmer, Math.min(1, GL.shimmer));
-    g.uniform1f(GL.postP.u.uTime, t);
-    g.blendFunc(g.SRC_ALPHA, g.ONE_MINUS_SRC_ALPHA);
-    g.drawArrays(g.TRIANGLES, 0, 3);
-  }
+  /* Hand the context back the way it was found. An attribute array left
+     enabled from one pass into the next is the kind of thing that draws
+     perfectly on one driver and throws INVALID_OPERATION on another. */
+  for (let i = 0; i < 5; i++) g.disableVertexAttribArray(i);
 }
 
-/* Particles live in the additive pass, so fire actually lights the sand. */
-function glParticles(dt) {
+/* Particles, in three dimensions this time: sparks arc off a hull, smoke
+   climbs, blast rings lie flat on the sand and read as pressure. */
+function fx3D(dt) {
+  const glow = GFX.uv.glow, disc = GFX.uv.disc, ring = GFX.uv.ring,
+        smoke = GFX.uv.smoke, flash = GFX.uv.flash;
   for (let i = FX.length - 1; i >= 0; i--) {
     const f = FX[i];
     if ((f.t -= dt) <= 0) { FX.splice(i, 1); continue; }
     const k = f.t / f.T, age = 1 - k;
     if (f.k === 'spark' || f.k === 'chunk') {
       f.x += f.vx * dt; f.y += f.vy * dt; f.vx *= 0.94; f.vy *= 0.94;
+      const h = 16 + Math.sin(age * Math.PI) * (f.k === 'spark' ? 26 : 34);
       if (f.k === 'spark') {
-        glBeam('disc', f.x, f.y, f.x - f.vx * 0.02, f.y - f.vy * 0.02, 5, 1, 0.86, 0.42, k);
-        glQuad('glow', f.x, f.y, 0, 1, 1, 0.7, 0.3, k * 0.5, 26, 26);
+        fxBill(disc, f.x, h, f.y, 9, 9, 1, 0.86, 0.42, k);
+        fxBill(glow, f.x, h, f.y, 34, 34, 1, 0.7, 0.3, k * 0.45);
       } else {
-        glQuad('disc', f.x, f.y, f.x * 0.1, 1, 0.30, 0.26, 0.21, k, f.s, f.s);
+        fxBill(disc, f.x, h, f.y, f.s * 1.6, f.s * 1.6, 0.30, 0.26, 0.21, k);
       }
     } else if (f.k === 'burst') {
-      glQuad('glow', f.x, f.y, 0, 1, f.r0, f.g0, f.b0, k * 0.9, 60 * (1 + age), 60 * (1 + age));
+      fxBill(glow, f.x, 22, f.y, 70 * (1 + age), 70 * (1 + age), f.r0, f.g0, f.b0, k * 0.9);
     } else if (f.k === 'muzzle') {
-      glQuad('flash', f.x + Math.cos(f.a) * 14, f.y + Math.sin(f.a) * 14, f.a,
-             0.6 + k * 0.7, f.r0, f.g0, f.b0, k);
-      glQuad('glow', f.x, f.y, 0, 1, 1, 0.85, 0.5, k * 0.8, 150, 150);
-      GL.shimmer += k * 0.25;
+      const fx0 = f.x + Math.cos(f.a) * 12, fy0 = f.y + Math.sin(f.a) * 12;
+      fxBeam(flash, f.x, f.y, f.x + Math.cos(f.a) * 62, f.y + Math.sin(f.a) * 62,
+             40 * (0.6 + k * 0.7), 37, f.r0, f.g0, f.b0, k);
+      fxBill(glow, fx0, 37, fy0, 170, 170, 1, 0.85, 0.5, k * 0.75);
     } else if (f.k === 'blast') {
-      const rr = f.r + age * 130;
-      glQuad('ring', f.x, f.y, 0, 1, 1, 0.62, 0.24, k * 0.95, rr * 2.3, rr * 2.3);
-      glQuad('glow', f.x, f.y, 0, 1, 1, 0.55 * k, 0.2, k * 0.95, rr * 4, rr * 4);
-      GL.shimmer += k * 0.9;
+      const rr = (f.r + age * 150) * 2.2;
+      fxFlat(ring, f.x, f.y, rr, rr, 1.6, 1, 0.62, 0.24, k * 0.95);
+      fxBill(glow, f.x, 26 + age * 20, f.y, rr, rr, 1, 0.5 * k, 0.18, k * 0.85);
     } else if (f.k === 'smoke') {
-      glQuad('smoke', f.x, f.y - age * 30, age * 0.7, 1,
-             0.40, 0.35, 0.29, k * 0.30, f.r * (2.4 + age * 2), f.r * (2.4 + age * 2));
+      fxBill(smoke, f.x, 20 + age * 90, f.y, f.r * (2.6 + age * 3), f.r * (2.6 + age * 3),
+             0.40, 0.35, 0.29, k * 0.30);
     } else if (f.k === 'dust') {
-      glQuad('smoke', f.x, f.y, 0, 1, 0.78, 0.68, 0.52, k * 0.26,
-             f.r * (3 + age * 3), f.r * (3 + age * 3));
+      fxFlat(smoke, f.x, f.y, f.r * (3 + age * 4), f.r * (3 + age * 4), 1.0,
+             0.78, 0.68, 0.52, k * 0.24);
     }
   }
 }
 
 /* ═══ drawing ══════════════════════════════════════════════════════════ */
 
+/* Where a world point lands on the glass. In 3D that is the camera matrix;
+   in the fallback it is the engine's own flat transform. Everything from
+   health bars to the kill feed goes through this one door, so a marker sits
+   on its hull whichever renderer drew the hull. */
+const PROJ = { on: 0, w: 1, h: 1, scale: 1 };
+
+function project(gx, gy, gh) {
+  if (!PROJ.on) return { x: PROJ.w / 2 + gx * PROJ.scale, y: PROJ.h / 2 + gy * PROJ.scale };
+  const m = GFX.vp, Y = gh || 0;
+  const cw = m[3] * gx + m[7] * Y + m[11] * gy + m[15];
+  if (cw <= 1e-4) return null;
+  const cx = m[0] * gx + m[4] * Y + m[8] * gy + m[12];
+  const cy = m[1] * gx + m[5] * Y + m[9] * gy + m[13];
+  return { x: (cx / cw * 0.5 + 0.5) * PROJ.w, y: (0.5 - cy / cw * 0.5) * PROJ.h };
+}
+
+/* world units to screen pixels, across and down the sand */
+function ppu(gx, gy) {
+  if (!PROJ.on) return PROJ.scale;
+  const a = project(gx - 30, gy, 0), b = project(gx + 30, gy, 0);
+  return a && b ? Math.abs(b.x - a.x) / 60 : PROJ.scale;
+}
+function ppv(gx, gy) {
+  if (!PROJ.on) return PROJ.scale;
+  const a = project(gx, gy - 30, 0), b = project(gx, gy + 30, 0);
+  return a && b ? Math.abs(b.y - a.y) / 60 : PROJ.scale;
+}
+
+function ellipse(x, cx, cy, rx, ry, from, to) {
+  if (!x.ellipse) {                       // very old engine, no ellipse path
+    x.beginPath();
+    x.arc(cx, cy, Math.max(0.6, (rx + ry) / 2), from === undefined ? 0 : from,
+          to === undefined ? TAU : to);
+    return;
+  }
+  x.beginPath();
+  x.ellipse(cx, cy, Math.max(0.6, rx), Math.max(0.6, ry), 0,
+            from === undefined ? 0 : from, to === undefined ? TAU : to);
+}
+
 function render(x, v, r) {
   VIEW = v; MY = r.side; SCALE = r.scale || SCALE; DRAWN = Date.now();
   const t = v.t || 0, dt = r.dt || 0.016;
-  const gl = glInit();
 
   for (const k of SIDES) treads(v[k], dt);
 
-  if (gl) {
+  if (gfxInit()) {
     /* a rematch starts on clean sand — the clock jumping back up is the tell */
-    if ((v.left || 0) > (GL.seen || 0) + 1) glWipeDecals();
-    GL.seen = v.left || 0;
-    try {
-      glRender(x, v, r, t, dt);
-    } catch (e) {
-      GL.on = 0; GL.err = (e && e.message) || 'gl frame threw';
-      if (GL.cv && GL.cv.parentNode) GL.cv.parentNode.removeChild(GL.cv);
-    }
+    if ((v.left || 0) > (GFX.seen || 0) + 1) wipeDecals();
+    GFX.seen = v.left || 0;
+    try { gfxFrame(x, v, r, t, dt); }
+    catch (e) { gfxDown((e && e.message) || 'frame threw'); }
   }
-  if (!GL.on) {
+  if (!GFX.on) {
     buildArt();
     if (ART.bg && (v.left || 0) > (ART.seen || 0) + 1) ART.bg = paintYard();
     ART.seen = v.left || 0;
     world2D(x, v, r, t, dt);
   }
-
-  /* Markers and text belong on the 2D canvas whichever renderer drew the
-     world: text in GL is a font atlas nobody needs. */
-  for (const e of v.foes || []) drawFoeMarks(x, e, r);
-  for (const k of SIDES) drawCrewMarks(x, v, k, r, t);
-  feed(x, v);
-  tally(x, v, r);
-  if (S.on) stick(x, r);
-  if (!GL.on) hurtEdge(x, v, r, t);
+  overlay(x, v, r, t);
 }
 
 /* Tread scars are emitted the same way for both renderers; only where they
-   land differs — a framebuffer under GL, the yard bitmap without it. */
+   land differs — a texture under 3D, the yard bitmap without it. */
 function treads(p, dt) {
   if (!p || p.dead > 0 || Math.hypot(p.vx, p.vy) <= 80) return;
   p.trail = (p.trail || 0) + dt;
@@ -3520,7 +3940,7 @@ function treads(p, dt) {
   dust(p.x - Math.cos(p.a) * R, p.y - Math.sin(p.a) * R);
 }
 
-/* ── the Canvas 2D world, kept as the fallback ── */
+/* ── the sprite renderer, kept whole as the fallback ── */
 function world2D(x, v, r, t, dt) {
   if (ART.bg) x.drawImage(ART.bg.cv, -HW, -HH, HW * 2, HH * 2);
 
@@ -3587,26 +4007,21 @@ function paintFX(x, dt) {
   x.globalAlpha = 1;
 }
 
-/* ── hulls: only the Canvas 2D fallback draws these ── */
 function drawCrewArt(x, v, k, r, t) {
   const p = v[k];
   if (!p) return;
-
   if (p.dead > 0) {
-    blit(x, ART.s.hullS, p.x + SUN_X, p.y + SUN_Y, p.a);
     x.globalAlpha = 0.5;
     blit(x, ART.s[k + 'H'], p.x, p.y, p.a);
     x.globalAlpha = 1;
     return;
   }
-
   if (p.pw === PULSE) {
     x.strokeStyle = 'rgba(95,211,192,.5)'; x.lineWidth = 5 / r.scale;
     x.beginPath(); x.arc(p.x, p.y, PULSE_R * (0.97 + Math.sin(t * 5) * 0.03), 0, TAU);
     x.stroke();
     x.fillStyle = 'rgba(95,211,192,.06)'; x.fill();
   }
-
   blit(x, ART.s[k + 'H'], p.x, p.y, p.a);
   blit(x, ART.s[k + 'T'], p.x, p.y, p.ta);
   if (p.hit > 0) {
@@ -3634,10 +4049,6 @@ function drawFoeArt(x, e, r) {
     x.strokeStyle = `rgba(255,92,92,${(0.3 + k * 0.55).toFixed(2)})`;
     x.lineWidth = 5 / r.scale;
     x.beginPath(); x.arc(e.x, e.y, K.r + 30 * (1 - k), 0, TAU); x.stroke();
-    x.beginPath();
-    x.moveTo(e.x - K.r, e.y); x.lineTo(e.x + K.r, e.y);
-    x.moveTo(e.x, e.y - K.r); x.lineTo(e.x, e.y + K.r);
-    x.stroke();
     return;
   }
   if (e.ch > 0) {
@@ -3652,71 +4063,118 @@ function drawFoeArt(x, e, r) {
   blit(x, ART.s['foe' + e.k], e.x, e.y, e.a);
 }
 
-/* ── markers: drawn on the 2D layer whichever renderer drew the world ── */
-function drawCrewMarks(x, v, k, r, t) {
-  const p = v[k];
-  if (!p) return;
-  const me = k === r.side;
+/* ═══ the layer you read ═══════════════════════════════════════════════
+   Markers, tally and stick, all in screen pixels on the 2D canvas. Text at
+   a real pixel size stays sharp on any phone, which is the whole reason it
+   does not live down in the world with the geometry.
+   ─────────────────────────────────────────────────────────────────────── */
 
-  if (p.dead > 0) {
-    x.strokeStyle = COL[k]; x.lineWidth = 6 / r.scale;
-    x.beginPath();
-    x.arc(p.x, p.y, R + 20, -Math.PI / 2, -Math.PI / 2 + TAU * (1 - p.dead / DOWN));
-    x.stroke();
-    x.fillStyle = COL[k];
-    x.font = '700 40px "Staatliches",Impact,sans-serif';
-    x.textAlign = 'center'; x.textBaseline = 'middle';
-    x.fillText(Math.ceil(p.dead), p.x, p.y);
-    return;
-  }
+let HUD_TOP = 84, hudTick = 0;
 
-  if (!me) {
-    x.fillStyle = 'rgba(36,31,23,.55)';
-    x.font = '600 18px "Share Tech Mono",ui-monospace,monospace';
-    x.textAlign = 'center'; x.textBaseline = 'middle';
-    x.fillText('ALLY', p.x, p.y - R - 18);
-    return;
+function overlay(x, v, r, t) {
+  const cv = x.canvas;
+  const dpr = cv.width / Math.max(1, r.w);
+  PROJ.on = GFX.on ? 1 : 0; PROJ.w = r.w; PROJ.h = r.h; PROJ.scale = r.scale || 1;
+
+  if (--hudTick <= 0) {
+    hudTick = 30;
+    const el = document.querySelector('#game .hud');
+    if (el) { const b = el.getBoundingClientRect(); if (b.height) HUD_TOP = b.bottom + 12; }
   }
 
-  x.strokeStyle = 'rgba(255,255,255,.92)'; x.lineWidth = 3 / r.scale;
-  x.beginPath(); x.arc(p.x, p.y, R + 13, 0, TAU); x.stroke();
+  x.save();
+  x.setTransform(dpr, 0, 0, dpr, 0, 0);
+  x.textBaseline = 'middle';
 
-  const mark = (v.foes || []).find(e => e.id === p.tg);
-  if (mark) {
-    const a = t * 2.2, rr = KIND[mark.k].r + 15;
-    x.strokeStyle = COL.optic; x.lineWidth = 4 / r.scale;
-    for (let n = 0; n < 4; n++) {
-      x.beginPath(); x.arc(mark.x, mark.y, rr, a + n * TAU / 4, a + n * TAU / 4 + 0.66);
-      x.stroke();
-    }
-    x.strokeStyle = 'rgba(255,92,92,.22)'; x.lineWidth = 2 / r.scale;
-    x.beginPath(); x.moveTo(p.x, p.y); x.lineTo(mark.x, mark.y); x.stroke();
-  }
-  if (p.dcd > 0) {
-    x.strokeStyle = 'rgba(36,31,23,.5)'; x.lineWidth = 6 / r.scale;
-    x.beginPath();
-    x.arc(p.x, p.y, R + 22, -Math.PI / 2, -Math.PI / 2 + TAU * (1 - p.dcd / DASH_CD));
-    x.stroke();
-  }
-  if (p.pw && p.pwT > 0) {
-    const P = POWERS[p.pw], w = 96;
-    x.fillStyle = 'rgba(36,31,23,.45)'; x.fillRect(p.x - w / 2, p.y - R - 40, w, 9);
-    x.fillStyle = P.c; x.fillRect(p.x - w / 2, p.y - R - 40, w * clamp(p.pwT / P.t, 0, 1), 9);
-    x.font = '700 20px "Share Tech Mono",ui-monospace,monospace';
-    x.textAlign = 'center'; x.textBaseline = 'alphabetic';
-    x.fillText(P.n, p.x, p.y - R - 46);
-  }
+  for (const e of v.foes || []) foeMark(x, e);
+  for (const k of SIDES) crewMark(x, v, k, r, t);
+  feed(x, v);
+  tally(x, v, r);
+  if (S.on) stick(x);
+  hurtEdge(x, v, r, t);
+  x.restore();
 }
 
-function drawFoeMarks(x, e, r) {
+function foeMark(x, e) {
   const K = KIND[e.k];
   if (e.sp > 0 || e.k === WARLORD) return;
   const k = clamp(e.hp / K.hp, 0, 1);
   if (k >= 1) return;
-  const w = K.r * 1.7;
-  x.fillStyle = 'rgba(36,31,23,.45)'; x.fillRect(e.x - w / 2, e.y - K.r - 14, w, 6);
+  const at = project(e.x, e.y, K.r * 1.9);
+  if (!at) return;
+  const w = Math.max(22, K.r * 1.7 * ppu(e.x, e.y));
+  x.fillStyle = 'rgba(20,17,12,.55)';
+  x.fillRect(at.x - w / 2 - 1, at.y - 4, w + 2, 8);
   x.fillStyle = k > 0.5 ? '#E0A84E' : COL.optic;
-  x.fillRect(e.x - w / 2, e.y - K.r - 14, w * k, 6);
+  x.fillRect(at.x - w / 2, at.y - 3, w * k, 6);
+}
+
+function crewMark(x, v, k, r, t) {
+  const p = v[k];
+  if (!p) return;
+  const me = k === r.side;
+  const sx = ppu(p.x, p.y), sy = ppv(p.x, p.y);
+  const base = project(p.x, p.y, 0);
+  if (!base) return;
+
+  if (p.dead > 0) {
+    x.strokeStyle = COL[k]; x.lineWidth = 5;
+    ellipse(x, base.x, base.y, (R + 20) * sx, (R + 20) * sy,
+            -Math.PI / 2, -Math.PI / 2 + TAU * (1 - p.dead / DOWN));
+    x.stroke();
+    const up = project(p.x, p.y, 44) || base;
+    x.fillStyle = COL[k];
+    x.font = '700 34px "Staatliches",Impact,sans-serif';
+    x.textAlign = 'center';
+    x.fillText(String(Math.ceil(p.dead)), up.x, up.y);
+    return;
+  }
+
+  if (!me) {
+    const up = project(p.x, p.y, 74) || base;
+    x.fillStyle = 'rgba(24,20,14,.6)';
+    x.font = '600 12px "Share Tech Mono",ui-monospace,monospace';
+    x.textAlign = 'center';
+    x.fillText('ALLY', up.x, up.y);
+    return;
+  }
+
+  x.strokeStyle = 'rgba(255,255,255,.9)'; x.lineWidth = 2.5;
+  ellipse(x, base.x, base.y, (R + 12) * sx, (R + 12) * sy);
+  x.stroke();
+
+  if (p.dcd > 0) {
+    x.strokeStyle = 'rgba(24,20,14,.55)'; x.lineWidth = 5;
+    ellipse(x, base.x, base.y, (R + 21) * sx, (R + 21) * sy,
+            -Math.PI / 2, -Math.PI / 2 + TAU * (1 - p.dcd / DASH_CD));
+    x.stroke();
+  }
+
+  const mark = (v.foes || []).find(e => e.id === p.tg);
+  if (mark) {
+    const m = project(mark.x, mark.y, 0);
+    if (m) {
+      const rr = (KIND[mark.k].r + 14), mx = ppu(mark.x, mark.y), my = ppv(mark.x, mark.y);
+      const a = t * 2.2;
+      x.strokeStyle = COL.optic; x.lineWidth = 3.5;
+      for (let n = 0; n < 4; n++) {
+        ellipse(x, m.x, m.y, rr * mx, rr * my, a + n * TAU / 4, a + n * TAU / 4 + 0.66);
+        x.stroke();
+      }
+      x.strokeStyle = 'rgba(255,92,92,.20)'; x.lineWidth = 1.5;
+      x.beginPath(); x.moveTo(base.x, base.y); x.lineTo(m.x, m.y); x.stroke();
+    }
+  }
+
+  if (p.pw && p.pwT > 0) {
+    const P = POWERS[p.pw], up = project(p.x, p.y, 92) || base, w = 88;
+    x.fillStyle = 'rgba(24,20,14,.5)'; x.fillRect(up.x - w / 2, up.y - 4, w, 8);
+    x.fillStyle = P.c;
+    x.fillRect(up.x - w / 2, up.y - 4, w * clamp(p.pwT / P.t, 0, 1), 8);
+    x.font = '700 15px "Share Tech Mono",ui-monospace,monospace';
+    x.textAlign = 'center';
+    x.fillText(P.n, up.x, up.y - 15);
+  }
 }
 
 /* Floating tallies at the kill site: you can see who took what from across
@@ -3724,11 +4182,13 @@ function drawFoeMarks(x, e, r) {
 function feed(x, v) {
   for (const c of v.kills || []) {
     const k = clamp(c.t / 1.4, 0, 1);
+    const at = project(c.x, c.y, 40 + k * 90);
+    if (!at) continue;
     x.globalAlpha = 1 - k;
     x.fillStyle = c.own === 0 ? COL.host : COL.guest;
-    x.font = '700 38px "Staatliches",Impact,sans-serif';
-    x.textAlign = 'center'; x.textBaseline = 'middle';
-    x.fillText('+' + c.pts, c.x, c.y - 30 - k * 46);
+    x.font = '700 34px "Staatliches",Impact,sans-serif';
+    x.textAlign = 'center';
+    x.fillText('+' + c.pts, at.x, at.y);
   }
   x.globalAlpha = 1;
 }
@@ -3736,87 +4196,92 @@ function feed(x, v) {
 function tally(x, v, r) {
   const boss = (v.foes || []).find(e => e.k === WARLORD);
   const dbl = v.phase === 'ot' || (v.left || 0) <= DOUBLE_AT;
-  const y = -HH + 34;
+  const W = PROJ.w, y = HUD_TOP + 22, pad = Math.min(26, W * 0.05);
 
-  x.textBaseline = 'middle';
-  x.fillStyle = dbl ? 'rgba(84,24,20,.62)' : 'rgba(26,22,16,.44)';
-  x.fillRect(-HW + 10, y - 25, HW * 2 - 20, 50);
+  x.fillStyle = dbl ? 'rgba(84,24,20,.66)' : 'rgba(26,22,16,.5)';
+  x.fillRect(pad - 12, y - 25, W - (pad - 12) * 2, 50);
 
   for (const k of SIDES) {
-    const left = k === 'host', px = left ? -HW + 26 : HW - 26;
+    const left = k === 'host', px = left ? pad : W - pad;
     x.textAlign = left ? 'left' : 'right';
     x.fillStyle = COL[k];
-    x.font = '700 44px "Staatliches",Impact,sans-serif';
+    x.font = '700 40px "Staatliches",Impact,sans-serif';
     x.fillText(String((v[k] && v[k].sc) || 0), px, y);
-    x.font = '600 15px "Share Tech Mono",ui-monospace,monospace';
+    x.font = '600 13px "Share Tech Mono",ui-monospace,monospace';
     x.fillStyle = k === r.side ? '#F2ECDC' : 'rgba(242,236,220,.5)';
-    x.fillText(k === r.side ? 'YOU' : 'ALLY', px + (left ? 56 : -56), y + 1);
+    x.fillText(k === r.side ? 'YOU' : 'ALLY', px + (left ? 46 : -46), y + 1);
   }
 
   x.textAlign = 'center';
-  x.font = '700 24px "Share Tech Mono",ui-monospace,monospace';
+  x.font = '700 20px "Share Tech Mono",ui-monospace,monospace';
   if (dbl) {
     x.fillStyle = COL.optic;
-    x.fillText('DOUBLE', 0, y);
+    x.fillText('DOUBLE', W / 2, y);
   } else {
     const mine = (v[r.side] && v[r.side].sc) || 0;
     const theirs = (v[other(r.side)] && v[other(r.side)].sc) || 0;
     x.fillStyle = mine === theirs ? '#F2ECDC' : COL[mine > theirs ? r.side : other(r.side)];
     x.fillText(mine === theirs ? 'LEVEL'
-             : `${mine > theirs ? 'YOU' : 'ALLY'} +${Math.abs(mine - theirs)}`, 0, y);
+             : `${mine > theirs ? 'YOU' : 'ALLY'} +${Math.abs(mine - theirs)}`, W / 2, y);
   }
 
-  if (boss && boss.sp <= 0) {                     // the boss bar belongs at the top
-    const w = HW * 1.5, by = y + 42;
-    x.fillStyle = 'rgba(26,22,16,.5)'; x.fillRect(-w / 2, by, w, 16);
+  if (boss && boss.sp <= 0) {
+    const w = Math.min(W - pad * 2, 420), by = y + 34;
+    x.fillStyle = 'rgba(26,22,16,.55)'; x.fillRect(W / 2 - w / 2, by, w, 16);
     x.fillStyle = COL.optic;
-    x.fillRect(-w / 2, by, w * clamp(boss.hp / KIND[WARLORD].hp, 0, 1), 16);
+    x.fillRect(W / 2 - w / 2, by, w * clamp(boss.hp / KIND[WARLORD].hp, 0, 1), 16);
     x.fillStyle = '#F2ECDC';
-    x.font = '700 17px "Share Tech Mono",ui-monospace,monospace';
-    x.fillText('WARLORD · 12 POINTS', 0, by + 8);
+    x.font = '700 14px "Share Tech Mono",ui-monospace,monospace';
+    x.fillText('WARLORD · 12 POINTS', W / 2, by + 8);
   }
 
   if (v.pause) {
-    x.fillStyle = 'rgba(26,22,16,.62)';
-    x.fillRect(-HW, -HH, HW * 2, HH * 2);
-    x.fillStyle = '#F2ECDC'; x.textAlign = 'center';
-    x.font = '700 40px "Share Tech Mono",ui-monospace,monospace';
-    x.fillText(`HELD ${clock(v.pauseT || 0)}`, 0, 70);
+    x.fillStyle = 'rgba(16,14,10,.6)';
+    x.fillRect(0, 0, W, PROJ.h);
+    x.fillStyle = '#F2ECDC';
+    x.font = '700 34px "Share Tech Mono",ui-monospace,monospace';
+    x.fillText(`HELD ${clock(v.pauseT || 0)}`, W / 2, PROJ.h * 0.42);
   }
 }
 
-/* The stick is drawn where the thumb actually is, with the travel it has. */
-function stick(x, r) {
-  const max = 62 / r.scale;
-  x.strokeStyle = 'rgba(36,31,23,.26)'; x.lineWidth = 5 / r.scale;
-  x.beginPath(); x.arc(S.ox, S.oy, max, 0, TAU); x.stroke();
-  x.strokeStyle = COL[r.side]; x.globalAlpha = 0.7; x.lineWidth = 9 / r.scale;
-  x.beginPath(); x.moveTo(S.ox, S.oy); x.lineTo(S.x, S.y); x.stroke();
+/* The stick is drawn where the thumb actually is, at the size it actually
+   has, because it is now measured in screen pixels rather than sand. */
+function stick(x) {
+  x.strokeStyle = 'rgba(24,20,14,.30)'; x.lineWidth = 4;
+  x.beginPath(); x.arc(S.bx, S.by, MAXT, 0, TAU); x.stroke();
+  x.strokeStyle = 'rgba(242,236,220,.22)'; x.lineWidth = 2;
+  x.beginPath(); x.arc(S.bx, S.by, DEADZ, 0, TAU); x.stroke();
+  const c = COL[MY] || COL.host;
+  x.strokeStyle = c; x.globalAlpha = 0.7; x.lineWidth = 7;
+  x.beginPath(); x.moveTo(S.bx, S.by); x.lineTo(S.kx, S.ky); x.stroke();
   x.globalAlpha = 1;
-  x.fillStyle = COL[r.side];
-  x.beginPath(); x.arc(S.x, S.y, 24 / r.scale, 0, TAU); x.fill();
-  x.fillStyle = 'rgba(255,255,255,.55)';
-  x.beginPath(); x.arc(S.ox, S.oy, 6 / r.scale, 0, TAU); x.fill();
+  x.fillStyle = c;
+  x.beginPath(); x.arc(S.kx, S.ky, 22, 0, TAU); x.fill();
+  x.fillStyle = 'rgba(255,255,255,.85)';
+  x.beginPath(); x.arc(S.kx, S.ky, 7, 0, TAU); x.fill();
+  x.fillStyle = 'rgba(255,255,255,.5)';
+  x.beginPath(); x.arc(S.bx, S.by, 5, 0, TAU); x.fill();
 }
 
-/* One hit left, or just took one: the edges of the yard go red. */
+/* One hit left, or just took one: the edges of the glass go red. */
 function hurtEdge(x, v, r, t) {
   const me = v[r.side];
   if (!me || me.dead > 0) return;
   const low = me.hp <= 1 ? 0.26 + Math.sin(t * 6) * 0.09 : 0;
-  const a = Math.max(low, clamp(me.hit / 0.25, 0, 1) * 0.4);
+  const a = Math.max(low, clamp(me.hit / 0.25, 0, 1) * 0.45);
   if (a <= 0.01) return;
-  const hw = r.w / 2 / r.scale, hh = r.h / 2 / r.scale;
-  if (!ART.vig || ART.vigK !== Math.round(hh)) {
-    ART.vigK = Math.round(hh);
-    const g = x.createRadialGradient(0, 0, hh * 0.42, 0, 0, hh * 1.05);
+  const w = PROJ.w, h = PROJ.h, key = Math.round(w + h);
+  if (!ART.vig || ART.vigK !== key) {
+    ART.vigK = key;
+    const g = x.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.26,
+                                     w / 2, h / 2, Math.hypot(w, h) * 0.56);
     g.addColorStop(0, 'rgba(255,60,50,0)');
     g.addColorStop(1, 'rgba(255,40,34,1)');
     ART.vig = g;
   }
   x.globalAlpha = a;
   x.fillStyle = ART.vig;
-  x.fillRect(-hw, -hh, hw * 2, hh * 2);
+  x.fillRect(0, 0, w, h);
   x.globalAlpha = 1;
 }
 
@@ -3869,11 +4334,62 @@ function status(v, side) {
   };
 }
 
-/* ═══ the pad ══════════════════════════════════════════════════════════
-   Drive anywhere on the sand. The trigger fires itself by default, because
-   holding a button down for four minutes is not a skill; DASH and the hold
-   get their own targets in the corners, at thumb height.
-   ─────────────────────────────────────────────────────────────────────── */
+/* ═══ the controls ═════════════════════════════════════════════════════
+ *
+ * The stick is measured in screen pixels rather than in sand, so it feels
+ * the same on a small phone and a large one and does not change under you
+ * when the camera moves. Its base floats: drag past the edge and the base
+ * follows your thumb, so a long drag never runs out of travel.
+ *
+ * Every touch carries its pointer id from the first frame, so a second
+ * finger — reaching for FIRE, or a hand resting on the glass — cannot steal
+ * the stick or leave the tank driving into a wall when it lifts.
+ *
+ * And because the camera looks along a tilt, the drag is un-tilted before it
+ * is sent: push the thumb toward the top of the screen and the tank goes to
+ * the top of the screen, not somewhere short of it.
+ * ─────────────────────────────────────────────────────────────────────── */
+
+const MAXT = 76, DEADZ = 10;
+const S = { on: 0, id: null, bx: 0, by: 0, cx: 0, cy: 0, kx: 0, ky: 0,
+            pow: 0, tap: 0, sent: null };
+
+function send(m) { if (m && RT && RT.dispatch) RT.dispatch(m); }
+
+/* Only put a direction on the wire when it is meaningfully new. */
+function maybe(dx, dy, pow) {
+  if (S.sent && Math.abs(pow - S.sent.pow) < 0.04 &&
+      dx * S.sent.dx + dy * S.sent.dy > 0.9985) return null;
+  S.sent = { dx, dy, pow };
+  return { dx, dy, pow };
+}
+function drive(dx, dy, pow) { send(maybe(dx, dy, pow)); }
+
+const tilt = () => (GFX.on ? Math.max(0.35, Math.sin(CAM.pitch)) : 1);
+
+function stickMove() {
+  let dx = S.cx - S.bx, dy = S.cy - S.by;
+  let len = Math.hypot(dx, dy);
+  if (len > MAXT) {
+    const k = (len - MAXT) / len;
+    S.bx += dx * k; S.by += dy * k;
+    dx = S.cx - S.bx; dy = S.cy - S.by; len = MAXT;
+  }
+  S.kx = S.bx + dx; S.ky = S.by + dy;
+  if (len < DEADZ) { S.pow = 0; drive(0, 0, 0); return; }
+  const eff = clamp((len - DEADZ) / (MAXT - DEADZ), 0, 1);
+  S.pow = eff * eff * 0.45 + eff * 0.55;
+  const ty = dy / tilt();
+  const l = Math.hypot(dx, ty) || 1;
+  drive(dx / l, ty / l, S.pow);
+}
+
+function stickUp() {
+  S.on = 0; S.id = null; S.pow = 0; S.sent = null;
+  send({ dx: 0, dy: 0, pow: 0 });
+}
+
+/* ═══ sound and feel ═══════════════════════════════════════════════════ */
 
 let AC = null, MUTED = false;
 function tone(f, len, o = {}) {
@@ -3893,20 +4409,26 @@ function tone(f, len, o = {}) {
 }
 function buzz(ms) { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) { /* ignore */ } }
 
+/* ═══ the pad ══════════════════════════════════════════════════════════
+   Drive anywhere on the sand. The trigger fires itself by default, because
+   holding a button down for four minutes is not a skill; DASH and the hold
+   get their own targets in the corners, at thumb height.
+   ─────────────────────────────────────────────────────────────────────── */
+
 if (typeof document !== 'undefined') {
-  const send = m => { if (RT && RT.dispatch) RT.dispatch(m); };
   let AUTO = true;
 
   const st = document.createElement('style');
   st.textContent =
+    '#yard3d{background:#191712}' +
     '.pd{pointer-events:auto;border:none;border-radius:50%;color:#F2ECDC;' +
     'font-family:var(--mono),monospace;font-weight:700;letter-spacing:.08em;' +
     'touch-action:none;user-select:none;-webkit-tap-highlight-color:transparent;' +
-    'display:grid;place-items:center;line-height:1;' +
-    'box-shadow:0 6px 0 rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.16);' +
+    'display:grid;place-items:center;line-height:1;backdrop-filter:blur(2px);' +
+    'box-shadow:0 6px 0 rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.18);' +
     'transition:transform .06s,background .12s,opacity .18s}' +
     '.pd:active{transform:translateY(3px);box-shadow:0 3px 0 rgba(0,0,0,.42)}' +
-    '.pd b{font-size:.62em;opacity:.6;font-weight:600;display:block;margin-top:3px}';
+    '.pd b{font-size:.62em;opacity:.62;font-weight:600;display:block;margin-top:3px}';
   document.head.appendChild(st);
 
   const knob = (size, label, aria) => {
@@ -3921,8 +4443,9 @@ if (typeof document !== 'undefined') {
 
   const pad = document.createElement('div');
   pad.style.cssText = 'position:fixed;inset:auto 0 0 0;z-index:70;display:none;' +
-    'justify-content:space-between;align-items:flex-end;padding:14px 18px 26px;' +
-    'pointer-events:none;gap:12px';
+    'justify-content:space-between;align-items:flex-end;gap:12px;pointer-events:none;' +
+    'padding:14px calc(18px + env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) ' +
+    'calc(18px + env(safe-area-inset-left))';
 
   const mute = knob(46, '♪', 'Sound on or off');
   mute.onclick = () => {
@@ -3932,7 +4455,7 @@ if (typeof document !== 'undefined') {
     if (!MUTED) tone(660, 0.1, { type: 'triangle', gain: 0.15 });
   };
 
-  const hold = knob(52, '❚❚', 'Hold the match, or let it go');
+  const hold = knob(54, '❚❚', 'Hold the match, or let it go');
   hold.onclick = () => {
     const held = VIEW && VIEW.pause;
     send({ z: held ? 0 : 1 });
@@ -3940,7 +4463,7 @@ if (typeof document !== 'undefined') {
     tone(held ? 620 : 340, 0.12, { type: 'triangle', gain: 0.14 });
   };
 
-  const auto = knob(52, 'AUTO', 'Fire by itself whenever a target is locked');
+  const auto = knob(54, 'AUTO', 'Fire by itself whenever a target is locked');
   const paintAuto = () => {
     auto.style.background = AUTO ? 'rgba(224,168,78,.92)' : 'rgba(30,27,21,.82)';
     auto.style.color = AUTO ? '#241F17' : '#F2ECDC';
@@ -3954,7 +4477,7 @@ if (typeof document !== 'undefined') {
   };
   paintAuto();
 
-  const dash = knob(66, 'DASH', 'Burst forward');
+  const dash = knob(70, 'DASH', 'Burst forward');
   dash.addEventListener('pointerdown', e => {
     e.preventDefault();
     const me = VIEW && MY ? VIEW[MY] : null;
@@ -3963,7 +4486,7 @@ if (typeof document !== 'undefined') {
     tone(240, 0.14, { type: 'sawtooth', to: 760, gain: 0.14 });
   });
 
-  const guns = knob(104, 'FIRE', 'Hold to fire');
+  const guns = knob(108, 'FIRE', 'Hold to fire');
   let firing = 0;
   const press = e => {
     e.preventDefault(); firing = 1;
@@ -3989,13 +4512,51 @@ if (typeof document !== 'undefined') {
   pad.appendChild(group(auto, dash, guns));
   document.body.appendChild(pad);
 
+  /* ── the stick, on the board itself ── */
+  const board = document.getElementById('board');
+  if (board) {
+    board.addEventListener('pointerdown', e => {
+      if (S.id !== null || !RT || !VIEW) return;
+      e.preventDefault();
+      S.id = e.pointerId; S.on = 1;
+      S.bx = S.cx = S.kx = e.clientX;
+      S.by = S.cy = S.ky = e.clientY;
+      S.sent = null; S.pow = 0;
+      const now = Date.now();
+      if (now - S.tap < 300) {                     // double tap the sand to dash
+        const me = VIEW && MY ? VIEW[MY] : null;
+        if (!me || me.dcd <= 0) {
+          send({ d: 1 }); buzz(18);
+          tone(240, 0.14, { type: 'sawtooth', to: 760, gain: 0.14 });
+        }
+      }
+      S.tap = now;
+    }, { passive: false });
+
+    /* move and lift are watched on the window, so a thumb that slides off the
+       board — or off the screen edge — still steers and still lets go */
+    addEventListener('pointermove', e => {
+      if (e.pointerId !== S.id) return;
+      S.cx = e.clientX; S.cy = e.clientY;
+      stickMove();
+    }, { passive: true });
+    const lift = e => { if (e.pointerId === S.id) stickUp(); };
+    addEventListener('pointerup', lift);
+    addEventListener('pointercancel', lift);
+    addEventListener('blur', () => { if (S.id !== null) stickUp(); });
+  }
+
   /* The pad belongs to the yard, and every button reads the authoritative
      state rather than guessing what should have happened. */
   setInterval(() => {
     const sheet = document.getElementById('sheet');
     const playing = Date.now() - DRAWN < 500 && !(sheet && sheet.classList.contains('on'));
     pad.style.display = playing ? 'flex' : 'none';
-    if (!playing) { release(); return; }
+    if (!playing) {
+      release();
+      if (S.id !== null) stickUp();
+      return;
+    }
 
     const held = VIEW ? VIEW.pause : null, mine = held === MY;
     hold.innerHTML = mine ? '▶' : '❚❚';
@@ -4014,19 +4575,22 @@ if (typeof document !== 'undefined') {
 
   /* a keyboard, for trying it on a laptop */
   const keys = { w: 0, a: 0, s: 0, d: 0 };
+  const alias = { arrowup: 'w', arrowleft: 'a', arrowdown: 's', arrowright: 'd' };
   const pushKeys = () => {
     const dx = keys.d - keys.a, dy = keys.s - keys.w;
-    send({ dx, dy, pow: dx || dy ? 1 : 0 });
+    if (!dx && !dy) { S.sent = null; send({ dx: 0, dy: 0, pow: 0 }); return; }
+    const ty = dy / tilt(), l = Math.hypot(dx, ty) || 1;
+    drive(dx / l, ty / l, 1);
   };
   document.addEventListener('keydown', e => {
-    const k = e.key.toLowerCase();
+    const k = alias[e.key.toLowerCase()] || e.key.toLowerCase();
     if (k in keys && !e.repeat) { keys[k] = 1; pushKeys(); }
     if (k === ' ' && !e.repeat) { e.preventDefault(); send({ f: 1 }); }
     if (k === 'shift' && !e.repeat) send({ d: 1 });
     if (k === 'p' && !e.repeat) send({ z: VIEW && VIEW.pause ? 0 : 1 });
   });
   document.addEventListener('keyup', e => {
-    const k = e.key.toLowerCase();
+    const k = alias[e.key.toLowerCase()] || e.key.toLowerCase();
     if (k in keys) { keys[k] = 0; pushKeys(); }
     if (k === ' ') send({ f: AUTO ? 2 : 0 });
   });
