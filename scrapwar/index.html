@@ -7,7 +7,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>loading…</title>
+<title>Scrapwar - FunHub</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <style>
@@ -1713,7 +1713,7 @@ document.addEventListener('gesturestart', e => e.preventDefault());
 
 </script>
 <script>
-/* SCRAP WAR — two allied tanks, one machine army, one tally.   3D edition.
+/* SCRAP WAR — two allied tanks, one machine army, one tally.
  *
  * Both phones fight the same machines in the same yard. Nothing you shoot
  * belongs to the other player, so the whole match is a race for the higher
@@ -1723,22 +1723,14 @@ document.addEventListener('gesturestart', e => e.preventDefault());
  * double, a Warlord walks in with ninety seconds left carrying twelve points,
  * and the machines hunt whoever is winning.
  *
- * ── what draws the world ───────────────────────────────────────────────
- * A real 3D renderer. The engine clears its own 2D canvas every frame, so a
- * WebGL canvas sits directly underneath it holding lit, solid geometry: the
- * yard floor, poured concrete with height and real sides, hulls built from
- * tracks, sponsons, turret rings and barrels, crates as boxes. A tilted
- * perspective camera frames the whole yard, so nothing about the rules or the
- * reach of a shot changes — only what you see.
- *
- * The 2D canvas above it is left for what text and markers are good at:
- * health bars, the lock reticle, the tally, the stick. Those are placed by
- * projecting a world point through the same camera matrix, so a bar sits on
- * a hull whichever renderer drew it.
- *
- * If WebGL is missing or throws, GFX.on drops to 0 and the original sprite
- * renderer takes over on the 2D canvas, markers and all. Nothing else in the
- * file knows or cares which one ran.
+ * ── how the drawing works ──────────────────────────────────────────────
+ * Every piece of detail is painted once, at boot, into its own offscreen
+ * bitmap: the yard, each hull, each turret, each crate. A frame is then a few
+ * dozen drawImage calls instead of a few hundred vector paths, which is both
+ * far cheaper and the reason the hulls can afford rivets, tread blocks and
+ * bevelled armour at all. The yard bitmap is also written to as the match
+ * runs — tread scars and scorch marks are burned into it, so the sand ends
+ * the match visibly churned.
  *
  * ── how the machines think ─────────────────────────────────────────────
  * A 40-unit navigation grid is built from the wall table at boot. Each player
@@ -1752,36 +1744,34 @@ document.addEventListener('gesturestart', e => e.preventDefault());
 const { clamp, lerp, r1, track, TAU, REDUCED } = Duel;
 
 /* ── the yard ─────────────────────────────────────────────────────────── */
-const HW = 470, HH = 620;
+const HW = 640, HH = 880;
 
 /* Poured concrete, as [cx, cy, halfW, halfH]. Fixed, symmetrical, and never
    sent on the wire: both phones read the same table. */
 const WALLS = [
-  [0, 0, 118, 40],
-  [-262, -212, 40, 132], [262, -212, 40, 132],
-  [-262, 212, 40, 132], [262, 212, 40, 132],
-  [0, -382, 146, 38], [0, 382, 146, 38],
-  [-370, -486, 88, 34], [370, -486, 88, 34],
-  [-370, 486, 88, 34], [370, 486, 88, 34],
-  [-140, -132, 34, 34], [140, 132, 34, 34],
+  [0, 0, 150, 44],
+  [-330, -300, 44, 150], [330, -300, 44, 150],
+  [-330, 300, 44, 150], [330, 300, 44, 150],
+  [0, -520, 180, 44], [0, 520, 180, 44],
+  [-470, -690, 110, 40], [470, -690, 110, 40],
+  [-470, 690, 110, 40], [470, 690, 110, 40],
+  [-190, -180, 40, 40], [190, 180, 40, 40],
+  [-190, 180, 40, 40], [190, -180, 40, 40],
+  [0, -790, 70, 56], [0, 790, 70, 56],
+  [-520, 0, 40, 150], [520, 0, 40, 150],
 ];
-const WALL_H = 56;
 
 /* ── match shape ──────────────────────────────────────────────────────── */
-const MATCH = 240, DOUBLE_AT = 30, BOSS_AT = 95, OT_MAX = 60, HELD_MAX = 120;
+const MATCH = 240, DOUBLE_AT = 30, BOSS_AT = 95, OT_MAX = 60;
 
 /* ── the tanks you drive ──────────────────────────────────────────────── */
 const R = 31;
-const SPD = 300, ACC = 9;
+const SPD = 330, ACC = 9;
 const HULL_SLEW = 6.2, TUR_SLEW = 5.4;
 const CD = 420;
 const DASH_CD = 4500, DASH_V = 940;
 const HP0 = 3, DOWN = 3, SAFE = 2;
-const LOCK = 640;
-
-/* Somewhere clear of the concrete to come back in. Every one is checked
-   against the wall table at boot, so a slab can never swallow a respawn. */
-const SPOTS = [[-390, 560], [390, 560], [-390, -560], [390, -560], [0, 548]];
+const LOCK = 780;
 
 /* ── powers ───────────────────────────────────────────────────────────── */
 const OVERDRIVE = 1, SHIELD = 2, RAIL = 3, SCATTER = 4, PULSE = 5,
@@ -1796,16 +1786,16 @@ const POWERS = {
   [REPAIR]:    { n: 'REPAIR',    c: '#7FC46A', t: 0, tag: '+' },
 };
 const DROPS = [OVERDRIVE, SHIELD, RAIL, SCATTER, PULSE, TURBO, REPAIR];
-const PULSE_R = 300, CRATE_EVERY = 9, CRATE_MAX = 3, CRATE_LIFE = 22;
+const PULSE_R = 340, CRATE_EVERY = 9, CRATE_MAX = 3, CRATE_LIFE = 22;
 
 /* ── the machines ─────────────────────────────────────────────────────── */
 const GRUNT = 0, HUNTER = 1, SNIPER = 2, JUGG = 3, WARLORD = 4;
 const KIND = [
   { n: 'GRUNT',   hp: 3,  spd: 125, cd: 2.2, pts: 1,  r: 27, want: 300 },
   { n: 'HUNTER',  hp: 4,  spd: 235, cd: 1.5, pts: 2,  r: 26, want: 70  },
-  { n: 'SNIPER',  hp: 4,  spd: 150, cd: 2.1, pts: 3,  r: 27, want: 450 },
+  { n: 'SNIPER',  hp: 4,  spd: 150, cd: 2.1, pts: 3,  r: 27, want: 520 },
   { n: 'JUGG',    hp: 12, spd: 82,  cd: 2.6, pts: 5,  r: 38, want: 240 },
-  { n: 'WARLORD', hp: 40, spd: 74,  cd: 2.3, pts: 12, r: 54, want: 330 },
+  { n: 'WARLORD', hp: 44, spd: 78,  cd: 2.3, pts: 12, r: 54, want: 340 },
 ];
 const HOLD = 0.9;
 
@@ -1962,7 +1952,7 @@ function turn(from, to, rate, dt) {
 
 function crew(side) {
   return {
-    x: side === 'host' ? -230 : 230, y: 430,
+    x: side === 'host' ? -300 : 300, y: 640,
     vx: 0, vy: 0, mx: 0, my: 0,
     a: -Math.PI / 2, ta: -Math.PI / 2,
     hp: HP0, sh: 0, sc: 0,
@@ -1986,13 +1976,7 @@ const game = {
   /* ── rules. host only ───────────────────────────────────────────────── */
   step(s, dt, api) {
     if (api) RT = api;
-    if (s.pause) {
-      /* A hold nobody lets go of would strand the other player, so it lapses
-         on its own rather than needing the phone that took it. */
-      s.pauseT += dt;
-      if (s.pauseT > HELD_MAX) { s.pause = null; s.pauseT = 0; }
-      return;
-    }
+    if (s.pause) { s.pauseT += dt; return; }
     if (s.phase === 'done') return;
 
     s.t += dt;
@@ -2039,11 +2023,10 @@ const game = {
     if (!p || p.dead > 0) return;
 
     if (m.dx !== undefined) {
-      const dx = +m.dx || 0, dy = +m.dy || 0;
-      const len = Math.hypot(dx, dy);
-      const pow = clamp(m.pow === undefined ? 1 : +m.pow || 0, 0, 1);
-      p.mx = len > 1e-4 ? (dx / len) * pow : 0;
-      p.my = len > 1e-4 ? (dy / len) * pow : 0;
+      const len = Math.hypot(m.dx, m.dy);
+      const pow = clamp(m.pow === undefined ? 1 : m.pow, 0, 1);
+      p.mx = len > 1e-4 ? (m.dx / len) * pow : 0;
+      p.my = len > 1e-4 ? (m.dy / len) * pow : 0;
       return;
     }
     if (m.f !== undefined) { p.fr = m.f === 2 ? 2 : m.f ? 1 : 0; return; }
@@ -2063,6 +2046,38 @@ const game = {
     game.command(v, side, m, null);
   },
 
+  pointer(phase, p) {
+    const now = Date.now();
+    if (phase === 'down') {
+      STICK.on = 1; STICK.dx = 0; STICK.dy = 0; STICK.pow = 0; STICK.sent = null;
+      STICK.ax = 0; STICK.ay = 0;          // a fresh thumb starts from its own centre
+      const dbl = now - STICK.tap < 300;
+      STICK.tap = now;
+      return dbl ? { d: 1 } : null;               // double tap the sand to dash
+    }
+    if (phase === 'move') {
+      /* Screen pixels, never world units: the same drag means the same thing
+         on any phone and at any camera height. A deadzone, a squared response
+         near the centre for fine steering, and a base that follows the thumb
+         so a long drag never runs out of travel. */
+      const dead = 9, max = STICK.max;
+      let dx = p.dx - STICK.ax, dy = p.dy - STICK.ay;
+      let len = Math.hypot(dx, dy);
+      if (len > max) {
+        STICK.ax += (len - max) * dx / len; STICK.ay += (len - max) * dy / len;
+        dx = p.dx - STICK.ax; dy = p.dy - STICK.ay; len = max;
+      }
+      STICK.dx = dx; STICK.dy = dy;
+      if (len < dead) { STICK.pow = 0; return maybe(0, 0, 0); }
+      const eff = clamp((len - dead) / (max - dead), 0, 1);
+      STICK.pow = eff * eff * 0.55 + eff * 0.45;
+      return maybe(dx / len, dy / len, STICK.pow);
+    }
+    STICK.on = 0; STICK.pow = 0; STICK.dx = 0; STICK.dy = 0;
+    STICK.ax = 0; STICK.ay = 0; STICK.sent = null;
+    return { dx: 0, dy: 0, pow: 0 };
+  },
+
   /* ── the wire ───────────────────────────────────────────────────────── */
   snapshot(s) {
     const p = c => [Math.round(c.x), Math.round(c.y), Math.round(c.vx), Math.round(c.vy),
@@ -2071,11 +2086,8 @@ const game = {
                     c.tg, c.fr];
     const f = [];
     for (const e of s.foes) {
-      /* A hold of under a twentieth of a second used to round to zero and read
-         back as a charge, so an arriving machine flickered solid. Never zero. */
       f.push(e.id, e.k, Math.round(e.x), Math.round(e.y), r1(e.a), e.hp,
-             e.sp > 0 ? -Math.max(1, Math.round(e.sp * 10)) : Math.round(e.ch * 10),
-             Math.round(e.vx), Math.round(e.vy));
+             e.sp > 0 ? -Math.round(e.sp * 10) : Math.round(e.ch * 10));
     }
     const b = [];
     for (let i = Math.max(0, s.shots.length - MAXB); i < s.shots.length; i++) {
@@ -2113,15 +2125,15 @@ const game = {
        survivors jump one slot sideways. */
     const was = new Map((v.foes || []).map(e => [e.id, e]));
     const foes = [];
-    for (let i = 0; i < d.f.length; i += 9) {
+    for (let i = 0; i < d.f.length; i += 7) {
       const id = d.f[i], k = d.f[i + 1], x = d.f[i + 2], y = d.f[i + 3], w = d.f[i + 6];
       const seen = was.get(id);
-      const e = seen || { id, k, x, y, hp: d.f[i + 5], vx: 0, vy: 0 };
+      const e = seen || { id, k, x, y, hp: d.f[i + 5] };
       e.k = k; e.a = d.f[i + 4];
       const before = e.hp;
       e.hp = d.f[i + 5];
       e.sp = w < 0 ? -w / 10 : 0; e.ch = w > 0 ? w / 10 : 0;
-      e.to = { x, y, vx: d.f[i + 7], vy: d.f[i + 8] };
+      e.to = { x, y };
       if (!seen) { e.x = x; e.y = y; }
       else if (e.hp < before) sparks(e.x, e.y, 5);
       foes.push(e);
@@ -2153,30 +2165,14 @@ const game = {
     v.seeded = 1;
   },
 
-  /* The guest drives its own tank forward on its own commands and lets the
-     host pull it back, rather than waiting a round trip for every nudge. That
-     one change is the difference between a stick that answers and one that
-     drags a third of a second behind the thumb. */
   smooth(v, dt, age, api) {
     if (api) RT = api;
     if (!v || v.pause) return;
-    const mine = api && api.side;
     for (const k of SIDES) {
-      const to = v['to_' + k], p = v[k];
-      if (!to || !p) continue;
-      if (k === mine && p.dead <= 0 && v.phase !== 'done') {
-        const boost = p.pw === TURBO ? 1.55 : 1;
-        p.vx = lerp(p.vx, (p.mx || 0) * SPD * boost, clamp(ACC * dt, 0, 1));
-        p.vy = lerp(p.vy, (p.my || 0) * SPD * boost, clamp(ACC * dt, 0, 1));
-        p.x += p.vx * dt; p.y += p.vy * dt;
-        clear(p, R);
-        const tx = to.x + to.vx * age, ty = to.y + to.vy * age;
-        const err = Math.hypot(tx - p.x, ty - p.y);
-        const pull = err > 150 ? 1 : clamp(err / 150, 0, 1) * 0.30 + 0.04;
-        p.x += (tx - p.x) * pull; p.y += (ty - p.y) * pull;
-      } else {
-        track(p, to, age, 0.3, 90);
-      }
+      const to = v['to_' + k];
+      if (!to) continue;
+      const mine = k === api.side;
+      track(v[k], to, age, mine ? 0.22 : 0.3, mine ? 130 : 90);
     }
     for (const e of v.foes || []) track(e, e.to, age, 0.3, 90);
     for (const o of v.shots || []) { o.x += o.vx * dt; o.y += o.vy * dt; }
@@ -2280,20 +2276,17 @@ function shot(s, x, y, a, k, own) {
   if (s.shots.length > MAXB * 2) s.shots.shift();
 }
 
-/* Come back as far from the machines as the yard allows — and never inside a
-   slab, which the old corner spots quietly were. */
 function respawn(s, k) {
-  const p = s[k];
-  let best = SPOTS[0], far = -1;
-  for (const [x, y] of SPOTS) {
-    if (inWall(x, y, R + 6)) continue;
+  const p = s[k], spots = [[-560, 800], [560, 800], [-560, -800], [560, -800],
+                           [-590, 0], [590, 0]];
+  let best = spots[0], far = -1;
+  for (const [x, y] of spots) {
     let d = 1e9;
     for (const e of s.foes) d = Math.min(d, Math.hypot(e.x - x, e.y - y));
     if (d > far) { far = d; best = [x, y]; }
   }
   Object.assign(p, { x: best[0], y: best[1], vx: 0, vy: 0, mx: 0, my: 0,
                      hp: HP0, sh: 0, inv: SAFE, dead: 0, pw: 0, pwT: 0, cd: 0 });
-  clear(p, R);
 }
 
 function hitCrew(s, k, dmg, api) {
@@ -2309,7 +2302,7 @@ function hitCrew(s, k, dmg, api) {
 function waves(s, dt) {
   if (s.phase !== 'live' && s.phase !== 'ot') return;
   const gone = MATCH - s.left;
-  const want = Math.min(7, 4 + Math.floor(gone / 60));
+  const want = Math.min(9, 5 + Math.floor(gone / 55));
   if (s.foes.filter(e => e.k !== WARLORD).length >= want) return;
   if ((s.wave -= dt) > 0) return;
   s.wave = 3.2;
@@ -2336,16 +2329,13 @@ function spawn(s, k, at) {
       if (d > 240 || i > 45) break;
     }
   }
-  const e = {
+  s.foes.push({
     id: s.nid++, k, x, y, vx: 0, vy: 0, a: Math.atan2(-y, -x),
     hp: KIND[k].hp, cd: KIND[k].cd * 0.7, ch: 0, sp: HOLD,
     tg: Math.random() < 0.5 ? 'host' : 'guest', re: 0, spawnT: 0,
     off: (Math.random() * 2 - 1) * 1.1,          // which side it comes round
     flip: (s.nid % 2) ? 1 : -1, lx: x, ly: y, jt: 0.75,
-  };
-  clear(e, r);                                    // never born inside concrete
-  e.lx = e.x; e.ly = e.y;
-  s.foes.push(e);
+  });
 }
 
 /* Where this machine would rather be standing: on its own arc of a ring at
@@ -2353,7 +2343,7 @@ function spawn(s, k, at) {
 function goal(e, p, K, badly) {
   if (e.k === WARLORD) {                          // the Warlord orbits the middle
     const a = Math.atan2(e.y, e.x) + 0.5 * e.flip;
-    return [Math.cos(a) * 300, Math.sin(a) * 300];
+    return [Math.cos(a) * 380, Math.sin(a) * 380];
   }
   const want = K.want * (badly ? 1.7 : 1);
   const a = Math.atan2(e.y - p.y, e.x - p.x) + e.off * 0.5;
@@ -2384,7 +2374,7 @@ function machines(s, dt, api) {
 
   for (let i = s.foes.length - 1; i >= 0; i--) {
     const e = s.foes[i], K = KIND[e.k];
-    if (e.sp > 0) { e.sp -= dt; e.vx = 0; e.vy = 0; continue; }
+    if (e.sp > 0) { e.sp -= dt; continue; }
 
     const stun = pulses.some(p => Math.hypot(p.x - e.x, p.y - e.y) < PULSE_R);
     const slow = stun ? 0.12 : 1;
@@ -2392,7 +2382,7 @@ function machines(s, dt, api) {
     if ((e.re -= dt) <= 0) { e.re = 1.8 + Math.random() * 1.4; e.tg = choose(s); }
     let p = s[e.tg];
     if (!p || p.dead > 0) p = s[other(e.tg)];
-    if (!p || p.dead > 0) { e.cd = Math.max(e.cd, 0.4); e.vx = 0; e.vy = 0; continue; }
+    if (!p || p.dead > 0) { e.cd = Math.max(e.cd, 0.4); continue; }
     const side = p === s.host ? 'host' : 'guest';
 
     const dx = p.x - e.x, dy = p.y - e.y, d = Math.hypot(dx, dy) || 1;
@@ -2501,8 +2491,7 @@ function hurt(s, e, dmg, by, api) {
   s[by].sc += pts;
   s.kills.push({ x: e.x, y: e.y, pts, own: by === 'host' ? 0 : 1, t: 0 });
   if (s.kills.length > 4) s.kills.shift();
-  const at = s.foes.indexOf(e);
-  if (at >= 0) s.foes.splice(at, 1);
+  s.foes.splice(s.foes.indexOf(e), 1);
   wreck(e.x, e.y, K.r);
   api.kick(e.k === WARLORD ? 26 : e.k === JUGG ? 12 : 6);
   if (e.k === WARLORD) { drop(s, e.x - 60, e.y); drop(s, e.x + 60, e.y); }
@@ -2555,25 +2544,9 @@ function supply(s, dt) {
   }
 }
 
-/* A crate dropped where a Jugg died could land inside concrete and sit there
-   for its whole life, unreachable. Walk it out to the nearest open sand. */
 function drop(s, x, y) {
-  let px = clamp(x, -HW + 44, HW - 44), py = clamp(y, -HH + 44, HH - 44);
-  if (inWall(px, py, 30)) {
-    let out = false;
-    for (const rad of [56, 104, 156, 210]) {
-      for (let i = 0; i < 12; i++) {
-        const a = i / 12 * TAU;
-        const nx = clamp(px + Math.cos(a) * rad, -HW + 44, HW - 44);
-        const ny = clamp(py + Math.sin(a) * rad, -HH + 44, HH - 44);
-        if (!inWall(nx, ny, 30)) { px = nx; py = ny; out = true; break; }
-      }
-      if (out) break;
-    }
-    if (!out) return;
-  }
-  s.crates.push({ x: px, y: py, k: DROPS[Math.floor(Math.random() * DROPS.length)],
-                  life: CRATE_LIFE });
+  s.crates.push({ x: clamp(x, -HW + 40, HW - 40), y: clamp(y, -HH + 40, HH - 40),
+                  k: DROPS[Math.floor(Math.random() * DROPS.length)], life: CRATE_LIFE });
 }
 
 function finish(s, who, api) { s.phase = 'done'; s.win = who; api?.kick?.(22); }
@@ -2628,368 +2601,74 @@ const bot = {
   },
 };
 
-/* ═══ shared art ═══════════════════════════════════════════════════════
-   The yard texture, the crate faces and the hull sprites are all painted
-   with Canvas 2D at boot. The 3D renderer uploads them as textures; the
-   fallback renderer stamps them straight onto the board. One set of art,
-   two ways of showing it.
-   ─────────────────────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════
+   THE YARD IN THREE DIMENSIONS
 
-const ART = { res: 2, ready: 0, bg: null, bgRes: 1, s: {}, vig: null, vigK: 0, seen: 0 };
-const FX = [];
-let DRAWN = 0, VIEW = null, MY = null, RT = null, SCALE = 0.4;
+   Everything above this line is the match: rules, machines, netcode. Nothing
+   below it can change the outcome of a match, and nothing above it knows this
+   file exists — the renderer reads state and never writes it.
 
-/* how far a shadow falls, given the light and the height of the thing */
-const WALL_SH_X = 28, WALL_SH_Y = 23, HULL_SH_X = 22, HULL_SH_Y = 18;
+   The engine hands each game a 2D canvas. This game draws its world on a
+   second canvas underneath it, in WebGL, with a real perspective camera that
+   rides behind the tank; the engine's own canvas is transparent and is used
+   for what text and flat overlays are actually good at — the tally, the
+   minimap, health bars, the thumb stick.
+
+   No library and no CDN: the shell has to keep working with no network once
+   the two phones are paired, so the matrix maths, the meshes, the textures
+   and the shaders are all built here at boot from a few hundred lines.
+
+   Passes, in order:
+     1 · the sand, one textured plane, lit by the same sun as everything else
+     2 · shadows and tread scars, flat quads on the ground, blended down
+     3 · every solid: walls, hulls, turrets, machines, crates — lit meshes
+     4 · every light: tracers, muzzle flare, fire, smoke, rings — added on top
+     5 · the 2D layer: tally, minimap, markers, stick
+
+   If WebGL will not start, `flat2D` draws the whole match top-down on the
+   engine's canvas instead and the game is still perfectly playable.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+const B = Duel.Board;
+
+/* what the renderer is told each frame, and what the pad reads back */
+let VIEW = null, MY = 'host', RT = null, DRAWN = 0, TNOW = 0;
+
+const STICK = { on: 0, dx: 0, dy: 0, ax: 0, ay: 0, pow: 0, tap: 0, max: 74,
+                sx: 0, sy: 0, ox: 0, oy: 0, sent: null };
+
+function maybe(dx, dy, pow) {
+  if (STICK.sent && Math.abs(pow - STICK.sent.pow) < 0.04 &&
+      dx * STICK.sent.dx + dy * STICK.sent.dy > 0.9985) return null;
+  STICK.sent = { dx, dy, pow };
+  return { dx, dy, pow };
+}
 
 const hash = i => { const v = Math.sin(i * 127.1 + 11.7) * 43758.5453; return v - Math.floor(v); };
 
-function surface(w, h, res) {
-  const cv = document.createElement('canvas');
-  cv.width = Math.max(1, Math.round(w * res));
-  cv.height = Math.max(1, Math.round(h * res));
-  const c = cv.getContext('2d');
-  c.setTransform(res, 0, 0, res, 0, 0);
-  return { cv, c, w, h };
-}
+/* ═══ 1 · matrices ═════════════════════════════════════════════════════
+   The game thinks in (x, y) on a flat yard. The world puts that down as
+   (x, 0, y): x runs right, z runs away from the camera, y is height. An
+   angle `a` from the rules turns into a heading of (cos a, 0, sin a), which
+   is a rotation of −a about the up axis — hence the sign flip in `mdl`.
+   ─────────────────────────────────────────────────────────────────────── */
 
-function sprite(name, w, h, paint) {
-  const s = surface(w, h, ART.res);
-  s.c.translate(w / 2, h / 2);
-  paint(s.c);
-  ART.s[name] = s;
-  return s;
-}
+const m4 = () => new Float32Array(16);
 
-function blit(x, s, cx, cy, ang) {
-  if (!s) return;
-  x.save();
-  x.translate(cx, cy);
-  if (ang) x.rotate(ang);
-  x.drawImage(s.cv, -s.w / 2, -s.h / 2, s.w, s.h);
-  x.restore();
-}
-
-/* A hull seen from directly above at noon: tread blocks either side, a
-   bevelled deck, a weld seam down the middle, rivets along the sponsons. */
-function paintHull(c, P, w, h) {
-  const tw = h * 0.19;
-  c.fillStyle = P.tread;
-  c.fillRect(-w / 2, -h / 2, w, tw);
-  c.fillRect(-w / 2, h / 2 - tw, w, tw);
-  c.fillStyle = P.treadDark;
-  for (let i = 0; i < 9; i++) {
-    const bx = -w / 2 + 1 + i * (w - 2) / 9;
-    c.fillRect(bx, -h / 2 + 1, (w - 2) / 9 - 1.6, tw - 2);
-    c.fillRect(bx, h / 2 - tw + 1, (w - 2) / 9 - 1.6, tw - 2);
-  }
-  const bh = h / 2 - tw - 1;
-  c.fillStyle = P.body;
-  c.fillRect(-w / 2 + 2, -bh, w - 4, bh * 2);
-  c.fillStyle = P.lit;
-  c.fillRect(-w / 2 + 2, -bh, w - 4, bh * 0.34);
-  c.fillStyle = P.dark;
-  c.fillRect(-w / 2 + 2, -1, w - 4, 2);
-  c.fillRect(w / 2 - 6, -bh, 3, bh * 2);
-  c.fillStyle = P.rivet;
-  for (let i = 0; i < 5; i++) {
-    const rx = -w / 2 + 8 + i * (w - 18) / 4;
-    c.fillRect(rx, -bh + 2, 2, 2);
-    c.fillRect(rx, bh - 4, 2, 2);
-  }
-}
-
-function paintTurret(c, P, len) {
-  c.fillStyle = P.dark;
-  c.fillRect(4, -4.5, len, 9);
-  c.fillRect(4 + len - 7, -6, 7, 12);
-  c.fillStyle = P.body;
-  c.beginPath(); c.arc(0, 0, 15, 0, TAU); c.fill();
-  c.fillStyle = P.lit;
-  c.beginPath(); c.arc(0, 0, 15, Math.PI * 1.1, Math.PI * 1.9); c.fill();
-  c.fillStyle = P.band;
-  c.fillRect(-2, -15, 4, 30);
-  c.fillStyle = P.dark;
-  c.beginPath(); c.arc(-4, 0, 4.5, 0, TAU); c.fill();
-  c.fillStyle = P.rivet;
-  c.fillRect(9, -7, 4, 3);
-}
-
-function paintFoe(c, P, k) {
-  const K = KIND[k];
-  const w = K.r * 2 - 4, h = K.r * (k === JUGG || k === WARLORD ? 1.9 : 1.6);
-  paintHull(c, P, w, h);
-  if (k === JUGG || k === WARLORD) {
-    c.fillStyle = P.plate;
-    c.fillRect(-w / 2 + 6, -h * 0.28, w - 12, h * 0.56);
-    c.fillStyle = P.dark;
-    for (let i = 0; i < 4; i++) c.fillRect(-w / 2 + 10 + i * (w - 20) / 3, -h * 0.24, 2, h * 0.48);
-  }
-  c.fillStyle = P.dark;
-  const bl = k === SNIPER ? K.r + 30 : k === WARLORD ? K.r + 20 : K.r + 14;
-  if (k === WARLORD) {
-    for (const off of [-9, 9]) c.fillRect(4, off - 3.5, bl, 7);
-    for (const off of [-20, 20]) c.fillRect(4, off - 3, bl * 0.7, 6);
-  } else {
-    c.fillRect(4, -4.5, bl, 9);
-    if (k === SNIPER) c.fillRect(4 + bl - 6, -6.5, 6, 13);
-  }
-  c.fillStyle = P.body;
-  c.beginPath(); c.arc(0, 0, k === WARLORD ? 20 : 12, 0, TAU); c.fill();
-  c.fillStyle = COL.optic;
-  c.beginPath(); c.arc(0, 0, k === WARLORD ? 11 : 6.5, 0, TAU); c.fill();
-  c.fillStyle = 'rgba(255,255,255,.55)';
-  c.beginPath(); c.arc(-2, -2, k === WARLORD ? 3.5 : 2, 0, TAU); c.fill();
-  if (k === WARLORD) {
-    c.fillStyle = P.plate;
-    for (const sy of [-1, 1]) {
-      for (let i = 0; i < 3; i++) {
-        c.beginPath();
-        c.moveTo(-14 + i * 14, sy * h / 2);
-        c.lineTo(-8 + i * 14, sy * (h / 2 + 7));
-        c.lineTo(-2 + i * 14, sy * h / 2);
-        c.closePath(); c.fill();
-      }
-    }
-  }
-}
-
-const flat = fill => ({ tread: fill, treadDark: fill, body: fill, lit: fill,
-                        dark: fill, rivet: fill, band: fill, plate: fill });
-
-const crewPalette = c => ({
-  tread: '#2C2620', treadDark: '#1C1814', body: c, lit: 'rgba(255,255,255,.20)',
-  dark: '#241F17', rivet: 'rgba(255,255,255,.35)', band: 'rgba(255,255,255,.55)',
-  plate: '#55606A',
-});
-const FOE_P = { tread: '#22262A', treadDark: '#15181B', body: '#3C4247',
-                lit: 'rgba(255,255,255,.13)', dark: '#181C1F',
-                rivet: 'rgba(255,255,255,.22)', band: '#2E353B', plate: '#55606A' };
-const BOSS_P = { ...FOE_P, body: '#2E353B', plate: '#616D78' };
-
-/* The crate face: a colour, a letter, a lid band. Used as the top of the 3D
-   box and as the whole crate in the fallback. */
-function paintCrateFace(c, P, s) {
-  c.fillStyle = '#4A4236'; c.fillRect(-s / 2, -s / 2, s, s);
-  c.fillStyle = '#5C5344'; c.fillRect(-s / 2 + 1.5, -s / 2 + 1.5, s - 3, s - 3);
-  c.fillStyle = P.c; c.fillRect(-s * 0.37, -s * 0.37, s * 0.74, s * 0.74);
-  const g = c.createLinearGradient(0, -s / 2, 0, s / 2);
-  g.addColorStop(0, 'rgba(255,255,255,.34)');
-  g.addColorStop(1, 'rgba(0,0,0,.18)');
-  c.fillStyle = g; c.fillRect(-s * 0.37, -s * 0.37, s * 0.74, s * 0.74);
-  c.fillStyle = '#241F17';
-  c.font = `700 ${Math.round(s * 0.56)}px "Share Tech Mono",ui-monospace,monospace`;
-  c.textAlign = 'center'; c.textBaseline = 'middle';
-  c.fillText(P.tag, 0, s * 0.03);
-}
-
-function paintCrate(c, P) {
-  c.fillStyle = SHADE; c.fillRect(-12, -11, 38, 38);
-  paintCrateFace(c, P, 44);
-}
-
-/* The yard itself: painted once, then written to as the match churns it. */
-function paintYard(res) {
-  const s = surface(HW * 2, HH * 2, res || ART.bgRes);
-  const c = s.c;
-  c.translate(HW, HH);
-
-  c.fillStyle = SAND;
-  c.fillRect(-HW, -HH, HW * 2, HH * 2);
-  for (let i = 0; i < 40; i++) {                  // drifts and oil
-    c.fillStyle = i % 3 ? SAND2 : OIL;
-    c.globalAlpha = i % 3 ? 0.55 : 0.16;
-    const px = (hash(i) * 2 - 1) * HW, py = (hash(i + 90) * 2 - 1) * HH;
-    const rr = 30 + hash(i + 200) * 70;
-    c.beginPath(); c.ellipse(px, py, rr, rr * 0.58, hash(i + 300) * TAU, 0, TAU); c.fill();
-  }
-  c.fillStyle = GRIT;
-  for (let i = 0; i < 900; i++) {                 // grit, once, not every frame
-    c.globalAlpha = 0.3 + hash(i + 700) * 0.5;
-    c.fillRect((hash(i + 7) * 2 - 1) * HW, (hash(i + 411) * 2 - 1) * HH,
-               1 + hash(i + 33) * 2, 1 + hash(i + 55) * 2);
-  }
-  c.globalAlpha = 1;
-
-  /* The slabs are only painted flat when the fallback renderer is going to
-     use this as the whole floor. In 3D they are real boxes standing on it,
-     so the texture carries their footprint and their shadow and nothing else. */
-  /* A flat sprite casts a hand's width of shadow; a slab standing 56 units
-     tall throws it much further, and along the same light the geometry is lit
-     by. The two renderers therefore bake different offsets. */
-  const ox = GFX.on ? WALL_SH_X : SUN_X, oy = GFX.on ? WALL_SH_Y : SUN_Y;
-  for (const w of WALLS) {
-    c.fillStyle = GFX.on ? 'rgba(50,41,28,.34)' : SHADE;
-    c.fillRect(w[0] - w[2] + ox, w[1] - w[3] + oy, w[2] * 2, w[3] * 2);
-  }
-  if (!GFX.on) {
-    for (const w of WALLS) {
-      c.fillStyle = SLAB;
-      c.fillRect(w[0] - w[2], w[1] - w[3], w[2] * 2, w[3] * 2);
-      c.fillStyle = SLAB_LIT;
-      c.fillRect(w[0] - w[2], w[1] - w[3], w[2] * 2, 8);
-      c.fillStyle = SLAB_DARK;
-      c.fillRect(w[0] - w[2], w[1] + w[3] - 4, w[2] * 2, 4);
-      c.fillRect(w[0] + w[2] - 4, w[1] - w[3], 4, w[3] * 2);
-      c.fillStyle = 'rgba(58,48,34,.16)';
-      for (let sx = w[0] - w[2] + 34; sx < w[0] + w[2] - 8; sx += 34) {
-        c.fillRect(sx, w[1] - w[3] + 8, 2, w[3] * 2 - 12);
-      }
-      c.fillStyle = 'rgba(255,255,255,.10)';
-      c.fillRect(w[0] - w[2], w[1] - w[3], 6, 6);
-      c.fillRect(w[0] + w[2] - 6, w[1] + w[3] - 6, 6, 6);
-    }
-  }
-
-  c.strokeStyle = 'rgba(110,100,85,.20)';         // faint yard markings
-  c.lineWidth = 2;
-  for (let gx = -HW + 80; gx < HW; gx += 160) {
-    c.beginPath(); c.moveTo(gx, -HH); c.lineTo(gx, HH); c.stroke();
-  }
-  c.strokeStyle = '#6E6455'; c.lineWidth = 6;
-  c.strokeRect(-HW + 3, -HH + 3, HW * 2 - 6, HH * 2 - 6);
-  c.fillStyle = 'rgba(224,168,78,.5)';            // hazard flashes at the gates
-  for (const gy of [-HH, HH - 10]) {
-    for (let gx = -120; gx < 120; gx += 26) c.fillRect(gx, gy, 14, 10);
-  }
-  return s;
-}
-
-function buildArt() {
-  if (ART.ready || typeof document === 'undefined') return;
-  ART.ready = 1;
-  for (const k of SIDES) {
-    const P = crewPalette(COL[k]);
-    sprite(k + 'H', R * 2 + 6, R * 1.9, c => paintHull(c, P, R * 2 - 2, R * 1.7));
-    sprite(k + 'T', 100, 44, c => paintTurret(c, P, 40));
-  }
-  sprite('hullS', R * 2 + 10, R * 2, c => paintHull(c, flat(SHADE), R * 2 - 2, R * 1.7));
-  for (let k = 0; k < KIND.length; k++) {
-    const w = KIND[k].r * 2 + 44, h = KIND[k].r * 2.5;
-    sprite('foe' + k, w, h, c => paintFoe(c, k === WARLORD ? BOSS_P : FOE_P, k));
-    sprite('foeS' + k, w, h, c => paintFoe(c, flat(SHADE), k));
-  }
-  for (const k of DROPS) sprite('crate' + k, 58, 58, c => paintCrate(c, POWERS[k]));
-  ART.bg = paintYard();
-}
-
-/* ── the marks a match leaves ── */
-function scar(x, y, a, w) {
-  if (GFX.on) {
-    const px = -Math.sin(a) * R * 0.95, py = Math.cos(a) * R * 0.95;
-    DECALS.push({ k: 'scar', x: x + px, y: y + py, x2: x - px, y2: y - py, a, w });
-    return;
-  }
-  if (!ART.bg) return;
-  const c = ART.bg.c;
-  c.save();
-  c.translate(x, y); c.rotate(a);
-  c.fillStyle = 'rgba(96,80,56,.16)';
-  c.fillRect(-w / 2, -R * 0.95, w, 7);
-  c.fillRect(-w / 2, R * 0.95 - 7, w, 7);
-  c.restore();
-}
-
-function scorch(x, y, r) {
-  if (GFX.on) { DECALS.push({ k: 'scorch', x, y, r }); return; }
-  if (!ART.bg) return;
-  const c = ART.bg.c;
-  c.fillStyle = 'rgba(52,40,28,.20)';
-  c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
-  c.fillStyle = 'rgba(52,40,28,.12)';
-  c.beginPath(); c.arc(x, y, r * 1.8, 0, TAU); c.fill();
-}
-
-/* ── particles, all local and all cheap ── */
-function push(f) { if (FX.length < (REDUCED ? 24 : 110)) FX.push(f); }
-function sparks(x, y, n) {
-  if (REDUCED) n = Math.min(n, 2);
-  for (let i = 0; i < n; i++) {
-    const a = hash(x + y + i + FX.length) * TAU, sp = 90 + hash(i + 3) * 200;
-    push({ k: 'spark', x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, t: 0.32, T: 0.32 });
-  }
-}
-function burst(x, y, c, w) {
-  push({ k: 'burst', x, y, c, r0: w[0], g0: w[1], b0: w[2], t: 0.2, T: 0.2 });
-}
-function muzzle(x, y, a, c, w) {
-  push({ k: 'muzzle', x, y, a, c, r0: w[0], g0: w[1], b0: w[2], t: 0.11, T: 0.11 });
-}
-function dust(x, y) { push({ k: 'dust', x, y, r: 7 + hash(FX.length) * 7, t: 0.7, T: 0.7 }); }
-function wreck(x, y, r) {
-  scorch(x, y, r * 0.8);
-  push({ k: 'blast', x, y, r, t: 0.5, T: 0.5 });
-  for (let i = 0; i < (REDUCED ? 3 : 9); i++) {
-    const a = i / 9 * TAU + hash(x + i) * 0.6, sp = 130 + hash(i + 9) * 220;
-    push({ k: 'chunk', x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
-           s: 4 + hash(i + 21) * 5, t: 0.75, T: 0.75 });
-  }
-  for (let i = 0; i < (REDUCED ? 2 : 6); i++) {
-    push({ k: 'smoke', x: x + (hash(i + 5) * 2 - 1) * r * 0.6,
-           y: y + (hash(i + 6) * 2 - 1) * r * 0.6,
-           r: r * 0.5, t: 1.1 + hash(i) * 0.5, T: 1.6 });
-  }
-}
-
-/* ═══ the 3D layer ═════════════════════════════════════════════════════
- *
- * The engine clears its own canvas with clearRect every frame, so that canvas
- * is transparent and a WebGL canvas sits directly underneath it. The world is
- * drawn there in real geometry; text and markers stay on the 2D canvas above,
- * where text belongs.
- *
- * Passes, in order:
- *   1. tread scars and scorch marks accumulate into a decal framebuffer
- *   2. the floor quad samples the yard texture and the decals together
- *   3. soft blob shadows are laid on the floor
- *   4. concrete, hulls, turrets and crates draw lit and depth-sorted by the
- *      depth buffer — one draw call each, a few dozen a frame
- *   5. fire, tracers, muzzle flashes and rings batch into one additive draw
- *
- * There is deliberately no render-to-texture and no post pass: drawing
- * straight to the canvas keeps multisampling, which matters far more at a
- * tank's size than any screen effect. Vignette and damage tint are painted by
- * the 2D layer on top, where they cost nothing.
- *
- * If anything here fails to build or throws mid-frame, GFX.on drops to 0, the
- * canvas is removed and the sprite renderer takes over on the next frame.
- */
-
-const GFX = {
-  on: 0, tried: 0, g: null, cv: null, W: 0, H: 0, dpr: 1,
-  mesh: null, floor: null, fx: null,
-  atlas: null, ground: null, uv: {}, packRes: 1,
-  M: {}, unit: null, plane: null,
-  decal: null, verts: null, n: 0, cap: 1400, ibo: null, vbo: null,
-  vp: new Float32Array(16), view: new Float32Array(16),
-  right: [1, 0, 0], up: [0, 1, 0], seen: 0, shots: 0, err: '',
-};
-const DECALS = [];
-const ATLAS = 1024, DECAL_N = 1024;
-const LIGHT = (() => { const l = [-0.42, 0.84, -0.34]; const n = Math.hypot(l[0], l[1], l[2]); return [l[0] / n, l[1] / n, l[2] / n]; })();
-
-/* ── matrices, column major, the way WebGL wants them ── */
-function mMul(a, b, o) {
-  for (let c = 0; c < 4; c++) {
-    const b0 = b[c * 4], b1 = b[c * 4 + 1], b2 = b[c * 4 + 2], b3 = b[c * 4 + 3];
-    o[c * 4]     = a[0] * b0 + a[4] * b1 + a[8]  * b2 + a[12] * b3;
-    o[c * 4 + 1] = a[1] * b0 + a[5] * b1 + a[9]  * b2 + a[13] * b3;
-    o[c * 4 + 2] = a[2] * b0 + a[6] * b1 + a[10] * b2 + a[14] * b3;
-    o[c * 4 + 3] = a[3] * b0 + a[7] * b1 + a[11] * b2 + a[15] * b3;
-  }
+function mPersp(o, fovy, asp, n, f) {
+  const t = 1 / Math.tan(fovy / 2);
+  o[0] = t / asp; o[1] = 0; o[2] = 0; o[3] = 0;
+  o[4] = 0; o[5] = t; o[6] = 0; o[7] = 0;
+  o[8] = 0; o[9] = 0; o[10] = (f + n) / (n - f); o[11] = -1;
+  o[12] = 0; o[13] = 0; o[14] = 2 * f * n / (n - f); o[15] = 0;
   return o;
 }
-function mPersp(fov, asp, n, f, o) {
-  const t = 1 / Math.tan(fov / 2);
-  o.fill(0);
-  o[0] = t / asp; o[5] = t; o[10] = (f + n) / (n - f); o[11] = -1; o[14] = 2 * f * n / (n - f);
-  return o;
-}
-function mLook(ex, ey, ez, tx, ty, tz, o) {
-  let zx = ex - tx, zy = ey - ty, zz = ez - tz;
-  const zl = Math.hypot(zx, zy, zz) || 1; zx /= zl; zy /= zl; zz /= zl;
-  let xx = zz, xy = 0, xz = -zx;
-  const xl = Math.hypot(xx, xy, xz) || 1; xx /= xl; xy /= xl; xz /= xl;
+
+function mLook(o, ex, ey, ez, cx, cy, cz) {
+  let zx = ex - cx, zy = ey - cy, zz = ez - cz;
+  let l = Math.hypot(zx, zy, zz) || 1; zx /= l; zy /= l; zz /= l;
+  let xx = zz, xy = 0, xz = -zx;                    // up × z, with up = +Y
+  l = Math.hypot(xx, xy, xz) || 1; xx /= l; xy /= l; xz /= l;
   const yx = zy * xz - zz * xy, yy = zz * xx - zx * xz, yz = zx * xy - zy * xx;
   o[0] = xx; o[1] = yx; o[2] = zx; o[3] = 0;
   o[4] = xy; o[5] = yy; o[6] = zy; o[7] = 0;
@@ -3000,261 +2679,396 @@ function mLook(ex, ey, ez, tx, ty, tz, o) {
   o[15] = 1;
   return o;
 }
-/* translate · rotateY · scale, straight into the slots. The game's heading
-   runs clockwise on a screen where y grows downward, so the yaw is negated
-   once, here, and nothing else in the file has to think about it. */
-const MODEL = new Float32Array(16);
-function mModel(tx, ty, tz, gameAngle, sx, sy, sz, o) {
-  const a = -(gameAngle || 0), c = Math.cos(a), s = Math.sin(a);
-  o = o || MODEL;
-  o[0] = c * sx;  o[1] = 0;   o[2] = -s * sx; o[3] = 0;
-  o[4] = 0;       o[5] = sy;  o[6] = 0;       o[7] = 0;
-  o[8] = s * sz;  o[9] = 0;   o[10] = c * sz; o[11] = 0;
-  o[12] = tx;     o[13] = ty; o[14] = tz;     o[15] = 1;
+
+function mMul(o, a, b) {                            // o = a · b
+  for (let c = 0; c < 4; c++) {
+    const b0 = b[c * 4], b1 = b[c * 4 + 1], b2 = b[c * 4 + 2], b3 = b[c * 4 + 3];
+    o[c * 4]     = a[0] * b0 + a[4] * b1 + a[8]  * b2 + a[12] * b3;
+    o[c * 4 + 1] = a[1] * b0 + a[5] * b1 + a[9]  * b2 + a[13] * b3;
+    o[c * 4 + 2] = a[2] * b0 + a[6] * b1 + a[10] * b2 + a[14] * b3;
+    o[c * 4 + 3] = a[3] * b0 + a[7] * b1 + a[11] * b2 + a[15] * b3;
+  }
   return o;
 }
 
-/* ── mesh building ── */
-const rgb = h => [parseInt(h.slice(1, 3), 16) / 255, parseInt(h.slice(3, 5), 16) / 255,
-                  parseInt(h.slice(5, 7), 16) / 255];
-const shade = (c, k) => [clamp(c[0] * k, 0, 1), clamp(c[1] * k, 0, 1), clamp(c[2] * k, 0, 1)];
+function mdl(o, x, y, z, ang, sx, sy, sz) {
+  const c = Math.cos(ang || 0), s = Math.sin(ang || 0);
+  sy = sy === undefined ? sx : sy; sz = sz === undefined ? sx : sz;
+  o[0] = c * sx; o[1] = 0; o[2] = s * sx; o[3] = 0;
+  o[4] = 0; o[5] = sy; o[6] = 0; o[7] = 0;
+  o[8] = -s * sz; o[9] = 0; o[10] = c * sz; o[11] = 0;
+  o[12] = x; o[13] = y; o[14] = z; o[15] = 1;
+  return o;
+}
 
-function MB() { return { p: [], n: [], c: [], t: [] }; }
+const VP = m4(), PRJ = m4(), VIEWM = m4(), MM = m4();
 
-/* One quad. The normal is taken from the winding and then pushed away from
-   `ref`, so a face can never end up lit from the inside because four corners
-   were listed the other way round. */
-function quad(m, a, b, c, d, col, uv, ref) {
-  let nx = (b[1] - a[1]) * (c[2] - a[2]) - (b[2] - a[2]) * (c[1] - a[1]);
-  let ny = (b[2] - a[2]) * (c[0] - a[0]) - (b[0] - a[0]) * (c[2] - a[2]);
-  let nz = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
-  const l = Math.hypot(nx, ny, nz) || 1; nx /= l; ny /= l; nz /= l;
-  if (ref) {
-    const mx = (a[0] + b[0] + c[0] + d[0]) / 4 - ref[0];
-    const my = (a[1] + b[1] + c[1] + d[1]) / 4 - ref[1];
-    const mz = (a[2] + b[2] + c[2] + d[2]) / 4 - ref[2];
-    if (nx * mx + ny * my + nz * mz < 0) { nx = -nx; ny = -ny; nz = -nz; }
-  }
-  const U = uv || { u0: -1, v0: -1, u1: -1, v1: -1 };
-  const pts = [a, b, c, a, c, d];
-  const uvs = [[U.u0, U.v1], [U.u1, U.v1], [U.u1, U.v0],
-               [U.u0, U.v1], [U.u1, U.v0], [U.u0, U.v0]];
-  for (let i = 0; i < 6; i++) {
-    m.p.push(pts[i][0], pts[i][1], pts[i][2]);
-    m.n.push(nx, ny, nz);
-    m.c.push(col[0], col[1], col[2]);
-    m.t.push(uvs[i][0], uvs[i][1]);
+/* ═══ 2 · the camera ═══════════════════════════════════════════════════
+   It rides above and behind your own tank, eases onto it rather than
+   snapping, and is pushed back far enough that a phone in portrait still
+   sees a useful slice of the yard. The distance is solved from the field of
+   view and the aspect, so a wide screen does not silently show less ground.
+   ─────────────────────────────────────────────────────────────────────── */
+
+const CAM = {
+  x: 0, z: 300, ex: 0, ey: 900, ez: 900,
+  zoom: 1, pitch: 0.95, fov: 0.86,
+  rx: 0, ry: 0, rz: 0,                              // right vector, for billboards
+  ux: 0, uy: 1, uz: 0,
+};
+
+function camera(v, dt) {
+  const me = v[MY] || v.host;
+  const tx = me ? me.x : 0, tz = me ? me.y : 0;
+  const k = clamp(dt * 6.5, 0, 1);
+  CAM.x = lerp(CAM.x, clamp(tx, -HW + 120, HW - 120), k);
+  CAM.z = lerp(CAM.z, clamp(tz, -HH + 120, HH - 120), k);
+
+  /* How far back to sit: far enough that the yard reads ahead of you, close
+     enough that a tank is a tank and not a dot. Solved from the field of view
+     and the aspect, so a tall phone and a laptop both get a usable slice —
+     and widened on a narrow screen so you are never looking down a corridor. */
+  const asp = Math.max(0.3, B.w / Math.max(1, B.h));
+  const tanH = Math.tan(CAM.fov / 2);
+  let D = (880 * CAM.zoom / 2) / tanH;
+  D = Math.max(D, (600 * CAM.zoom / 2) / (tanH * asp));
+  D = clamp(D, 700, 3000);
+
+  const shake = B.shake > 0.2 && !REDUCED ? B.shake : 0;
+  CAM.ex = CAM.x + (Math.random() - 0.5) * shake * 1.4;
+  CAM.ey = D * Math.sin(CAM.pitch) + (Math.random() - 0.5) * shake;
+  CAM.ez = CAM.z + D * Math.cos(CAM.pitch);
+
+  mPersp(PRJ, CAM.fov, asp, 80, 5200);
+  mLook(VIEWM, CAM.ex, CAM.ey, CAM.ez, CAM.x, 0, CAM.z);
+  mMul(VP, PRJ, VIEWM);
+
+  CAM.rx = VIEWM[0]; CAM.ry = VIEWM[4]; CAM.rz = VIEWM[8];
+  CAM.ux = VIEWM[1]; CAM.uy = VIEWM[5]; CAM.uz = VIEWM[9];
+}
+
+/* world point -> CSS pixels on the engine's canvas, or null if behind us */
+function project(x, y, z) {
+  const w = VP[3] * x + VP[7] * y + VP[11] * z + VP[15];
+  if (w <= 0.02) return null;
+  const cx = VP[0] * x + VP[4] * y + VP[8] * z + VP[12];
+  const cy = VP[1] * x + VP[5] * y + VP[9] * z + VP[13];
+  return { x: (cx / w * 0.5 + 0.5) * B.w, y: (0.5 - cy / w * 0.5) * B.h };
+}
+
+/* ═══ 3 · geometry ═════════════════════════════════════════════════════ */
+
+const GEO = () => ({ p: [], n: [], c: [] });
+
+function vtx(g, x, y, z, nx, ny, nz, col) {
+  g.p.push(x, y, z); g.n.push(nx, ny, nz); g.c.push(col[0], col[1], col[2]);
+}
+
+function quad(g, a, b, c, d, n, col) {
+  vtx(g, a[0], a[1], a[2], n[0], n[1], n[2], col);
+  vtx(g, b[0], b[1], b[2], n[0], n[1], n[2], col);
+  vtx(g, c[0], c[1], c[2], n[0], n[1], n[2], col);
+  vtx(g, a[0], a[1], a[2], n[0], n[1], n[2], col);
+  vtx(g, c[0], c[1], c[2], n[0], n[1], n[2], col);
+  vtx(g, d[0], d[1], d[2], n[0], n[1], n[2], col);
+}
+
+/* An axis-aligned box, optionally spun about the up axis, given as centre
+   and size. Every hull in the game is a handful of these. */
+function box(g, x, y, z, sx, sy, sz, col, rot) {
+  const hx = sx / 2, hy = sy / 2, hz = sz / 2;
+  const c = Math.cos(rot || 0), s = Math.sin(rot || 0);
+  const T = (px, py, pz) => [x + px * c - pz * s, y + py, z + px * s + pz * c];
+  const N = (nx, ny, nz) => [nx * c - nz * s, ny, nx * s + nz * c];
+  const F = [
+    [[hx, -hy, -hz], [hx, -hy, hz], [hx, hy, hz], [hx, hy, -hz], [1, 0, 0]],
+    [[-hx, -hy, hz], [-hx, -hy, -hz], [-hx, hy, -hz], [-hx, hy, hz], [-1, 0, 0]],
+    [[-hx, hy, -hz], [hx, hy, -hz], [hx, hy, hz], [-hx, hy, hz], [0, 1, 0]],
+    [[-hx, -hy, hz], [hx, -hy, hz], [hx, -hy, -hz], [-hx, -hy, -hz], [0, -1, 0]],
+    [[-hx, -hy, hz], [-hx, hy, hz], [hx, hy, hz], [hx, -hy, hz], [0, 0, 1]],
+    [[hx, -hy, -hz], [hx, hy, -hz], [-hx, hy, -hz], [-hx, -hy, -hz], [0, 0, -1]],
+  ];
+  for (const f of F) {
+    quad(g, T(f[0][0], f[0][1], f[0][2]), T(f[1][0], f[1][1], f[1][2]),
+            T(f[2][0], f[2][1], f[2][2]), T(f[3][0], f[3][1], f[3][2]),
+         N(f[4][0], f[4][1], f[4][2]), col);
   }
 }
 
-function box(m, cx, cy, cz, hx, hy, hz, col, topCol, topUV) {
-  const x0 = cx - hx, x1 = cx + hx, y0 = cy - hy, y1 = cy + hy, z0 = cz - hz, z1 = cz + hz;
-  const ref = [cx, cy, cz];
-  const T = topCol || shade(col, 1.1), B = shade(col, 0.55);
-  quad(m, [x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1], T, topUV, ref);   // top
-  quad(m, [x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1], B, null, ref);    // bottom
-  quad(m, [x1, y0, z0], [x1, y1, z0], [x1, y1, z1], [x1, y0, z1], shade(col, 1.02), null, ref);
-  quad(m, [x0, y0, z0], [x0, y1, z0], [x0, y1, z1], [x0, y0, z1], shade(col, 0.9), null, ref);
-  quad(m, [x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], shade(col, 0.95), null, ref);
-  quad(m, [x0, y0, z0], [x1, y0, z0], [x1, y1, z0], [x0, y1, z0], shade(col, 0.88), null, ref);
-}
-
-/* An upright drum: turret rings, hatches, wheels. */
-function cylY(m, cx, cy, cz, r, h, seg, col, capCol) {
-  const ref = [cx, cy + h / 2, cz];
+/* An upright cylinder, base at y. Turret rings, road wheels, optics. */
+function cyl(g, x, y, z, r, h, seg, col, taper) {
+  const r2 = taper === undefined ? r : taper;
   for (let i = 0; i < seg; i++) {
     const a0 = i / seg * TAU, a1 = (i + 1) / seg * TAU;
-    const x0 = cx + Math.cos(a0) * r, z0 = cz + Math.sin(a0) * r;
-    const x1 = cx + Math.cos(a1) * r, z1 = cz + Math.sin(a1) * r;
-    const k = 0.86 + 0.22 * Math.cos(a0 - 2.2);
-    quad(m, [x0, cy, z0], [x1, cy, z1], [x1, cy + h, z1], [x0, cy + h, z0],
-         shade(col, k), null, [cx, cy + h / 2, cz]);
-    quad(m, [cx, cy + h, cz], [x0, cy + h, z0], [x1, cy + h, z1], [cx, cy + h, cz],
-         capCol || shade(col, 1.14), null, [cx, cy, cz]);
+    const c0 = Math.cos(a0), s0 = Math.sin(a0), c1 = Math.cos(a1), s1 = Math.sin(a1);
+    const p0 = [x + c0 * r, y, z + s0 * r], p1 = [x + c1 * r, y, z + s1 * r];
+    const p2 = [x + c1 * r2, y + h, z + s1 * r2], p3 = [x + c0 * r2, y + h, z + s0 * r2];
+    vtx(g, p0[0], p0[1], p0[2], c0, 0.2, s0, col);
+    vtx(g, p1[0], p1[1], p1[2], c1, 0.2, s1, col);
+    vtx(g, p2[0], p2[1], p2[2], c1, 0.2, s1, col);
+    vtx(g, p0[0], p0[1], p0[2], c0, 0.2, s0, col);
+    vtx(g, p2[0], p2[1], p2[2], c1, 0.2, s1, col);
+    vtx(g, p3[0], p3[1], p3[2], c0, 0.2, s0, col);
+    vtx(g, x, y + h, z, 0, 1, 0, col);              // top cap
+    vtx(g, p3[0], p3[1], p3[2], 0, 1, 0, col);
+    vtx(g, p2[0], p2[1], p2[2], 0, 1, 0, col);
+    vtx(g, x, y, z, 0, -1, 0, col);                 // bottom cap
+    vtx(g, p1[0], p1[1], p1[2], 0, -1, 0, col);
+    vtx(g, p0[0], p0[1], p0[2], 0, -1, 0, col);
   }
-  void ref;
 }
 
-/* A barrel, lying along +x. */
-function cylX(m, x0, cy, cz, r, len, seg, col) {
-  const x1 = x0 + len, ref = [x0 + len / 2, cy, cz];
+function ball(g, x, y, z, r, seg, col) {
   for (let i = 0; i < seg; i++) {
-    const a0 = i / seg * TAU, a1 = (i + 1) / seg * TAU;
-    const y0 = cy + Math.cos(a0) * r, z0 = cz + Math.sin(a0) * r;
-    const y1 = cy + Math.cos(a1) * r, z1 = cz + Math.sin(a1) * r;
-    const k = 0.8 + 0.34 * Math.max(0, Math.cos(a0));
-    quad(m, [x0, y0, z0], [x1, y0, z0], [x1, y1, z1], [x0, y1, z1], shade(col, k), null, ref);
-    quad(m, [x1, cy, cz], [x1, y0, z0], [x1, y1, z1], [x1, cy, cz], shade(col, 1.1), null,
-         [x0, cy, cz]);
-  }
-}
-
-function spike(m, cx, cy, cz, r, h, seg, col) {
-  const ref = [cx, cy, cz];
-  for (let i = 0; i < seg; i++) {
-    const a0 = i / seg * TAU, a1 = (i + 1) / seg * TAU;
-    const x0 = cx + Math.cos(a0) * r, z0 = cz + Math.sin(a0) * r;
-    const x1 = cx + Math.cos(a1) * r, z1 = cz + Math.sin(a1) * r;
-    quad(m, [x0, cy, z0], [x1, cy, z1], [cx, cy + h, cz], [cx, cy + h, cz],
-         shade(col, 0.9 + 0.2 * Math.cos(a0)), null, ref);
-  }
-}
-
-/* ── the models ── */
-const STEEL = [0.30, 0.33, 0.36], DARK = [0.12, 0.13, 0.14], TRACK = [0.15, 0.14, 0.13];
-
-function crewHull(side) {
-  const m = MB(), C = rgb(COL[side]);
-  const L = 70, W = 60;
-  for (const sz of [-1, 1]) {
-    const z = sz * (W / 2 - 7);
-    box(m, 0, 11, z, L / 2, 10, 7, TRACK);                       // track run
-    for (let i = 0; i < 9; i++) {                                 // tread blocks
-      box(m, -L / 2 + (i + 0.5) * L / 9, 21, z, L / 26, 2.6, 8, shade(TRACK, 1.5));
+    const t0 = i / seg * Math.PI, t1 = (i + 1) / seg * Math.PI;
+    for (let j = 0; j < seg * 2; j++) {
+      const p0 = j / (seg * 2) * TAU, p1 = (j + 1) / (seg * 2) * TAU;
+      const P = (t, p) => [Math.sin(t) * Math.cos(p), Math.cos(t), Math.sin(t) * Math.sin(p)];
+      const a = P(t0, p0), b = P(t1, p0), c = P(t1, p1), d = P(t0, p1);
+      const V = v => [x + v[0] * r, y + v[1] * r, z + v[2] * r];
+      vtx(g, ...V(a), a[0], a[1], a[2], col);
+      vtx(g, ...V(b), b[0], b[1], b[2], col);
+      vtx(g, ...V(c), c[0], c[1], c[2], col);
+      vtx(g, ...V(a), a[0], a[1], a[2], col);
+      vtx(g, ...V(c), c[0], c[1], c[2], col);
+      vtx(g, ...V(d), d[0], d[1], d[2], col);
     }
-    box(m, 0, 24, sz * (W / 2 - 12), L / 2 - 6, 2, 4, shade(C, 0.7));   // fender
   }
-  box(m, 0, 16, 0, L / 2 - 6, 9, W / 2 - 13, shade(C, 0.86));     // lower hull
-  box(m, -3, 27, 0, L / 2 - 11, 5, W / 2 - 15, C, shade(C, 1.16));// deck
-  box(m, L / 2 - 12, 24, 0, 6, 5, W / 2 - 17, shade(C, 1.05));    // glacis
-  box(m, -L / 2 + 5, 30, 0, 3, 4, W / 2 - 20, [0.93, 0.90, 0.84]);// stripe
-  box(m, -L / 2 + 2, 25, W / 2 - 16, 5, 3, 3, DARK);              // exhaust
-  box(m, -8, 31, W / 2 - 17, 7, 3, 3, shade(C, 0.6));             // stowage
-  return m;
 }
 
-function crewTurret(side) {
-  const m = MB(), C = rgb(COL[side]);
-  const base = 32;
-  cylY(m, 0, base, 0, 15.5, 12, 16, C, shade(C, 1.2));
-  box(m, 8, base + 4, 0, 9, 5, 8, shade(C, 1.05));                 // mantlet
-  cylX(m, 14, base + 5, 0, 3.6, 30, 10, DARK);                     // barrel
-  box(m, 47, base + 5, 0, 4, 4.4, 4.4, shade(DARK, 1.5));          // muzzle brake
-  cylY(m, -5, base + 12, 0, 5, 3, 10, shade(DARK, 1.6));           // hatch
-  box(m, 0, base + 12, 0, 2, 3, 15, [0.95, 0.93, 0.88]);           // recognition band
-  return m;
+const rgb = h => [parseInt(h.slice(1, 3), 16) / 255,
+                  parseInt(h.slice(3, 5), 16) / 255,
+                  parseInt(h.slice(5, 7), 16) / 255];
+const mix = (a, b, k) => [lerp(a[0], b[0], k), lerp(a[1], b[1], k), lerp(a[2], b[2], k)];
+const BLACK = [0, 0, 0], WHITE = [1, 1, 1];
+
+/* ── the models ───────────────────────────────────────────────────────── */
+
+const STEEL = rgb('#3A4046'), STEEL_D = rgb('#22272B'), TRACK = rgb('#1A1714'),
+      TRACK_L = rgb('#2E2A24'), BRASS = rgb('#8A7A55'), OPTIC = rgb('#FF5C5C'),
+      CONCRETE = rgb('#9A9285'), CONCRETE_D = rgb('#6E6759'), RUSTY = rgb('#5A4A38');
+
+/* Running gear: two tracks with road wheels showing through, and the drive
+   sprocket at the back. Shared by both crews and by every machine. */
+function running(g, len, wide, col, wheel) {
+  const tz = wide / 2 - 5;
+  for (const sz of [-tz, tz]) {
+    box(g, 0, 9, sz, len, 18, 11, col);             // track run
+    box(g, 0, 17, sz, len * 0.78, 5, 12, mix(col, WHITE, 0.1));
+    for (let i = 0; i < 5; i++) {
+      const px = -len / 2 + 8 + i * (len - 16) / 4;
+      cyl(g, px, 3, sz, 6.5, 11, 8, wheel);
+    }
+  }
+}
+
+function tankModel(colHex) {
+  const C = rgb(colHex), lit = mix(C, WHITE, 0.18), dark = mix(C, BLACK, 0.45);
+  const hull = GEO();
+  running(hull, 66, 46, TRACK, TRACK_L);
+  box(hull, 0, 20, 0, 58, 14, 34, C);               // sponson
+  box(hull, 2, 29, 0, 46, 9, 30, lit);              // deck
+  box(hull, 27, 27, 0, 14, 7, 26, dark, 0);         // glacis
+  box(hull, -30, 25, 0, 8, 12, 26, dark);           // engine deck
+  for (const sz of [-13, 13]) {
+    box(hull, -22, 33, sz, 10, 5, 7, mix(C, BLACK, 0.2));   // stowage
+    box(hull, 12, 34, sz, 22, 3, 4, mix(C, WHITE, 0.3));    // grab rails
+  }
+  box(hull, -34, 31, 0, 5, 5, 14, BRASS);           // exhaust
+
+  const tur = GEO();
+  cyl(tur, 0, 33, 0, 15, 12, 12, lit, 13);          // turret basket
+  box(tur, 3, 39, 0, 26, 9, 22, C);                 // turret shell
+  box(tur, 16, 39, 0, 10, 8, 12, dark);             // mantlet
+  box(tur, 36, 39, 0, 34, 6, 6, STEEL_D);           // barrel
+  box(tur, 55, 39, 0, 8, 9, 9, STEEL);              // muzzle brake
+  cyl(tur, -6, 44, 0, 5.5, 4, 8, mix(C, WHITE, 0.3));       // hatch
+  box(tur, -2, 46, 0, 3, 3, 20, WHITE);             // recognition band
+  cyl(tur, 6, 45, 8, 2, 6, 6, OPTIC);               // sight
+  return { hull, tur };
 }
 
 function foeModel(k) {
-  const m = MB(), K = KIND[k];
-  const big = k === JUGG || k === WARLORD;
-  const body = k === WARLORD ? [0.17, 0.19, 0.21] : [0.21, 0.24, 0.26];
-  const plate = big ? [0.35, 0.40, 0.44] : [0.28, 0.31, 0.34];
-  const L = K.r * 2, W = K.r * (big ? 1.9 : 1.65);
-  for (const sz of [-1, 1]) {
-    const z = sz * (W / 2 - 5);
-    box(m, 0, 9, z, L / 2, 9, 5.5, TRACK);
-    for (let i = 0; i < 7; i++) {
-      box(m, -L / 2 + (i + 0.5) * L / 7, 18, z, L / 22, 2.4, 6.5, shade(TRACK, 1.5));
-    }
-  }
-  box(m, 0, 15, 0, L / 2 - 4, 8, W / 2 - 9, body);
-  box(m, -2, 25, 0, L / 2 - 9, 5, W / 2 - 12, plate, shade(plate, 1.15));
-
-  const top = big ? 30 : 28;
-  if (k === HUNTER) {                                   // ram blades
-    box(m, L / 2 - 2, 16, 0, 5, 3, W / 2 - 8, [0.46, 0.20, 0.16]);
-    box(m, L / 2 + 3, 14, 0, 4, 2, W / 2 - 14, [0.55, 0.24, 0.18]);
-  }
-  if (big) {                                            // bolted armour
+  const K = KIND[k], boss = k === WARLORD, jug = k === JUGG;
+  const g = GEO();
+  const body = boss ? mix(STEEL, BLACK, 0.25) : STEEL;
+  const len = K.r * 2, wide = K.r * (boss || jug ? 1.9 : 1.6);
+  running(g, len, wide, TRACK, TRACK_L);
+  box(g, 0, 20, 0, len * 0.9, 15, wide * 0.72, body);
+  box(g, 0, 29, 0, len * 0.7, 8, wide * 0.6, mix(body, WHITE, 0.12));
+  if (jug || boss) {
+    box(g, 4, 30, 0, len * 0.8, 16, wide * 0.8, mix(body, BLACK, 0.15));
     for (let i = 0; i < 4; i++) {
-      box(m, -L / 2 + 8 + i * (L - 16) / 3, 30, 0, 3, 3, W / 2 - 13, shade(plate, 0.8));
+      box(g, -len * 0.3 + i * len * 0.2, 39, 0, 4, 4, wide * 0.8, RUSTY);
     }
   }
-  cylY(m, 0, top, 0, k === WARLORD ? 20 : 11, k === WARLORD ? 15 : 10, 14,
-       shade(body, 1.2), shade(body, 1.4));
-  const eye = top + (k === WARLORD ? 8 : 5);
-  const bl = k === SNIPER ? K.r + 26 : k === WARLORD ? K.r + 16 : K.r + 12;
-  if (k === WARLORD) {
-    for (const off of [-10, 10]) cylX(m, 16, eye, off, 3.4, bl, 8, DARK);
-    for (const off of [-21, 21]) cylX(m, 16, eye - 4, off, 2.8, bl * 0.7, 8, DARK);
-    for (let i = 0; i < 5; i++) {
-      const a = -1 + i * 0.5;
-      spike(m, Math.cos(a) * 18, top + 15, Math.sin(a) * 18, 4, 13, 6, plate);
+  cyl(g, 0, 34, 0, boss ? 20 : 12, boss ? 16 : 11, 10, mix(body, WHITE, 0.1));
+  const bl = k === SNIPER ? K.r + 34 : boss ? K.r + 24 : K.r + 16;
+  if (boss) {
+    for (const off of [-10, 10]) box(g, bl / 2 + 6, 44, off, bl, 6, 6, STEEL_D);
+    for (const off of [-22, 22]) box(g, bl / 2, 40, off, bl * 0.7, 5, 5, STEEL_D);
+    for (const sz of [-1, 1]) {
+      for (let i = 0; i < 3; i++) {
+        box(g, -14 + i * 15, 30, sz * wide * 0.55, 12, 22, 5, RUSTY, sz * 0.5);
+      }
     }
   } else {
-    cylX(m, k === WARLORD ? 16 : 8, eye, 0, k === SNIPER ? 2.8 : 3.6, bl, 8, DARK);
-    if (k === SNIPER) box(m, 8 + bl, eye, 0, 3, 4, 4, shade(DARK, 1.6));
+    box(g, bl / 2 + 4, boss ? 44 : 40, 0, bl, 6, 6, STEEL_D);
+    if (k === SNIPER) box(g, bl + 6, 40, 0, 8, 9, 9, STEEL);
   }
-  /* the optic, bright enough to read as the thing that is looking at you */
-  box(m, k === WARLORD ? 12 : 6, eye + (k === WARLORD ? 6 : 4), 0,
-      3, 3.4, k === WARLORD ? 8 : 5, [1, 0.30, 0.26], [1, 0.55, 0.45]);
-  return m;
+  ball(g, boss ? 6 : 2, boss ? 48 : 42, 0, boss ? 9 : 5.5, 5, OPTIC);
+  return g;
 }
 
-function crateModel(uv) {
-  const m = MB(), wood = [0.33, 0.29, 0.22];
-  box(m, 0, 0, 0, 15, 15, 15, wood, [1, 1, 1], uv);
-  for (const sz of [-1, 1]) box(m, 0, 0, sz * 15.4, 15, 4, 0.6, shade(wood, 1.4));
-  return m;
+function crateModel(k) {
+  const g = GEO(), C = rgb(POWERS[k].c);
+  box(g, 0, 3, 0, 40, 6, 40, mix(C, BLACK, 0.6));   // pallet
+  box(g, 0, 18, 0, 34, 26, 34, mix(C, BLACK, 0.25));
+  box(g, 0, 31, 0, 30, 4, 30, mix(C, WHITE, 0.25)); // lid
+  for (const sz of [-15, 15]) box(g, 0, 18, sz, 36, 6, 3, C);
+  for (const sx of [-15, 15]) box(g, sx, 18, 0, 3, 6, 36, C);
+  cyl(g, 0, 33, 0, 6, 3, 8, C);
+  return g;
 }
 
-function unitBox() {
-  const m = MB();
-  box(m, 0, 0, 0, 0.5, 0.5, 0.5, [0.60, 0.57, 0.52], [0.74, 0.71, 0.65]);
-  return m;
+/* ═══ 4 · textures ═════════════════════════════════════════════════════ */
+
+/* Sand, grit, oil and a couple of drifts. Painted once, 1024², then handed
+   to the GPU. No wall shapes: the concrete is real geometry now. */
+function paintGround() {
+  const N = 1024, cv = document.createElement('canvas');
+  cv.width = cv.height = N;
+  const c = cv.getContext('2d');
+  c.fillStyle = SAND; c.fillRect(0, 0, N, N);
+  for (let i = 0; i < 60; i++) {
+    c.fillStyle = i % 3 ? SAND2 : OIL;
+    c.globalAlpha = i % 3 ? 0.5 : 0.14;
+    c.beginPath();
+    c.ellipse(hash(i) * N, hash(i + 90) * N, 40 + hash(i + 200) * 120,
+              (40 + hash(i + 200) * 120) * 0.55, hash(i + 300) * TAU, 0, TAU);
+    c.fill();
+  }
+  c.globalAlpha = 1;
+  c.fillStyle = GRIT;
+  for (let i = 0; i < 2600; i++) {
+    c.globalAlpha = 0.25 + hash(i + 700) * 0.5;
+    c.fillRect(hash(i + 7) * N, hash(i + 411) * N, 1 + hash(i + 33) * 3, 1 + hash(i + 55) * 3);
+  }
+  c.globalAlpha = 0.18;
+  c.strokeStyle = '#8C7A5C'; c.lineWidth = 3;
+  for (let i = 0; i < 26; i++) {                    // old tyre lines
+    c.beginPath();
+    const x0 = hash(i + 12) * N, y0 = hash(i + 44) * N;
+    c.moveTo(x0, y0);
+    c.bezierCurveTo(x0 + 180, y0 + 90, x0 - 140, y0 + 260, x0 + 60, y0 + 400);
+    c.stroke();
+  }
+  c.globalAlpha = 1;
+  return cv;
 }
 
-function planeMesh() {
-  const m = MB();
-  quad(m, [-HW, 0, -HH], [HW, 0, -HH], [HW, 0, HH], [-HW, 0, HH],
-       [1, 1, 1], { u0: 0, v0: 0, u1: 1, v1: 1 }, [0, -1, 0]);
-  return m;
+/* One small atlas of soft shapes, in a 4×2 grid. Everything additive in the
+   game is one of these tinted and stretched. */
+const TILE = {};
+function paintAtlas() {
+  const N = 512, T = 128, cv = document.createElement('canvas');
+  cv.width = cv.height = N;
+  const c = cv.getContext('2d');
+  const names = ['glow', 'ring', 'soft', 'disc', 'bar', 'star', 'shadow', 'scar'];
+  names.forEach((n, i) => {
+    const gx = (i % 4) * T, gy = Math.floor(i / 4) * T;
+    TILE[n] = { u0: (gx + 2) / N, v0: (gy + 2) / N, u1: (gx + T - 2) / N, v1: (gy + T - 2) / N };
+    c.save(); c.translate(gx + T / 2, gy + T / 2);
+    if (n === 'glow' || n === 'soft' || n === 'shadow') {
+      const soft = n === 'soft' ? 0.55 : n === 'shadow' ? 0.72 : 0.3;
+      const g = c.createRadialGradient(0, 0, 0, 0, 0, 60);
+      g.addColorStop(0, 'rgba(255,255,255,1)');
+      g.addColorStop(soft, n === 'glow' ? 'rgba(255,255,255,.42)' : 'rgba(255,255,255,.5)');
+      g.addColorStop(1, 'rgba(255,255,255,0)');
+      c.fillStyle = g; c.beginPath(); c.arc(0, 0, 60, 0, TAU); c.fill();
+    } else if (n === 'ring') {
+      c.strokeStyle = '#fff'; c.lineWidth = 9;
+      c.beginPath(); c.arc(0, 0, 52, 0, TAU); c.stroke();
+    } else if (n === 'disc') {
+      c.fillStyle = '#fff'; c.beginPath(); c.arc(0, 0, 52, 0, TAU); c.fill();
+    } else if (n === 'bar') {
+      c.fillStyle = '#fff'; c.fillRect(-60, -22, 120, 44);
+    } else if (n === 'star') {
+      c.fillStyle = '#fff';
+      c.beginPath();
+      c.moveTo(-24, 0); c.lineTo(6, -26); c.lineTo(58, 0); c.lineTo(6, 26);
+      c.closePath(); c.fill();
+      c.beginPath(); c.arc(0, 0, 18, 0, TAU); c.fill();
+    } else {                                        // scar: a soft dark streak
+      const g = c.createLinearGradient(0, -20, 0, 20);
+      g.addColorStop(0, 'rgba(255,255,255,0)');
+      g.addColorStop(0.5, 'rgba(255,255,255,1)');
+      g.addColorStop(1, 'rgba(255,255,255,0)');
+      c.fillStyle = g; c.fillRect(-60, -20, 120, 40);
+    }
+    c.restore();
+  });
+  return cv;
 }
 
-/* ── shaders ── */
+/* ═══ 5 · shaders ══════════════════════════════════════════════════════ */
+
 const V_MESH = `
-attribute vec3 aPos; attribute vec3 aNrm; attribute vec3 aCol; attribute vec2 aUV;
-uniform mat4 uVP; uniform mat4 uModel;
-varying vec3 vNrm; varying vec3 vCol; varying vec2 vUV; varying float vY;
+attribute vec3 aPos; attribute vec3 aNorm; attribute vec3 aCol;
+uniform mat4 uVP; uniform mat4 uM; uniform vec3 uTint;
+varying vec3 vN; varying vec3 vC; varying float vH; varying float vD;
 void main(){
-  vec4 w = uModel * vec4(aPos, 1.0);
-  vNrm = mat3(uModel) * aNrm;
-  vCol = aCol; vUV = aUV; vY = w.y;
+  vec4 w = uM * vec4(aPos, 1.0);
+  vN = normalize(mat3(uM) * aNorm);
+  vC = aCol * uTint;
+  vH = w.y;
+  vD = length(w.xz);
   gl_Position = uVP * w;
 }`;
 
 const F_MESH = `
 precision mediump float;
-uniform sampler2D uTex; uniform vec3 uLight; uniform vec3 uTint; uniform float uAlpha;
-varying vec3 vNrm; varying vec3 vCol; varying vec2 vUV; varying float vY;
+uniform vec3 uLight; uniform float uEmis;
+varying vec3 vN; varying vec3 vC; varying float vH; varying float vD;
 void main(){
-  vec3 n = normalize(vNrm);
-  vec3 col = vCol * uTint;
-  if (vUV.x >= 0.0) col *= texture2D(uTex, vUV).rgb;
+  vec3 n = normalize(vN);
   float d = max(dot(n, uLight), 0.0);
-  float sky = 0.34 + 0.20 * max(n.y, 0.0);
-  float bounce = 0.10 * max(-n.y, 0.0);
-  vec3 lit = col * (sky + bounce + d * 0.86);
-  lit += vec3(1.0, 0.94, 0.80) * pow(d, 22.0) * 0.28;
-  lit *= 0.94 + 0.06 * clamp(vY / 60.0, 0.0, 1.0);
-  gl_FragColor = vec4(lit, uAlpha);
+  float sky = 0.5 + 0.5 * n.y;
+  vec3 warm = vec3(1.04, 0.96, 0.84);
+  float spec = pow(max(dot(reflect(-uLight, n), vec3(0.0, 0.55, 0.84)), 0.0), 12.0);
+  vec3 col = vC * (0.26 * sky + 1.12 * d) * warm + vec3(spec * 0.16);
+  col += vC * uEmis;
+  col *= 0.82 + 0.18 * clamp(vH / 60.0, 0.0, 1.0);
+  col = mix(col, vec3(0.30, 0.26, 0.21), smoothstep(900.0, 2300.0, vD) * 0.5);
+  gl_FragColor = vec4(col, 1.0);
 }`;
 
-const V_FLOOR = `
+const V_GROUND = `
 attribute vec3 aPos; attribute vec2 aUV;
 uniform mat4 uVP;
-varying vec2 vUV;
-void main(){ vUV = aUV; gl_Position = uVP * vec4(aPos, 1.0); }`;
+varying vec2 vUV; varying vec2 vXZ;
+void main(){ vUV = aUV; vXZ = aPos.xz; gl_Position = uVP * vec4(aPos, 1.0); }`;
 
-const F_FLOOR = `
+const F_GROUND = `
 precision mediump float;
-uniform sampler2D uTex; uniform sampler2D uDecal;
-varying vec2 vUV;
+uniform sampler2D uTex; uniform vec2 uHalf;
+varying vec2 vUV; varying vec2 vXZ;
 void main(){
-  vec3 g = texture2D(uTex, vUV).rgb;
-  vec4 d = texture2D(uDecal, vUV);
-  vec3 c = mix(g, d.rgb, clamp(d.a, 0.0, 1.0));
-  gl_FragColor = vec4(c * 0.98, 1.0);
+  vec3 c = texture2D(uTex, vUV).rgb * vec3(1.02, 0.99, 0.94);
+  vec2 e = abs(vXZ) / uHalf;
+  float edge = max(e.x, e.y);
+  c *= 1.0 - smoothstep(0.86, 1.0, edge) * 0.30;
+  c = mix(c, vec3(0.30, 0.26, 0.21), smoothstep(900.0, 2300.0, length(vXZ)) * 0.5);
+  gl_FragColor = vec4(c, 1.0);
 }`;
 
-const V_FX = `
+const V_QUAD = `
 attribute vec3 aPos; attribute vec2 aUV; attribute vec4 aCol;
 uniform mat4 uVP;
 varying vec2 vUV; varying vec4 vCol;
 void main(){ vUV = aUV; vCol = aCol; gl_Position = uVP * vec4(aPos, 1.0); }`;
 
-const F_FX = `
+const F_QUAD = `
 precision mediump float;
 uniform sampler2D uTex;
 varying vec2 vUV; varying vec4 vCol;
@@ -3263,1026 +3077,724 @@ void main(){
   gl_FragColor = vec4(t.rgb * vCol.rgb, t.a * vCol.a);
 }`;
 
-/* ── plumbing ── */
-function glShader(g, type, src) {
+/* ═══ 6 · the GL layer ═════════════════════════════════════════════════ */
+
+const G3 = { on: 0, tried: 0, g: null, cv: null, W: 0, H: 0, err: '',
+             mesh: null, groundP: null, quadP: null, models: {},
+             atlas: null, groundTex: null, groundBuf: null,
+             qn: null, qa: null, qbuf: null, enabled: -1 };
+
+const QCAP = 900;                                   // quads per blend pass
+
+function shader(g, type, src) {
   const s = g.createShader(type);
   g.shaderSource(s, src); g.compileShader(s);
-  if (!g.getShaderParameter(s, g.COMPILE_STATUS)) {
-    GFX.err = g.getShaderInfoLog(s) || 'shader failed'; return null;
-  }
+  if (!g.getShaderParameter(s, g.COMPILE_STATUS)) { G3.err = g.getShaderInfoLog(s) || 'shader'; return null; }
   return s;
 }
-function glProgram(g, vs, fs, attrs, unis) {
-  const v = glShader(g, g.VERTEX_SHADER, vs), f = glShader(g, g.FRAGMENT_SHADER, fs);
+
+function program(g, vs, fs, attrs, unis) {
+  const v = shader(g, g.VERTEX_SHADER, vs), f = shader(g, g.FRAGMENT_SHADER, fs);
   if (!v || !f) return null;
   const p = g.createProgram();
-  g.attachShader(p, v); g.attachShader(p, f); g.linkProgram(p);
-  if (!g.getProgramParameter(p, g.LINK_STATUS)) {
-    GFX.err = g.getProgramInfoLog(p) || 'link failed'; return null;
-  }
-  const o = { p, a: {}, u: {} };
-  for (const k of attrs) o.a[k] = g.getAttribLocation(p, k);
+  g.attachShader(p, v); g.attachShader(p, f);
+  for (let i = 0; i < attrs.length; i++) g.bindAttribLocation(p, i, attrs[i]);
+  g.linkProgram(p);
+  if (!g.getProgramParameter(p, g.LINK_STATUS)) { G3.err = g.getProgramInfoLog(p) || 'link'; return null; }
+  const o = { p, n: attrs.length, u: {} };
   for (const k of unis) o.u[k] = g.getUniformLocation(p, k);
   return o;
 }
-function glTex(g, src) {
+
+/* Attribute slots are bound by index, so switching programs is only ever a
+   question of how many are live. */
+function use(P) {
+  const g = G3.g;
+  g.useProgram(P.p);
+  if (G3.enabled !== P.n) {
+    for (let i = 0; i < 4; i++) {
+      if (i < P.n) g.enableVertexAttribArray(i); else g.disableVertexAttribArray(i);
+    }
+    G3.enabled = P.n;
+  }
+}
+
+function upload(geo) {
+  const g = G3.g, n = geo.p.length / 3;
+  const a = new Float32Array(n * 9);
+  for (let i = 0; i < n; i++) {
+    a[i * 9] = geo.p[i * 3]; a[i * 9 + 1] = geo.p[i * 3 + 1]; a[i * 9 + 2] = geo.p[i * 3 + 2];
+    a[i * 9 + 3] = geo.n[i * 3]; a[i * 9 + 4] = geo.n[i * 3 + 1]; a[i * 9 + 5] = geo.n[i * 3 + 2];
+    a[i * 9 + 6] = geo.c[i * 3]; a[i * 9 + 7] = geo.c[i * 3 + 1]; a[i * 9 + 8] = geo.c[i * 3 + 2];
+  }
+  const buf = g.createBuffer();
+  g.bindBuffer(g.ARRAY_BUFFER, buf);
+  g.bufferData(g.ARRAY_BUFFER, a, g.STATIC_DRAW);
+  return { buf, n };
+}
+
+function texture(g, src, repeat) {
   const t = g.createTexture();
   g.bindTexture(g.TEXTURE_2D, t);
   g.pixelStorei(g.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
   g.texImage2D(g.TEXTURE_2D, 0, g.RGBA, g.RGBA, g.UNSIGNED_BYTE, src);
-  g.texParameteri(g.TEXTURE_2D, g.TEXTURE_WRAP_S, g.CLAMP_TO_EDGE);
-  g.texParameteri(g.TEXTURE_2D, g.TEXTURE_WRAP_T, g.CLAMP_TO_EDGE);
-  g.texParameteri(g.TEXTURE_2D, g.TEXTURE_MIN_FILTER, g.LINEAR);
+  const wrap = repeat ? g.REPEAT : g.CLAMP_TO_EDGE;
+  g.texParameteri(g.TEXTURE_2D, g.TEXTURE_WRAP_S, wrap);
+  g.texParameteri(g.TEXTURE_2D, g.TEXTURE_WRAP_T, wrap);
+  if (repeat) g.generateMipmap(g.TEXTURE_2D);
+  g.texParameteri(g.TEXTURE_2D, g.TEXTURE_MIN_FILTER, repeat ? g.LINEAR_MIPMAP_LINEAR : g.LINEAR);
   g.texParameteri(g.TEXTURE_2D, g.TEXTURE_MAG_FILTER, g.LINEAR);
   return t;
 }
-function glTarget(g, w, h) {
-  const t = g.createTexture();
-  g.bindTexture(g.TEXTURE_2D, t);
-  g.texImage2D(g.TEXTURE_2D, 0, g.RGBA, w, h, 0, g.RGBA, g.UNSIGNED_BYTE, null);
-  g.texParameteri(g.TEXTURE_2D, g.TEXTURE_WRAP_S, g.CLAMP_TO_EDGE);
-  g.texParameteri(g.TEXTURE_2D, g.TEXTURE_WRAP_T, g.CLAMP_TO_EDGE);
-  g.texParameteri(g.TEXTURE_2D, g.TEXTURE_MIN_FILTER, g.LINEAR);
-  g.texParameteri(g.TEXTURE_2D, g.TEXTURE_MAG_FILTER, g.LINEAR);
-  const fb = g.createFramebuffer();
-  g.bindFramebuffer(g.FRAMEBUFFER, fb);
-  g.framebufferTexture2D(g.FRAMEBUFFER, g.COLOR_ATTACHMENT0, g.TEXTURE_2D, t, 0);
-  const ok = g.checkFramebufferStatus(g.FRAMEBUFFER) === g.FRAMEBUFFER_COMPLETE;
-  g.bindFramebuffer(g.FRAMEBUFFER, null);
-  if (!ok) { GFX.err = 'framebuffer incomplete'; return null; }
-  return { fb, tex: t, w, h };
-}
 
-function upload(g, m) {
-  const n = m.p.length / 3;
-  const buf = new Float32Array(n * 11);
-  for (let i = 0; i < n; i++) {
-    const o = i * 11;
-    buf[o] = m.p[i * 3]; buf[o + 1] = m.p[i * 3 + 1]; buf[o + 2] = m.p[i * 3 + 2];
-    buf[o + 3] = m.n[i * 3]; buf[o + 4] = m.n[i * 3 + 1]; buf[o + 5] = m.n[i * 3 + 2];
-    buf[o + 6] = m.c[i * 3]; buf[o + 7] = m.c[i * 3 + 1]; buf[o + 8] = m.c[i * 3 + 2];
-    buf[o + 9] = m.t[i * 2]; buf[o + 10] = m.t[i * 2 + 1];
-  }
-  const b = g.createBuffer();
-  g.bindBuffer(g.ARRAY_BUFFER, b);
-  g.bufferData(g.ARRAY_BUFFER, buf, g.STATIC_DRAW);
-  return { b, n };
-}
-
-/* ── the atlas: crate faces, and the sprites the additive pass needs ── */
-function packAtlas() {
-  const cv = document.createElement('canvas');
-  cv.width = cv.height = ATLAS;
-  const c = cv.getContext('2d');
-  c.clearRect(0, 0, ATLAS, ATLAS);
-  GFX.uv = {};
-  let x = 2, y = 2, shelf = 0, over = 0;
-
-  const put = (name, w, h, paint) => {
-    if (x + w + 4 > ATLAS) { x = 2; y += shelf + 4; shelf = 0; }
-    if (y + h + 4 > ATLAS) { over = 1; return; }
-    c.save(); c.translate(x + w / 2, y + h / 2); paint(c, w, h); c.restore();
-    GFX.uv[name] = { u0: (x + 0.5) / ATLAS, v0: (y + 0.5) / ATLAS,
-                     u1: (x + w - 0.5) / ATLAS, v1: (y + h - 0.5) / ATLAS };
-    x += w + 4; shelf = Math.max(shelf, h);
-  };
-
-  for (const k of DROPS) put('face' + k, 128, 128, cc => paintCrateFace(cc, POWERS[k], 128));
-  put('glow', 128, 128, cc => {
-    const g = cc.createRadialGradient(0, 0, 0, 0, 0, 63);
-    g.addColorStop(0, 'rgba(255,255,255,1)');
-    g.addColorStop(0.34, 'rgba(255,255,255,.42)');
-    g.addColorStop(1, 'rgba(255,255,255,0)');
-    cc.fillStyle = g; cc.fillRect(-64, -64, 128, 128);
-  });
-  put('disc', 64, 64, cc => {
-    const g = cc.createRadialGradient(0, 0, 0, 0, 0, 31);
-    g.addColorStop(0, 'rgba(255,255,255,1)');
-    g.addColorStop(0.62, 'rgba(255,255,255,.95)');
-    g.addColorStop(1, 'rgba(255,255,255,0)');
-    cc.fillStyle = g; cc.fillRect(-32, -32, 64, 64);
-  });
-  put('soft', 64, 64, cc => {
-    const g = cc.createRadialGradient(0, 0, 0, 0, 0, 31);
-    g.addColorStop(0, 'rgba(255,255,255,.95)');
-    g.addColorStop(0.55, 'rgba(255,255,255,.55)');
-    g.addColorStop(1, 'rgba(255,255,255,0)');
-    cc.fillStyle = g; cc.fillRect(-32, -32, 64, 64);
-  });
-  put('ring', 192, 192, cc => {
-    cc.strokeStyle = '#fff'; cc.lineWidth = 9;
-    cc.beginPath(); cc.arc(0, 0, 86, 0, TAU); cc.stroke();
-    cc.globalAlpha = 0.35; cc.lineWidth = 3;
-    cc.beginPath(); cc.arc(0, 0, 76, 0, TAU); cc.stroke();
-  });
-  put('bar', 64, 16, cc => { cc.fillStyle = '#fff'; cc.fillRect(-32, -8, 64, 16); });
-  put('flash', 160, 96, cc => {
-    cc.fillStyle = '#fff';
-    cc.beginPath();
-    cc.moveTo(-26, 0); cc.lineTo(4, -30); cc.lineTo(74, 0); cc.lineTo(4, 30);
-    cc.closePath(); cc.fill();
-    cc.beginPath(); cc.arc(-4, 0, 20, 0, TAU); cc.fill();
-  });
-  put('smoke', 128, 128, cc => {
-    const g = cc.createRadialGradient(0, 0, 0, 0, 0, 62);
-    g.addColorStop(0, 'rgba(255,255,255,.9)');
-    g.addColorStop(0.55, 'rgba(255,255,255,.4)');
-    g.addColorStop(1, 'rgba(255,255,255,0)');
-    cc.fillStyle = g; cc.fillRect(-64, -64, 128, 128);
-  });
-  return over ? null : cv;
-}
-
-/* ── build ── */
-function gfxInit() {
-  if (GFX.tried) return GFX.on;
-  GFX.tried = 1;
+function glInit() {
+  if (G3.tried) return G3.on;
+  G3.tried = 1;
   try {
     const board = document.getElementById('board');
-    if (!board || !board.parentNode || typeof WebGLRenderingContext === 'undefined') {
-      GFX.err = 'no board'; return 0;
-    }
+    if (!board || !board.parentNode) { G3.err = 'no board'; return 0; }
     const cv = document.createElement('canvas');
     cv.id = 'yard3d';
     cv.setAttribute('aria-hidden', 'true');
     cv.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block';
     board.parentNode.insertBefore(cv, board);
-    const opts = { alpha: false, antialias: true, depth: true, stencil: false,
-                   premultipliedAlpha: false, powerPreference: 'high-performance' };
+    const opts = { alpha: false, antialias: true, depth: true, powerPreference: 'high-performance' };
     const g = cv.getContext('webgl', opts) || cv.getContext('experimental-webgl', opts);
-    if (!g) { GFX.err = 'no webgl'; cv.remove(); return 0; }
-    GFX.cv = cv; GFX.g = g;
-    cv.addEventListener('webglcontextlost', e => { e.preventDefault(); gfxDown('context lost'); });
+    if (!g) { G3.err = 'no webgl'; return 0; }
+    G3.cv = cv; G3.g = g;
 
-    GFX.mesh = glProgram(g, V_MESH, F_MESH, ['aPos', 'aNrm', 'aCol', 'aUV'],
-                         ['uVP', 'uModel', 'uTex', 'uLight', 'uTint', 'uAlpha']);
-    GFX.floor = glProgram(g, V_FLOOR, F_FLOOR, ['aPos', 'aUV'], ['uVP', 'uTex', 'uDecal']);
-    GFX.fx = glProgram(g, V_FX, F_FX, ['aPos', 'aUV', 'aCol'], ['uVP', 'uTex']);
-    if (!GFX.mesh || !GFX.floor || !GFX.fx) { gfxDown(GFX.err); return 0; }
+    G3.mesh = program(g, V_MESH, F_MESH, ['aPos', 'aNorm', 'aCol'],
+                      ['uVP', 'uM', 'uTint', 'uLight', 'uEmis']);
+    G3.groundP = program(g, V_GROUND, F_GROUND, ['aPos', 'aUV'], ['uVP', 'uTex', 'uHalf']);
+    G3.quadP = program(g, V_QUAD, F_QUAD, ['aPos', 'aUV', 'aCol'], ['uVP', 'uTex']);
+    if (!G3.mesh || !G3.groundP || !G3.quadP) return 0;
 
-    const sheet = packAtlas();
-    if (!sheet) { gfxDown('atlas overflow'); return 0; }
-    GFX.atlas = glTex(g, sheet);
-    GFX.on = 1;                                   // paintYard reads this
-    GFX.ground = glTex(g, paintYard(1024 / (HW * 2)).cv);
-
+    /* models, built once */
+    const M = G3.models;
     for (const k of SIDES) {
-      GFX.M[k + 'H'] = upload(g, crewHull(k));
-      GFX.M[k + 'T'] = upload(g, crewTurret(k));
+      const t = tankModel(COL[k]);
+      M[k + 'H'] = upload(t.hull);
+      M[k + 'T'] = upload(t.tur);
     }
-    for (let k = 0; k < KIND.length; k++) GFX.M['foe' + k] = upload(g, foeModel(k));
-    for (const k of DROPS) GFX.M['crate' + k] = upload(g, crateModel(GFX.uv['face' + k]));
-    GFX.M.unit = upload(g, unitBox());
-    GFX.M.plane = upload(g, planeMesh());
+    for (let k = 0; k < KIND.length; k++) M['foe' + k] = upload(foeModel(k));
+    for (const k of DROPS) M['crate' + k] = upload(crateModel(k));
 
-    GFX.verts = new Float32Array(GFX.cap * 4 * 9);
-    GFX.vbo = g.createBuffer();
-    g.bindBuffer(g.ARRAY_BUFFER, GFX.vbo);
-    g.bufferData(g.ARRAY_BUFFER, GFX.verts.byteLength, g.DYNAMIC_DRAW);
-    const idx = new Uint16Array(GFX.cap * 6);
-    for (let i = 0; i < GFX.cap; i++) {
-      const o = i * 4;
-      idx.set([o, o + 1, o + 2, o, o + 2, o + 3], i * 6);
-    }
-    GFX.ibo = g.createBuffer();
-    g.bindBuffer(g.ELEMENT_ARRAY_BUFFER, GFX.ibo);
-    g.bufferData(g.ELEMENT_ARRAY_BUFFER, idx, g.STATIC_DRAW);
+    const unit = GEO();
+    box(unit, 0, 0.62, 0, 1, 0.76, 1, CONCRETE);
+    box(unit, 0, 0.12, 0, 1.02, 0.24, 1.02, mix(CONCRETE, RUSTY, 0.45));
+    M.block = upload(unit);
+    const cap = GEO();
+    box(cap, 0, 0.5, 0, 1, 1, 1, mix(CONCRETE, WHITE, 0.22));
+    M.cap = upload(cap);
+    const berm = GEO();
+    box(berm, 0, 0.5, 0, 1, 1, 1, mix(CONCRETE_D, BLACK, 0.18));
+    M.berm = upload(berm);
+    const out = GEO();                             // the desert beyond the yard
+    box(out, 0, -0.5, 0, 1, 1, 1, mix(rgb(SAND), BLACK, 0.34));
+    M.outfield = upload(out);
 
-    GFX.decal = glTarget(g, DECAL_N, DECAL_N);
-    if (!GFX.decal) { gfxDown('no decal target'); return 0; }
-    g.bindFramebuffer(g.FRAMEBUFFER, GFX.decal.fb);
-    g.clearColor(0, 0, 0, 0); g.clear(g.COLOR_BUFFER_BIT);
-    g.bindFramebuffer(g.FRAMEBUFFER, null);
+    /* the sand */
+    const TU = 3, TV = 4;                          // the sand tiles this many times
+    const gb = new Float32Array([
+      -HW, 0, -HH, 0, 0,   HW, 0, -HH, TU, 0,   HW, 0, HH, TU, TV,
+      -HW, 0, -HH, 0, 0,   HW, 0, HH, TU, TV,  -HW, 0, HH, 0, TV,
+    ]);
+    G3.groundBuf = g.createBuffer();
+    g.bindBuffer(g.ARRAY_BUFFER, G3.groundBuf);
+    g.bufferData(g.ARRAY_BUFFER, gb, g.STATIC_DRAW);
+    G3.groundTex = texture(g, paintGround(), true);
+    G3.atlas = texture(g, paintAtlas());
+
+    G3.qn = { a: new Float32Array(QCAP * 54), n: 0 };
+    G3.qa = { a: new Float32Array(QCAP * 54), n: 0 };
+    G3.qbuf = g.createBuffer();
+    g.bindBuffer(g.ARRAY_BUFFER, G3.qbuf);
+    g.bufferData(g.ARRAY_BUFFER, QCAP * 54 * 4, g.DYNAMIC_DRAW);
 
     g.enable(g.DEPTH_TEST);
-    g.depthFunc(g.LEQUAL);
-    /* Every face carries a normal that was pushed outward when it was built,
-       so lighting is right whichever way the corners were listed — but that
-       also means the winding is not dependable, and culling has to stay off. */
-    g.disable(g.CULL_FACE);
     g.enable(g.BLEND);
+    g.disable(g.CULL_FACE);                        // no winding to get wrong
+    G3.on = 1;
     return 1;
   } catch (e) {
-    gfxDown((e && e.message) || 'init threw');
+    G3.err = (e && e.message) || 'gl init threw';
     return 0;
   }
 }
 
-/* One way down, from anywhere, at any time: drop the canvas and let the
-   sprite renderer have the next frame. */
-function gfxDown(why) {
-  GFX.on = 0; GFX.err = why || GFX.err;
-  DECALS.length = 0;
-  if (GFX.cv && GFX.cv.parentNode) GFX.cv.parentNode.removeChild(GFX.cv);
-  GFX.cv = null; GFX.g = null;
-  ART.bg = null; ART.ready = 0; ART.s = {};      // the yard is repainted flat
+/* ── quads ────────────────────────────────────────────────────────────── */
+
+function corner(L, x, y, z, r, gg, b, a, u, v) {
+  const A = L.a; let o = L.n * 9;
+  A[o] = x; A[o + 1] = y; A[o + 2] = z;
+  A[o + 3] = u; A[o + 4] = v;
+  A[o + 5] = r; A[o + 6] = gg; A[o + 7] = b; A[o + 8] = a;
+  L.n++;
 }
 
-/* ── the camera ────────────────────────────────────────────────────────
-   Tilted, and framed by fitting the yard rather than by a hand-picked
-   distance, so the same code holds a phone in portrait, a phone on its side
-   and a laptop window. Nothing ever leaves the frame that used to be in it:
-   the whole yard is inside the view at every aspect ratio, exactly as it was
-   when this was drawn flat.
-   ─────────────────────────────────────────────────────────────────────── */
-const CAM = { pitch: 1.06, fov: 0.80, eye: [0, 0, 0], tx: 0, tz: 0 };
-const _proj = new Float32Array(16), _view = new Float32Array(16);
-const DECAL_VP = new Float32Array([1 / HW, 0, 0, 0, 0, 0, 0, 0, 0, 1 / HH, 0, 0, 0, 0, 0, 1]);
-
-function camera(x, v, r) {
-  const asp = GFX.W / GFX.H;
-  const tanV = Math.tan(CAM.fov / 2), tanH = tanV * asp;
-  const sp = Math.sin(CAM.pitch), cp = Math.cos(CAM.pitch);
-  const fwd = [0, -sp, -cp], up = [0, cp, -sp];
-
-  /* a little lean toward your own tank, never enough to lose a corner */
-  const me = v && v[MY];
-  const want = me ? [clamp(me.x * 0.10, -64, 64), clamp(me.y * 0.10, -80, 80)] : [0, 0];
-  CAM.tx += (want[0] - CAM.tx) * 0.04;
-  CAM.tz += (want[1] - CAM.tz) * 0.04;
-  const tx = CAM.tx, tz = CAM.tz;
-
-  let D = 500;
-  for (let i = 0; i < 8; i++) {
-    const px = (i & 1 ? HW + 34 : -HW - 34) - tx;
-    const pz = (i & 2 ? HH + 34 : -HH - 34) - tz;
-    const py = (i & 4) ? 96 : 0;
-    const a = px, b = py * up[1] + pz * up[2], c = py * fwd[1] + pz * fwd[2];
-    D = Math.max(D, Math.abs(a) / tanH - c, Math.abs(b) / tanV - c);
-  }
-  const ex = tx, ey = sp * D, ez = tz + cp * D;
-  CAM.eye = [ex, ey, ez];
-
-  mPersp(CAM.fov, asp, 40, D * 2.6, _proj);
-  mLook(ex, ey, ez, tx, 0, tz, _view);
-  mMul(_proj, _view, GFX.vp);
-
-  /* the engine's screen shake, lifted straight out of its own transform and
-     folded into clip space so both layers shake as one */
-  let sx = 0, sy = 0;
-  try {
-    const m = x.getTransform(), dpr = GFX.W / Math.max(1, r.w);
-    sx = m.e / dpr - r.w / 2; sy = m.f / dpr - r.h / 2;
-  } catch (e) { /* older context, no shake */ }
-  if (sx || sy) {
-    const nx = 2 * sx / Math.max(1, r.w), ny = -2 * sy / Math.max(1, r.h);
-    const P = GFX.vp;
-    for (let c = 0; c < 4; c++) {
-      P[c * 4] += nx * P[c * 4 + 3];
-      P[c * 4 + 1] += ny * P[c * 4 + 3];
-    }
-  }
-  GFX.right = [_view[0], _view[4], _view[8]];
-  GFX.up = [_view[1], _view[5], _view[9]];
+function poly(L, tile, p0, p1, p2, p3, col, a) {
+  if (L.n + 6 > QCAP * 6) return;
+  const t = TILE[tile];
+  const r = col[0], g = col[1], b = col[2];
+  corner(L, p0[0], p0[1], p0[2], r, g, b, a, t.u0, t.v0);
+  corner(L, p1[0], p1[1], p1[2], r, g, b, a, t.u1, t.v0);
+  corner(L, p2[0], p2[1], p2[2], r, g, b, a, t.u1, t.v1);
+  corner(L, p0[0], p0[1], p0[2], r, g, b, a, t.u0, t.v0);
+  corner(L, p2[0], p2[1], p2[2], r, g, b, a, t.u1, t.v1);
+  corner(L, p3[0], p3[1], p3[2], r, g, b, a, t.u0, t.v1);
 }
 
-/* ── the batch the flat art goes through ── */
-function fxBegin() { GFX.n = 0; }
-
-function fxPush(uv, ax, ay, az, bx, by, bz, cx, cy, cz, dx, dy, dz, r, g, b, a) {
-  if (!uv || GFX.n >= GFX.cap || a <= 0.002) return;
-  const V = GFX.verts;
-  let o = GFX.n * 36;
-  const P = [ax, ay, az, bx, by, bz, cx, cy, cz, dx, dy, dz];
-  const U = [uv.u0, uv.v0, uv.u1, uv.v0, uv.u1, uv.v1, uv.u0, uv.v1];
-  for (let i = 0; i < 4; i++) {
-    V[o] = P[i * 3]; V[o + 1] = P[i * 3 + 1]; V[o + 2] = P[i * 3 + 2];
-    V[o + 3] = U[i * 2]; V[o + 4] = U[i * 2 + 1];
-    V[o + 5] = r; V[o + 6] = g; V[o + 7] = b; V[o + 8] = a;
-    o += 9;
-  }
-  GFX.n++;
+/* flat on the sand, for shadows, scars, rings and reticles */
+function ground(L, tile, x, z, w, h, ang, col, a, y) {
+  const c = Math.cos(ang || 0), s = Math.sin(ang || 0);
+  const hw = w / 2, hh = h / 2, yy = y === undefined ? 1.2 : y;
+  const P = (px, pz) => [x + px * c - pz * s, yy, z + px * s + pz * c];
+  poly(L, tile, P(-hw, -hh), P(hw, -hh), P(hw, hh), P(-hw, hh), col, a);
 }
 
-/* facing the camera: fire, smoke, sparks */
-function fxBill(uv, x, y, z, w, h, r, g, b, a) {
-  const R0 = GFX.right, U0 = GFX.up, hw = w / 2, hh = h / 2;
-  const rx = R0[0] * hw, ry = R0[1] * hw, rz = R0[2] * hw;
-  const ux = U0[0] * hh, uy = U0[1] * hh, uz = U0[2] * hh;
-  fxPush(uv, x - rx + ux, y - ry + uy, z - rz + uz,
-             x + rx + ux, y + ry + uy, z + rz + uz,
-             x + rx - ux, y + ry - uy, z + rz - uz,
-             x - rx - ux, y - ry - uy, z - rz - uz, r, g, b, a);
+/* facing the camera, for fire and smoke */
+function bill(L, tile, x, y, z, w, h, col, a) {
+  const hw = w / 2, hh = h / 2;
+  const rx = CAM.rx * hw, ry = CAM.ry * hw, rz = CAM.rz * hw;
+  const ux = CAM.ux * hh, uy = CAM.uy * hh, uz = CAM.uz * hh;
+  poly(L, tile,
+    [x - rx + ux, y - ry + uy, z - rz + uz],
+    [x + rx + ux, y + ry + uy, z + rz + uz],
+    [x + rx - ux, y + ry - uy, z + rz - uz],
+    [x - rx - ux, y - ry - uy, z - rz - uz], col, a);
 }
 
-/* lying on the sand: shadows, rings, blast waves */
-function fxFlat(uv, x, z, w, h, y, r, g, b, a, ang) {
-  const c = Math.cos(ang || 0), s = Math.sin(ang || 0), hw = w / 2, hh = h / 2;
-  const ax = c * hw, az = s * hw, bx = -s * hh, bz = c * hh;
-  fxPush(uv, x - ax - bx, y, z - az - bz,
-             x + ax - bx, y, z + az - bz,
-             x + ax + bx, y, z + az + bz,
-             x - ax + bx, y, z - az + bz, r, g, b, a);
-}
-
-/* a strip between two points, a hand above the sand: tracers and lances */
-function fxBeam(uv, x0, z0, x1, z1, wide, y, r, g, b, a) {
+/* a bar between two points, held level, for tracers */
+function beam(L, tile, x0, z0, x1, z1, y, w, col, a) {
   const dx = x1 - x0, dz = z1 - z0;
-  const l = Math.hypot(dx, dz) || 1;
-  const nx = -dz / l * wide / 2, nz = dx / l * wide / 2;
-  fxPush(uv, x0 - nx, y, z0 - nz, x1 - nx, y, z1 - nz,
-             x1 + nx, y, z1 + nz, x0 + nx, y, z0 + nz, r, g, b, a);
+  const len = Math.hypot(dx, dz) || 1;
+  const nx = -dz / len * w / 2, nz = dx / len * w / 2;
+  poly(L, tile, [x0 + nx, y, z0 + nz], [x1 + nx, y, z1 + nz],
+       [x1 - nx, y, z1 - nz], [x0 - nx, y, z0 - nz], col, a);
 }
 
-function fxFlush(vp, additive) {
-  const g = GFX.g, P = GFX.fx;
-  if (!GFX.n) return;
-  g.useProgram(P.p);
-  g.bindBuffer(g.ARRAY_BUFFER, GFX.vbo);
-  g.bufferSubData(g.ARRAY_BUFFER, 0, GFX.verts.subarray(0, GFX.n * 36));
-  g.bindBuffer(g.ELEMENT_ARRAY_BUFFER, GFX.ibo);
-  g.enableVertexAttribArray(P.a.aPos);
-  g.vertexAttribPointer(P.a.aPos, 3, g.FLOAT, false, 36, 0);
-  g.enableVertexAttribArray(P.a.aUV);
-  g.vertexAttribPointer(P.a.aUV, 2, g.FLOAT, false, 36, 12);
-  g.enableVertexAttribArray(P.a.aCol);
-  g.vertexAttribPointer(P.a.aCol, 4, g.FLOAT, false, 36, 20);
-  g.uniformMatrix4fv(P.u.uVP, false, vp);
+function flushQuads(L, additive) {
+  const g = G3.g;
+  if (!L.n) return;
+  use(G3.quadP);
+  g.bindBuffer(g.ARRAY_BUFFER, G3.qbuf);
+  g.bufferSubData(g.ARRAY_BUFFER, 0, L.a.subarray(0, L.n * 9));
+  g.vertexAttribPointer(0, 3, g.FLOAT, false, 36, 0);
+  g.vertexAttribPointer(1, 2, g.FLOAT, false, 36, 12);
+  g.vertexAttribPointer(2, 4, g.FLOAT, false, 36, 20);
+  g.uniformMatrix4fv(G3.quadP.u.uVP, false, VP);
   g.activeTexture(g.TEXTURE0);
-  g.bindTexture(g.TEXTURE_2D, GFX.atlas);
-  g.uniform1i(P.u.uTex, 0);
+  g.bindTexture(g.TEXTURE_2D, G3.atlas);
+  g.uniform1i(G3.quadP.u.uTex, 0);
+  g.depthMask(false);
   g.blendFunc(g.SRC_ALPHA, additive ? g.ONE : g.ONE_MINUS_SRC_ALPHA);
-  g.drawElements(g.TRIANGLES, GFX.n * 6, g.UNSIGNED_SHORT, 0);
-  GFX.n = 0;
-}
-
-/* Scars are stamped into a texture the size of the yard and stay there, so
-   four minutes of driving costs one draw call a frame to keep on screen. */
-function stampDecals() {
-  if (!DECALS.length || !GFX.decal) { DECALS.length = 0; return; }
-  const g = GFX.g;
-  g.bindFramebuffer(g.FRAMEBUFFER, GFX.decal.fb);
-  g.viewport(0, 0, DECAL_N, DECAL_N);
-  g.disable(g.DEPTH_TEST);
-  fxBegin();
-  for (const d of DECALS) {
-    if (d.k === 'scar') {
-      fxBeam(GFX.uv.bar, d.x, d.y, d.x2, d.y2, 8, 0, 0.30, 0.25, 0.17, 0.22);
-    } else {
-      fxBill(GFX.uv.soft, d.x, 0, d.y, d.r * 3.4, d.r * 3.4, 0.16, 0.12, 0.08, 0.5);
-      /* the billboard basis is the camera's; on this pass it must lie flat */
-      const q = GFX.n - 1;
-      if (q >= 0) {
-        const V = GFX.verts, o = q * 36, s = d.r * 1.7;
-        const pts = [[-s, -s], [s, -s], [s, s], [-s, s]];
-        for (let i = 0; i < 4; i++) {
-          V[o + i * 9] = d.x + pts[i][0];
-          V[o + i * 9 + 1] = 0;
-          V[o + i * 9 + 2] = d.y + pts[i][1];
-        }
-      }
-    }
-    if (GFX.n >= GFX.cap - 2) fxFlush(DECAL_VP, false);
-  }
-  fxFlush(DECAL_VP, false);
-  DECALS.length = 0;
-  g.enable(g.DEPTH_TEST);
-  g.bindFramebuffer(g.FRAMEBUFFER, null);
-  g.viewport(0, 0, GFX.W, GFX.H);
-}
-
-function wipeDecals() {
-  DECALS.length = 0;
-  if (!GFX.on || !GFX.decal) return;
-  const g = GFX.g;
-  g.bindFramebuffer(g.FRAMEBUFFER, GFX.decal.fb);
-  g.viewport(0, 0, DECAL_N, DECAL_N);
-  g.clearColor(0, 0, 0, 0);
-  g.clear(g.COLOR_BUFFER_BIT);
-  g.bindFramebuffer(g.FRAMEBUFFER, null);
-  g.viewport(0, 0, GFX.W, GFX.H);
-}
-
-/* ── one solid model ── */
-function drawMesh(name, tx, ty, tz, ang, tint, sx, sy, sz) {
-  const M = GFX.M[name];
-  if (!M) return;
-  const g = GFX.g, P = GFX.mesh;
-  mModel(tx, ty, tz, ang, sx === undefined ? 1 : sx,
-         sy === undefined ? (sx === undefined ? 1 : sx) : sy,
-         sz === undefined ? (sx === undefined ? 1 : sx) : sz, MODEL);
-  g.bindBuffer(g.ARRAY_BUFFER, M.b);
-  g.vertexAttribPointer(P.a.aPos, 3, g.FLOAT, false, 44, 0);
-  g.vertexAttribPointer(P.a.aNrm, 3, g.FLOAT, false, 44, 12);
-  g.vertexAttribPointer(P.a.aCol, 3, g.FLOAT, false, 44, 24);
-  g.vertexAttribPointer(P.a.aUV, 2, g.FLOAT, false, 44, 36);
-  g.uniformMatrix4fv(P.u.uModel, false, MODEL);
-  g.uniform3f(P.u.uTint, tint ? tint[0] : 1, tint ? tint[1] : 1, tint ? tint[2] : 1);
-  g.drawArrays(g.TRIANGLES, 0, M.n);
-}
-
-/* ── the frame ── */
-function gfxFrame(x, v, r, t, dt) {
-  const g = GFX.g, board = document.getElementById('board');
-  const W = Math.max(1, board.width), H = Math.max(1, board.height);
-  if (W !== GFX.W || H !== GFX.H) {
-    GFX.W = W; GFX.H = H; GFX.cv.width = W; GFX.cv.height = H;
-  }
-  GFX.dpr = W / Math.max(1, r.w);
-  g.viewport(0, 0, W, H);
-  camera(x, v, r);
-  stampDecals();
-
-  g.clearColor(0.075, 0.068, 0.055, 1);
+  g.drawArrays(g.TRIANGLES, 0, L.n);
   g.depthMask(true);
+  L.n = 0;
+}
+
+function drawModel(m, x, y, z, ang, sx, sy, sz, tint, emis) {
+  if (!m) return;
+  const g = G3.g, P = G3.mesh;
+  mdl(MM, x, y, z, ang, sx === undefined ? 1 : sx, sy, sz);
+  g.uniformMatrix4fv(P.u.uM, false, MM);
+  g.uniform3f(P.u.uTint, tint ? tint[0] : 1, tint ? tint[1] : 1, tint ? tint[2] : 1);
+  g.uniform1f(P.u.uEmis, emis || 0);
+  g.bindBuffer(g.ARRAY_BUFFER, m.buf);
+  g.vertexAttribPointer(0, 3, g.FLOAT, false, 36, 0);
+  g.vertexAttribPointer(1, 3, g.FLOAT, false, 36, 12);
+  g.vertexAttribPointer(2, 3, g.FLOAT, false, 36, 24);
+  g.drawArrays(g.TRIANGLES, 0, m.n);
+}
+
+/* ═══ 7 · marks left on the sand ═══════════════════════════════════════ */
+
+const DECALS = [];
+const DECAL_MAX = 260;
+
+function keep(d) { DECALS.push(d); if (DECALS.length > DECAL_MAX) DECALS.shift(); }
+function scar(x, y, a, w) { keep({ k: 0, x, z: y, a, w }); }
+function scorch(x, y, r) { keep({ k: 1, x, z: y, r }); }
+
+/* ═══ 8 · particles ════════════════════════════════════════════════════ */
+
+const FX = [];
+const FXMAX = REDUCED ? 40 : 170;
+function push(f) { if (FX.length < FXMAX) FX.push(f); }
+
+function sparks(x, y, n) {
+  if (REDUCED) n = Math.min(n, 2);
+  for (let i = 0; i < n; i++) {
+    const a = hash(x + y + i + FX.length) * TAU, sp = 90 + hash(i + 3) * 220;
+    push({ k: 'spark', x, z: y, y: 26, vx: Math.cos(a) * sp, vz: Math.sin(a) * sp,
+           vy: 90 + hash(i + 8) * 160, t: 0.4, T: 0.4 });
+  }
+}
+function burst(x, y, c, w) {
+  push({ k: 'burst', x, z: y, y: 20, c: w, t: 0.22, T: 0.22 });
+}
+function muzzle(x, y, a, c, w) {
+  push({ k: 'muzzle', x, z: y, y: 40, a, c: w, t: 0.12, T: 0.12 });
+}
+function dust(x, y) {
+  push({ k: 'dust', x, z: y, y: 8, r: 9 + hash(FX.length) * 9, t: 0.8, T: 0.8 });
+}
+function wreck(x, y, r) {
+  scorch(x, y, r * 0.9);
+  push({ k: 'blast', x, z: y, y: 24, r, t: 0.55, T: 0.55 });
+  for (let i = 0; i < (REDUCED ? 3 : 11); i++) {
+    const a = i / 11 * TAU + hash(x + i) * 0.7, sp = 140 + hash(i + 9) * 260;
+    push({ k: 'chunk', x, z: y, y: 20, vx: Math.cos(a) * sp, vz: Math.sin(a) * sp,
+           vy: 190 + hash(i + 21) * 220, s: 5 + hash(i + 21) * 6, t: 0.9, T: 0.9 });
+  }
+  for (let i = 0; i < (REDUCED ? 2 : 7); i++) {
+    push({ k: 'smoke', x: x + (hash(i + 5) * 2 - 1) * r * 0.6,
+           z: y + (hash(i + 6) * 2 - 1) * r * 0.6, y: 26,
+           r: r * 0.6, t: 1.2 + hash(i) * 0.6, T: 1.8 });
+  }
+}
+
+function stepFX(dt) {
+  for (let i = FX.length - 1; i >= 0; i--) {
+    const f = FX[i];
+    if ((f.t -= dt) <= 0) { FX.splice(i, 1); continue; }
+    if (f.k === 'spark' || f.k === 'chunk') {
+      f.x += f.vx * dt; f.z += f.vz * dt; f.y += f.vy * dt;
+      f.vy -= 900 * dt; f.vx *= 0.96; f.vz *= 0.96;
+      if (f.y < 4) { f.y = 4; f.vy = Math.abs(f.vy) * 0.32; f.vx *= 0.6; f.vz *= 0.6; }
+    } else if (f.k === 'smoke' || f.k === 'dust') {
+      f.y += 26 * dt;
+    }
+  }
+}
+
+function paintFX(t) {
+  const A = G3.qa, N = G3.qn;
+  for (const f of FX) {
+    const k = f.t / f.T, age = 1 - k;
+    if (f.k === 'spark') {
+      beam(A, 'disc', f.x, f.z, f.x - f.vx * 0.02, f.z - f.vz * 0.02, f.y, 5,
+           [1, 0.86, 0.42], k);
+      bill(A, 'glow', f.x, f.y, f.z, 30, 30, [1, 0.7, 0.3], k * 0.5);
+    } else if (f.k === 'chunk') {
+      bill(N, 'disc', f.x, f.y, f.z, f.s, f.s, [0.24, 0.2, 0.16], k);
+    } else if (f.k === 'burst') {
+      bill(A, 'glow', f.x, f.y, f.z, 70 * (1 + age), 70 * (1 + age), f.c, k * 0.95);
+    } else if (f.k === 'muzzle') {
+      bill(A, 'star', f.x + Math.cos(f.a) * 16, f.y, f.z + Math.sin(f.a) * 16,
+           80 * (0.7 + k), 54 * (0.7 + k), f.c, k);
+      bill(A, 'glow', f.x, f.y, f.z, 190, 190, [1, 0.85, 0.5], k * 0.7);
+    } else if (f.k === 'blast') {
+      const rr = f.r + age * 150;
+      ground(A, 'ring', f.x, f.z, rr * 2.4, rr * 2.4, 0, [1, 0.62, 0.24], k * 0.9, 2);
+      bill(A, 'glow', f.x, f.y + age * 40, f.z, rr * 4, rr * 4, [1, 0.55 * k, 0.2], k);
+    } else if (f.k === 'smoke') {
+      bill(N, 'soft', f.x, f.y, f.z, f.r * (3 + age * 3), f.r * (3 + age * 3),
+           [0.38, 0.34, 0.28], k * 0.32);
+    } else if (f.k === 'dust') {
+      bill(N, 'soft', f.x, f.y, f.z, f.r * (3.4 + age * 3), f.r * (3.4 + age * 3),
+           [0.78, 0.68, 0.52], k * 0.26);
+    }
+  }
+}
+
+/* ═══ 9 · the frame ════════════════════════════════════════════════════ */
+
+const LIGHT = (() => { const l = [-0.42, 0.84, -0.34]; const n = Math.hypot(...l);
+                       return [l[0] / n, l[1] / n, l[2] / n]; })();
+
+function glFrame(v, r, t, dt) {
+  const g = G3.g, board = document.getElementById('board');
+  const W = board.width, H = board.height;
+  if (W !== G3.W || H !== G3.H) {
+    G3.W = W; G3.H = H; G3.cv.width = W; G3.cv.height = H;
+  }
+  g.viewport(0, 0, W, H);
+  g.clearColor(0.20, 0.175, 0.145, 1);
   g.clear(g.COLOR_BUFFER_BIT | g.DEPTH_BUFFER_BIT);
 
-  /* 1 · the sand, with everything the match has scratched into it */
-  {
-    const P = GFX.floor, M = GFX.M.plane;
-    g.useProgram(P.p);
-    g.bindBuffer(g.ARRAY_BUFFER, M.b);
-    g.enableVertexAttribArray(P.a.aPos);
-    g.vertexAttribPointer(P.a.aPos, 3, g.FLOAT, false, 44, 0);
-    g.enableVertexAttribArray(P.a.aUV);
-    g.vertexAttribPointer(P.a.aUV, 2, g.FLOAT, false, 44, 36);
-    g.uniformMatrix4fv(P.u.uVP, false, GFX.vp);
-    g.activeTexture(g.TEXTURE0); g.bindTexture(g.TEXTURE_2D, GFX.ground);
-    g.uniform1i(P.u.uTex, 0);
-    g.activeTexture(g.TEXTURE1); g.bindTexture(g.TEXTURE_2D, GFX.decal.tex);
-    g.uniform1i(P.u.uDecal, 1);
-    g.disable(g.BLEND);
-    g.drawArrays(g.TRIANGLES, 0, M.n);
-    g.enable(g.BLEND);
-    g.disableVertexAttribArray(P.a.aUV);
-  }
+  /* 1 · the sand */
+  use(G3.groundP);
+  g.bindBuffer(g.ARRAY_BUFFER, G3.groundBuf);
+  g.vertexAttribPointer(0, 3, g.FLOAT, false, 20, 0);
+  g.vertexAttribPointer(1, 2, g.FLOAT, false, 20, 12);
+  g.uniformMatrix4fv(G3.groundP.u.uVP, false, VP);
+  g.uniform2f(G3.groundP.u.uHalf, HW, HH);
+  g.activeTexture(g.TEXTURE0);
+  g.bindTexture(g.TEXTURE_2D, G3.groundTex);
+  g.uniform1i(G3.groundP.u.uTex, 0);
+  g.drawArrays(g.TRIANGLES, 0, 6);
 
-  /* 2 · soft shadows, laid down before anything stands on them */
-  g.depthMask(false);
-  fxBegin();
-  const sh = GFX.uv.soft;
-  for (const c of v.crates || []) fxFlat(sh, c.x + 16, c.y + 13, 76, 76, 0.6, 0, 0, 0, 0.34);
+  /* 2 · what the match has left on it, plus every shadow */
+  const N = G3.qn;
+  for (const d of DECALS) {
+    if (d.k === 0) {
+      const px = -Math.sin(d.a) * R * 0.82, pz = Math.cos(d.a) * R * 0.82;
+      ground(N, 'scar', d.x + px, d.z + pz, d.w, 12, d.a, [0.34, 0.28, 0.2], 0.20, 1.0);
+      ground(N, 'scar', d.x - px, d.z - pz, d.w, 12, d.a, [0.34, 0.28, 0.2], 0.20, 1.0);
+    } else {
+      ground(N, 'soft', d.x, d.z, d.r * 4, d.r * 4, 0, [0.16, 0.12, 0.08], 0.5, 1.3);
+    }
+  }
   for (const e of v.foes || []) {
     if (e.sp > 0) continue;
-    const s = KIND[e.k].r * 3.1;
-    fxFlat(sh, e.x + HULL_SH_X, e.y + HULL_SH_Y, s, s, 0.6, 0, 0, 0, 0.42);
+    const rr = KIND[e.k].r;
+    ground(N, 'shadow', e.x + 14, e.y + 16, rr * 3.1, rr * 3.1, 0, BLACK, 0.42, 1.4);
   }
   for (const k of SIDES) {
     const p = v[k];
-    if (!p || p.dead > 0) continue;
-    fxFlat(sh, p.x + HULL_SH_X, p.y + HULL_SH_Y, R * 3.2, R * 3.2, 0.6, 0, 0, 0, 0.44);
+    if (p && p.dead <= 0) ground(N, 'shadow', p.x + 14, p.y + 16, R * 3.2, R * 3.2, 0, BLACK, 0.42, 1.4);
   }
-  fxFlush(GFX.vp, false);
-  g.depthMask(true);
+  for (const c of v.crates || []) ground(N, 'shadow', c.x + 8, c.y + 10, 74, 74, 0, BLACK, 0.34, 1.4);
+  flushQuads(N, false);
 
-  /* 3 · everything solid */
-  {
-    const P = GFX.mesh;
-    g.useProgram(P.p);
-    for (const a of ['aPos', 'aNrm', 'aCol', 'aUV']) g.enableVertexAttribArray(P.a[a]);
-    g.uniformMatrix4fv(P.u.uVP, false, GFX.vp);
-    g.uniform3f(P.u.uLight, LIGHT[0], LIGHT[1], LIGHT[2]);
-    g.uniform1f(P.u.uAlpha, 1);
-    g.activeTexture(g.TEXTURE0); g.bindTexture(g.TEXTURE_2D, GFX.atlas);
-    g.uniform1i(P.u.uTex, 0);
-    g.disable(g.BLEND);
+  /* 3 · every solid */
+  use(G3.mesh);
+  g.uniformMatrix4fv(G3.mesh.u.uVP, false, VP);
+  g.uniform3f(G3.mesh.u.uLight, LIGHT[0], LIGHT[1], LIGHT[2]);
 
-    for (const w of WALLS) {
-      drawMesh('unit', w[0], WALL_H / 2, w[1], 0, null, w[2] * 2, WALL_H, w[3] * 2);
-    }
-    for (const c of v.crates || []) {
-      if (c.life < 4 && Math.sin(t * 18) < 0) continue;
-      const bob = Math.sin(t * 2.6 + c.x * 0.05) * 3;
-      drawMesh('crate' + c.k, c.x, 17 + bob, c.y, -t * 0.7, null, 1);
-    }
-    for (const e of v.foes || []) {
-      if (e.sp > 0) continue;
-      const k = clamp(e.hp / KIND[e.k].hp, 0, 1);
-      const burn = 0.62 + k * 0.38;
-      drawMesh('foe' + e.k, e.x, 0, e.y, e.a, [burn, burn * 0.98, burn * 0.96]);
-    }
-    for (const k of SIDES) {
-      const p = v[k];
-      if (!p) continue;
-      if (p.dead > 0) {
-        drawMesh(k + 'H', p.x, 0, p.y, p.a, [0.34, 0.31, 0.29]);
-        drawMesh(k + 'T', p.x, 0, p.y, p.ta, [0.30, 0.28, 0.26]);
-        continue;
-      }
-      const f = p.hit > 0 ? 1 + clamp(p.hit / 0.25, 0, 1) * 1.5 : 1;
-      drawMesh(k + 'H', p.x, 0, p.y, p.a, [f, f, f]);
-      drawMesh(k + 'T', p.x, 0, p.y, p.ta, [f, f, f]);
-    }
-    g.enable(g.BLEND);
-    for (const a of ['aNrm', 'aCol', 'aUV']) g.disableVertexAttribArray(P.a[a]);
+  for (const w of WALLS) {
+    drawModel(G3.models.block, w[0], 0, w[1], 0, w[2] * 2, 58, w[3] * 2);
+    drawModel(G3.models.cap, w[0], 58, w[1], 0, w[2] * 2 + 8, 7, w[3] * 2 + 8);
   }
+  drawModel(G3.models.outfield, 0, -3, 0, 0, 14000, 6, 14000);
+  const T = 46, BH = 58;                            // the berm around the yard
+  drawModel(G3.models.berm, 0, 0, -HH - T / 2, 0, HW * 2 + T * 2, BH, T);
+  drawModel(G3.models.berm, 0, 0, HH + T / 2, 0, HW * 2 + T * 2, BH, T);
+  drawModel(G3.models.berm, -HW - T / 2, 0, 0, 0, T, BH, HH * 2);
+  drawModel(G3.models.berm, HW + T / 2, 0, 0, 0, T, BH, HH * 2);
 
-  /* 4 · light: fire, tracers, optics, rings — added, never mixed */
-  g.depthMask(false);
-  fxBegin();
-  const glow = GFX.uv.glow, disc = GFX.uv.disc, ring = GFX.uv.ring;
-
+  for (const c of v.crates || []) {
+    if (c.life < 4 && Math.sin(t * 18) < 0) continue;
+    const bob = Math.sin(t * 2.4 + c.x * 0.01) * 3;
+    drawModel(G3.models['crate' + c.k], c.x, 4 + bob, c.y, t * 0.8, 1);
+  }
   for (const e of v.foes || []) {
-    const K = KIND[e.k];
-    if (e.sp > 0) {
-      const k = 1 - e.sp / HOLD, rr = (K.r + 40 * (1 - k)) * 2.4;
-      fxFlat(ring, e.x, e.y, rr, rr, 1.2, 1, 0.30, 0.30, 0.30 + k * 0.5);
+    if (e.sp > 0) continue;
+    const k = clamp(e.hp / KIND[e.k].hp, 0, 1);
+    const burn = 0.55 + k * 0.45;
+    const s = KIND[e.k].r / 27;
+    drawModel(G3.models['foe' + e.k], e.x, 0, e.y, e.a, s, s, s,
+              [burn, burn * 0.98, burn * 0.96], e.ch > 0 ? 0.25 : 0);
+  }
+  for (const k of SIDES) {
+    const p = v[k];
+    if (!p) continue;
+    if (p.dead > 0) {
+      drawModel(G3.models[k + 'H'], p.x, 0, p.y, p.a, 1, 1, 1, [0.42, 0.4, 0.38]);
       continue;
     }
-    const eye = (e.k === WARLORD ? 44 : 34);
-    const lit = e.k === WARLORD ? 60 : 30;
-    fxBill(glow, e.x + Math.cos(e.a) * 8, eye, e.y + Math.sin(e.a) * 8, lit, lit,
-           1, 0.26, 0.22, 0.55);
-    if (e.ch > 0) {
+    const f = p.hit > 0 ? 1 + clamp(p.hit / 0.25, 0, 1) * 1.6 : 1;
+    const tint = [f, f, f];
+    drawModel(G3.models[k + 'H'], p.x, 0, p.y, p.a, 1, 1, 1, tint);
+    drawModel(G3.models[k + 'T'], p.x, 0, p.y, p.ta, 1, 1, 1, tint);
+  }
+
+  /* 4 · every light */
+  const A = G3.qa;
+  for (const e of v.foes || []) {
+    const K = KIND[e.k];
+    if (e.sp > 0) {                                 // arriving
+      const k = 1 - e.sp / HOLD;
+      const rr = (K.r + 46 * (1 - k)) * 2.4;
+      ground(A, 'ring', e.x, e.y, rr, rr, 0, [1, 0.3, 0.3], 0.55 * k, 2);
+      bill(A, 'glow', e.x, 30, e.y, K.r * 3, K.r * 3, [1, 0.3, 0.25], 0.3 * k);
+      continue;
+    }
+    bill(A, 'glow', e.x + 2, 44, e.y, K.r * (e.k === WARLORD ? 1.5 : 1),
+         K.r * (e.k === WARLORD ? 1.5 : 1), [1, 0.28, 0.24], 0.55);
+    if (e.ch > 0) {                                 // the sniper laying its line
       const k = 1 - e.ch / 1.25;
-      fxBeam(disc, e.x, e.y, e.x + Math.cos(e.a) * 900, e.y + Math.sin(e.a) * 900,
-             3 + k * 7, 26, 1, 0.24, 0.24, 0.22 + k * 0.55);
+      beam(A, 'disc', e.x, e.y, e.x + Math.cos(e.a) * 1100, e.y + Math.sin(e.a) * 1100,
+           40, 3 + k * 7, [1, 0.24, 0.24], 0.22 + k * 0.55);
     }
   }
-
   for (const o of v.shots || []) {
-    const SH = SHELL[o.k], tail = o.k === RAILSHOT ? 150 : 40, c = SH.glow;
-    fxBeam(disc, o.x, o.y, o.x - Math.cos(o.a) * tail, o.y - Math.sin(o.a) * tail,
-           SH.r * 2.1, 22, c[0], c[1], c[2], 0.92);
-    fxBill(glow, o.x, 22, o.y, SH.r * 9, SH.r * 9, c[0], c[1], c[2], 0.72);
+    const SH = SHELL[o.k], tail = o.k === RAILSHOT ? 150 : 42, c = SH.glow;
+    beam(A, 'disc', o.x, o.y, o.x - Math.cos(o.a) * tail, o.y - Math.sin(o.a) * tail,
+         34, SH.r * 1.8, c, 0.85);
+    bill(A, 'glow', o.x, 34, o.y, SH.r * 10, SH.r * 10, c, 0.7);
   }
-
   for (const k of SIDES) {
     const p = v[k];
     if (!p || p.dead > 0) continue;
     if (p.pw === PULSE) {
-      const rr = PULSE_R * 2 * (0.99 + Math.sin(t * 5) * 0.01);
-      fxFlat(ring, p.x, p.y, rr, rr, 1.4, 0.37, 0.83, 0.75, 0.5);
-      fxFlat(GFX.uv.soft, p.x, p.y, rr, rr, 1.3, 0.37, 0.83, 0.75, 0.10);
+      ground(A, 'ring', p.x, p.y, PULSE_R * 2.1, PULSE_R * 2.1, 0, [0.37, 0.83, 0.75], 0.5, 2);
+      ground(A, 'soft', p.x, p.y, PULSE_R * 2, PULSE_R * 2, 0, [0.37, 0.83, 0.75], 0.10, 1.8);
     }
-    if (p.sh > 0) {
-      const rr = (R + 15) * 2.3;
-      fxFlat(ring, p.x, p.y, rr, rr, 30, 0.44, 0.70, 0.82, 0.55);
-      fxBill(glow, p.x, 30, p.y, rr * 0.9, rr * 0.9, 0.44, 0.70, 0.82, 0.14);
-    }
-    if (p.inv > 0) fxBill(glow, p.x, 28, p.y, R * 4.4, R * 4.4, 1, 1, 1, 0.22);
-    if (p.pw && p.pw !== PULSE && p.pwT > 0) {
-      const c = rgb(POWERS[p.pw].c);
-      fxBill(glow, p.x, 46, p.y, 70, 70, c[0], c[1], c[2], 0.34);
-    }
-  }
-  fx3D(dt);
-  fxFlush(GFX.vp, true);
-  g.depthMask(true);
-
-  /* Hand the context back the way it was found. An attribute array left
-     enabled from one pass into the next is the kind of thing that draws
-     perfectly on one driver and throws INVALID_OPERATION on another. */
-  for (let i = 0; i < 5; i++) g.disableVertexAttribArray(i);
-}
-
-/* Particles, in three dimensions this time: sparks arc off a hull, smoke
-   climbs, blast rings lie flat on the sand and read as pressure. */
-function fx3D(dt) {
-  const glow = GFX.uv.glow, disc = GFX.uv.disc, ring = GFX.uv.ring,
-        smoke = GFX.uv.smoke, flash = GFX.uv.flash;
-  for (let i = FX.length - 1; i >= 0; i--) {
-    const f = FX[i];
-    if ((f.t -= dt) <= 0) { FX.splice(i, 1); continue; }
-    const k = f.t / f.T, age = 1 - k;
-    if (f.k === 'spark' || f.k === 'chunk') {
-      f.x += f.vx * dt; f.y += f.vy * dt; f.vx *= 0.94; f.vy *= 0.94;
-      const h = 16 + Math.sin(age * Math.PI) * (f.k === 'spark' ? 26 : 34);
-      if (f.k === 'spark') {
-        fxBill(disc, f.x, h, f.y, 9, 9, 1, 0.86, 0.42, k);
-        fxBill(glow, f.x, h, f.y, 34, 34, 1, 0.7, 0.3, k * 0.45);
-      } else {
-        fxBill(disc, f.x, h, f.y, f.s * 1.6, f.s * 1.6, 0.30, 0.26, 0.21, k);
+    if (p.sh > 0) bill(A, 'glow', p.x, 30, p.y, R * 5, R * 5, [0.44, 0.7, 0.82], 0.3);
+    if (p.inv > 0) bill(A, 'glow', p.x, 30, p.y, R * 5, R * 5, [1, 1, 1], 0.28);
+    if (k === MY) {
+      ground(A, 'ring', p.x, p.y, R * 3.1, R * 3.1, 0, rgb(COL[k]), 0.6, 2.2);
+      const mark = (v.foes || []).find(e => e.id === p.tg);
+      if (mark) {
+        const rr = (KIND[mark.k].r + 20) * 2.4;
+        ground(A, 'ring', mark.x, mark.y, rr, rr, t * 1.6, [1, 0.36, 0.36], 0.75, 2.4);
       }
-    } else if (f.k === 'burst') {
-      fxBill(glow, f.x, 22, f.y, 70 * (1 + age), 70 * (1 + age), f.r0, f.g0, f.b0, k * 0.9);
-    } else if (f.k === 'muzzle') {
-      const fx0 = f.x + Math.cos(f.a) * 12, fy0 = f.y + Math.sin(f.a) * 12;
-      fxBeam(flash, f.x, f.y, f.x + Math.cos(f.a) * 62, f.y + Math.sin(f.a) * 62,
-             40 * (0.6 + k * 0.7), 37, f.r0, f.g0, f.b0, k);
-      fxBill(glow, fx0, 37, fy0, 170, 170, 1, 0.85, 0.5, k * 0.75);
-    } else if (f.k === 'blast') {
-      const rr = (f.r + age * 150) * 2.2;
-      fxFlat(ring, f.x, f.y, rr, rr, 1.6, 1, 0.62, 0.24, k * 0.95);
-      fxBill(glow, f.x, 26 + age * 20, f.y, rr, rr, 1, 0.5 * k, 0.18, k * 0.85);
-    } else if (f.k === 'smoke') {
-      fxBill(smoke, f.x, 20 + age * 90, f.y, f.r * (2.6 + age * 3), f.r * (2.6 + age * 3),
-             0.40, 0.35, 0.29, k * 0.30);
-    } else if (f.k === 'dust') {
-      fxFlat(smoke, f.x, f.y, f.r * (3 + age * 4), f.r * (3 + age * 4), 1.0,
-             0.78, 0.68, 0.52, k * 0.24);
+    } else {
+      ground(A, 'ring', p.x, p.y, R * 3.1, R * 3.1, 0, [0.31, 0.66, 1], 0.5, 2.2);
     }
   }
+  paintFX(t);
+  flushQuads(A, true);
 }
 
-/* ═══ drawing ══════════════════════════════════════════════════════════ */
+/* ═══ 10 · the flat fallback ═══════════════════════════════════════════ */
 
-/* Where a world point lands on the glass. In 3D that is the camera matrix;
-   in the fallback it is the engine's own flat transform. Everything from
-   health bars to the kill feed goes through this one door, so a marker sits
-   on its hull whichever renderer drew the hull. */
-const PROJ = { on: 0, w: 1, h: 1, scale: 1 };
-
-function project(gx, gy, gh) {
-  if (!PROJ.on) return { x: PROJ.w / 2 + gx * PROJ.scale, y: PROJ.h / 2 + gy * PROJ.scale };
-  const m = GFX.vp, Y = gh || 0;
-  const cw = m[3] * gx + m[7] * Y + m[11] * gy + m[15];
-  if (cw <= 1e-4) return null;
-  const cx = m[0] * gx + m[4] * Y + m[8] * gy + m[12];
-  const cy = m[1] * gx + m[5] * Y + m[9] * gy + m[13];
-  return { x: (cx / cw * 0.5 + 0.5) * PROJ.w, y: (0.5 - cy / cw * 0.5) * PROJ.h };
-}
-
-/* world units to screen pixels, across and down the sand */
-function ppu(gx, gy) {
-  if (!PROJ.on) return PROJ.scale;
-  const a = project(gx - 30, gy, 0), b = project(gx + 30, gy, 0);
-  return a && b ? Math.abs(b.x - a.x) / 60 : PROJ.scale;
-}
-function ppv(gx, gy) {
-  if (!PROJ.on) return PROJ.scale;
-  const a = project(gx, gy - 30, 0), b = project(gx, gy + 30, 0);
-  return a && b ? Math.abs(b.y - a.y) / 60 : PROJ.scale;
-}
-
-function ellipse(x, cx, cy, rx, ry, from, to) {
-  if (!x.ellipse) {                       // very old engine, no ellipse path
-    x.beginPath();
-    x.arc(cx, cy, Math.max(0.6, (rx + ry) / 2), from === undefined ? 0 : from,
-          to === undefined ? TAU : to);
-    return;
-  }
-  x.beginPath();
-  x.ellipse(cx, cy, Math.max(0.6, rx), Math.max(0.6, ry), 0,
-            from === undefined ? 0 : from, to === undefined ? TAU : to);
-}
-
-function render(x, v, r) {
-  VIEW = v; MY = r.side; SCALE = r.scale || SCALE; DRAWN = Date.now();
-  const t = v.t || 0, dt = r.dt || 0.016;
-
-  for (const k of SIDES) treads(v[k], dt);
-
-  if (gfxInit()) {
-    /* a rematch starts on clean sand — the clock jumping back up is the tell */
-    if ((v.left || 0) > (GFX.seen || 0) + 1) wipeDecals();
-    GFX.seen = v.left || 0;
-    try { gfxFrame(x, v, r, t, dt); }
-    catch (e) { gfxDown((e && e.message) || 'frame threw'); }
-  }
-  if (!GFX.on) {
-    buildArt();
-    if (ART.bg && (v.left || 0) > (ART.seen || 0) + 1) ART.bg = paintYard();
-    ART.seen = v.left || 0;
-    world2D(x, v, r, t, dt);
-  }
-  overlay(x, v, r, t);
-}
-
-/* Tread scars are emitted the same way for both renderers; only where they
-   land differs — a texture under 3D, the yard bitmap without it. */
-function treads(p, dt) {
-  if (!p || p.dead > 0 || Math.hypot(p.vx, p.vy) <= 80) return;
-  p.trail = (p.trail || 0) + dt;
-  if (p.trail <= 0.07) return;
-  p.trail = 0;
-  scar(p.x, p.y, p.a, R * 1.6);
-  dust(p.x - Math.cos(p.a) * R, p.y - Math.sin(p.a) * R);
-}
-
-/* ── the sprite renderer, kept whole as the fallback ── */
-function world2D(x, v, r, t, dt) {
-  if (ART.bg) x.drawImage(ART.bg.cv, -HW, -HH, HW * 2, HH * 2);
-
+function flat2D(x, v, r) {
+  const k = Math.min(B.w / (HW * 2.1), B.h / (HH * 2.1)) / (B.scale || 1);
+  x.save(); x.scale(k, k);
+  x.fillStyle = SAND; x.fillRect(-HW, -HH, HW * 2, HH * 2);
+  x.fillStyle = SLAB;
+  for (const w of WALLS) x.fillRect(w[0] - w[2], w[1] - w[3], w[2] * 2, w[3] * 2);
   for (const c of v.crates || []) {
-    if (c.life < 4 && Math.sin(t * 18) < 0) continue;
-    blit(x, ART.s['crate' + c.k], c.x, c.y, 0);
+    x.fillStyle = POWERS[c.k].c; x.fillRect(c.x - 16, c.y - 16, 32, 32);
   }
   for (const e of v.foes || []) {
-    if (e.sp <= 0) blit(x, ART.s['foeS' + e.k], e.x + SUN_X, e.y + SUN_Y, e.a);
+    if (e.sp > 0) continue;
+    x.fillStyle = e.k === WARLORD ? '#2E353B' : '#3C4247';
+    x.beginPath(); x.arc(e.x, e.y, KIND[e.k].r, 0, TAU); x.fill();
+    x.strokeStyle = COL.optic; x.lineWidth = 6;
+    x.beginPath(); x.moveTo(e.x, e.y);
+    x.lineTo(e.x + Math.cos(e.a) * KIND[e.k].r * 1.6, e.y + Math.sin(e.a) * KIND[e.k].r * 1.6);
+    x.stroke();
   }
-  for (const k of SIDES) {
-    const p = v[k];
-    if (p && p.dead <= 0) blit(x, ART.s.hullS, p.x + SUN_X, p.y + SUN_Y, p.a);
-  }
-  for (const e of v.foes || []) drawFoeArt(x, e, r);
-  for (const k of SIDES) drawCrewArt(x, v, k, r, t);
-
   for (const o of v.shots || []) {
-    const SH = SHELL[o.k], tail = o.k === RAILSHOT ? 110 : 30;
-    x.strokeStyle = SH.c;
-    x.lineWidth = SH.r * 1.4;
-    x.lineCap = 'round';
-    x.beginPath();
-    x.moveTo(o.x, o.y);
-    x.lineTo(o.x - Math.cos(o.a) * tail, o.y - Math.sin(o.a) * tail);
-    x.stroke();
-    x.fillStyle = '#FFF8E4';
-    x.beginPath(); x.arc(o.x, o.y, SH.r * 0.62, 0, TAU); x.fill();
+    x.fillStyle = SHELL[o.k].c;
+    x.beginPath(); x.arc(o.x, o.y, SHELL[o.k].r, 0, TAU); x.fill();
   }
-  paintFX(x, dt);
-}
-
-function paintFX(x, dt) {
-  for (let i = FX.length - 1; i >= 0; i--) {
-    const f = FX[i];
-    if ((f.t -= dt) <= 0) { FX.splice(i, 1); continue; }
-    const k = f.t / f.T;
-    if (f.k === 'spark' || f.k === 'chunk') {
-      f.x += f.vx * dt; f.y += f.vy * dt; f.vx *= 0.94; f.vy *= 0.94;
-      x.globalAlpha = k;
-      x.fillStyle = f.k === 'spark' ? '#FFE08A' : '#4A4136';
-      const s = f.k === 'spark' ? 4 : f.s;
-      x.fillRect(f.x - s / 2, f.y - s / 2, s, s);
-    } else if (f.k === 'burst') {
-      x.globalAlpha = k; x.fillStyle = f.c;
-      x.beginPath(); x.arc(f.x, f.y, 16 * (1 - k) + 4, 0, TAU); x.fill();
-    } else if (f.k === 'muzzle') {
-      x.globalAlpha = k; x.fillStyle = f.c;
-      x.save(); x.translate(f.x, f.y); x.rotate(f.a);
-      x.beginPath(); x.moveTo(0, 0); x.lineTo(30, -13); x.lineTo(44, 0); x.lineTo(30, 13);
-      x.closePath(); x.fill(); x.restore();
-    } else if (f.k === 'blast') {
-      x.globalAlpha = k * 0.9;
-      x.strokeStyle = '#FFAE4C'; x.lineWidth = 10 * k + 1;
-      x.beginPath(); x.arc(f.x, f.y, f.r + (1 - k) * 100, 0, TAU); x.stroke();
-    } else if (f.k === 'smoke') {
-      x.globalAlpha = k * 0.34; x.fillStyle = '#6B5F4C';
-      x.beginPath(); x.arc(f.x, f.y - (1 - k) * 26, f.r * (1.6 - k), 0, TAU); x.fill();
-    } else if (f.k === 'dust') {
-      x.globalAlpha = k * 0.3; x.fillStyle = '#C6AE85';
-      x.beginPath(); x.arc(f.x, f.y, f.r * (2 - k), 0, TAU); x.fill();
-    }
-  }
-  x.globalAlpha = 1;
-}
-
-function drawCrewArt(x, v, k, r, t) {
-  const p = v[k];
-  if (!p) return;
-  if (p.dead > 0) {
-    x.globalAlpha = 0.5;
-    blit(x, ART.s[k + 'H'], p.x, p.y, p.a);
-    x.globalAlpha = 1;
-    return;
-  }
-  if (p.pw === PULSE) {
-    x.strokeStyle = 'rgba(95,211,192,.5)'; x.lineWidth = 5 / r.scale;
-    x.beginPath(); x.arc(p.x, p.y, PULSE_R * (0.97 + Math.sin(t * 5) * 0.03), 0, TAU);
-    x.stroke();
-    x.fillStyle = 'rgba(95,211,192,.06)'; x.fill();
-  }
-  blit(x, ART.s[k + 'H'], p.x, p.y, p.a);
-  blit(x, ART.s[k + 'T'], p.x, p.y, p.ta);
-  if (p.hit > 0) {
-    x.globalAlpha = clamp(p.hit / 0.25, 0, 1) * 0.8;
-    x.fillStyle = '#FFF1D0';
+  for (const s of SIDES) {
+    const p = v[s];
+    if (!p || p.dead > 0) continue;
+    x.fillStyle = COL[s];
     x.beginPath(); x.arc(p.x, p.y, R, 0, TAU); x.fill();
-    x.globalAlpha = 1;
-  }
-  if (p.sh > 0) {
-    x.strokeStyle = POWERS[SHIELD].c; x.lineWidth = 4 / r.scale;
-    for (let i = 0; i < p.sh; i++) {
-      x.beginPath(); x.arc(p.x, p.y, R + 9 + i * 6, 0, TAU); x.stroke();
-    }
-  }
-  if (p.inv > 0) {
-    x.strokeStyle = 'rgba(255,255,255,.75)'; x.lineWidth = 3 / r.scale;
-    x.beginPath(); x.arc(p.x, p.y, R + 6, t * 6, t * 6 + 4.4); x.stroke();
-  }
-}
-
-function drawFoeArt(x, e, r) {
-  const K = KIND[e.k];
-  if (e.sp > 0) {
-    const k = 1 - e.sp / HOLD;
-    x.strokeStyle = `rgba(255,92,92,${(0.3 + k * 0.55).toFixed(2)})`;
-    x.lineWidth = 5 / r.scale;
-    x.beginPath(); x.arc(e.x, e.y, K.r + 30 * (1 - k), 0, TAU); x.stroke();
-    return;
-  }
-  if (e.ch > 0) {
-    const k = 1 - e.ch / 1.25;
-    x.strokeStyle = `rgba(255,92,92,${(0.2 + k * 0.65).toFixed(2)})`;
-    x.lineWidth = (1 + k * 3) / r.scale;
-    x.beginPath();
-    x.moveTo(e.x, e.y);
-    x.lineTo(e.x + Math.cos(e.a) * 900, e.y + Math.sin(e.a) * 900);
+    x.strokeStyle = '#F2ECDC'; x.lineWidth = 8;
+    x.beginPath(); x.moveTo(p.x, p.y);
+    x.lineTo(p.x + Math.cos(p.ta) * R * 1.7, p.y + Math.sin(p.ta) * R * 1.7);
     x.stroke();
   }
-  blit(x, ART.s['foe' + e.k], e.x, e.y, e.a);
-}
-
-/* ═══ the layer you read ═══════════════════════════════════════════════
-   Markers, tally and stick, all in screen pixels on the 2D canvas. Text at
-   a real pixel size stays sharp on any phone, which is the whole reason it
-   does not live down in the world with the geometry.
-   ─────────────────────────────────────────────────────────────────────── */
-
-let HUD_TOP = 84, hudTick = 0;
-
-function overlay(x, v, r, t) {
-  const cv = x.canvas;
-  const dpr = cv.width / Math.max(1, r.w);
-  PROJ.on = GFX.on ? 1 : 0; PROJ.w = r.w; PROJ.h = r.h; PROJ.scale = r.scale || 1;
-
-  if (--hudTick <= 0) {
-    hudTick = 30;
-    const el = document.querySelector('#game .hud');
-    if (el) { const b = el.getBoundingClientRect(); if (b.height) HUD_TOP = b.bottom + 12; }
-  }
-
-  x.save();
-  x.setTransform(dpr, 0, 0, dpr, 0, 0);
-  x.textBaseline = 'middle';
-
-  for (const e of v.foes || []) foeMark(x, e);
-  for (const k of SIDES) crewMark(x, v, k, r, t);
-  feed(x, v);
-  tally(x, v, r);
-  if (S.on) stick(x);
-  hurtEdge(x, v, r, t);
   x.restore();
 }
 
-function foeMark(x, e) {
-  const K = KIND[e.k];
-  if (e.sp > 0 || e.k === WARLORD) return;
-  const k = clamp(e.hp / K.hp, 0, 1);
-  if (k >= 1) return;
-  const at = project(e.x, e.y, K.r * 1.9);
-  if (!at) return;
-  const w = Math.max(22, K.r * 1.7 * ppu(e.x, e.y));
-  x.fillStyle = 'rgba(20,17,12,.55)';
-  x.fillRect(at.x - w / 2 - 1, at.y - 4, w + 2, 8);
-  x.fillStyle = k > 0.5 ? '#E0A84E' : COL.optic;
-  x.fillRect(at.x - w / 2, at.y - 3, w * k, 6);
+/* ═══ 11 · the flat layer: tally, minimap, markers, stick ══════════════ */
+
+const MONO = '"Share Tech Mono",ui-monospace,monospace';
+const DISP = '"Staatliches",Impact,sans-serif';
+
+function screen(x, v, r, t) {
+  const W = B.w, H = B.h;
+  x.save();
+  x.setTransform(B.dpr, 0, 0, B.dpr, 0, 0);
+  x.textBaseline = 'middle';
+
+  const mw = clamp(W * 0.24, 84, 128);
+  if (G3.on) markers(x, v, r, t);
+  tally(x, v, r, W, H, mw);
+  minimap(x, v, r, W, H, mw);
+  if (STICK.on) stick(x, r);
+  damage(x, v, r, W, H, t);
+
+  x.restore();
 }
 
-function crewMark(x, v, k, r, t) {
-  const p = v[k];
-  if (!p) return;
-  const me = k === r.side;
-  const sx = ppu(p.x, p.y), sy = ppv(p.x, p.y);
-  const base = project(p.x, p.y, 0);
-  if (!base) return;
-
-  if (p.dead > 0) {
-    x.strokeStyle = COL[k]; x.lineWidth = 5;
-    ellipse(x, base.x, base.y, (R + 20) * sx, (R + 20) * sy,
-            -Math.PI / 2, -Math.PI / 2 + TAU * (1 - p.dead / DOWN));
-    x.stroke();
-    const up = project(p.x, p.y, 44) || base;
-    x.fillStyle = COL[k];
-    x.font = '700 34px "Staatliches",Impact,sans-serif';
-    x.textAlign = 'center';
-    x.fillText(String(Math.ceil(p.dead)), up.x, up.y);
-    return;
+/* Anything pinned to a thing in the yard is projected through the same
+   camera the world was drawn with, so it lands exactly on it. */
+function markers(x, v, r, t) {
+  x.textAlign = 'center';
+  for (const e of v.foes || []) {
+    const K = KIND[e.k];
+    if (e.sp > 0 || e.k === WARLORD) continue;
+    const k = clamp(e.hp / K.hp, 0, 1);
+    if (k >= 1) continue;
+    const s = project(e.x, 70, e.y);
+    if (!s) continue;
+    const w = 42;
+    x.fillStyle = 'rgba(20,17,12,.6)'; x.fillRect(s.x - w / 2, s.y - 3, w, 6);
+    x.fillStyle = k > 0.5 ? '#E0A84E' : COL.optic;
+    x.fillRect(s.x - w / 2, s.y - 3, w * k, 6);
   }
 
-  if (!me) {
-    const up = project(p.x, p.y, 74) || base;
-    x.fillStyle = 'rgba(24,20,14,.6)';
-    x.font = '600 12px "Share Tech Mono",ui-monospace,monospace';
-    x.textAlign = 'center';
-    x.fillText('ALLY', up.x, up.y);
-    return;
-  }
-
-  x.strokeStyle = 'rgba(255,255,255,.9)'; x.lineWidth = 2.5;
-  ellipse(x, base.x, base.y, (R + 12) * sx, (R + 12) * sy);
-  x.stroke();
-
-  if (p.dcd > 0) {
-    x.strokeStyle = 'rgba(24,20,14,.55)'; x.lineWidth = 5;
-    ellipse(x, base.x, base.y, (R + 21) * sx, (R + 21) * sy,
-            -Math.PI / 2, -Math.PI / 2 + TAU * (1 - p.dcd / DASH_CD));
-    x.stroke();
-  }
-
-  const mark = (v.foes || []).find(e => e.id === p.tg);
-  if (mark) {
-    const m = project(mark.x, mark.y, 0);
-    if (m) {
-      const rr = (KIND[mark.k].r + 14), mx = ppu(mark.x, mark.y), my = ppv(mark.x, mark.y);
-      const a = t * 2.2;
-      x.strokeStyle = COL.optic; x.lineWidth = 3.5;
-      for (let n = 0; n < 4; n++) {
-        ellipse(x, m.x, m.y, rr * mx, rr * my, a + n * TAU / 4, a + n * TAU / 4 + 0.66);
-        x.stroke();
-      }
-      x.strokeStyle = 'rgba(255,92,92,.20)'; x.lineWidth = 1.5;
-      x.beginPath(); x.moveTo(base.x, base.y); x.lineTo(m.x, m.y); x.stroke();
+  for (const k of SIDES) {
+    const p = v[k];
+    if (!p) continue;
+    const s = project(p.x, 86, p.y);
+    if (!s) continue;
+    if (p.dead > 0) {
+      x.fillStyle = COL[k];
+      x.font = '700 30px ' + DISP;
+      x.fillText(String(Math.ceil(p.dead)), s.x, s.y);
+      x.font = '600 11px ' + MONO;
+      x.fillText('BACK IN', s.x, s.y - 22);
+      continue;
+    }
+    if (k !== r.side) {
+      x.fillStyle = 'rgba(242,236,220,.75)';
+      x.font = '600 12px ' + MONO;
+      x.fillText('ALLY', s.x, s.y - 6);
+    }
+    if (p.pw && p.pwT > 0) {
+      const P = POWERS[p.pw], w = 74;
+      x.fillStyle = 'rgba(20,17,12,.55)'; x.fillRect(s.x - w / 2, s.y - 24, w, 7);
+      x.fillStyle = P.c;
+      x.fillRect(s.x - w / 2, s.y - 24, w * clamp(p.pwT / P.t, 0, 1), 7);
+      x.font = '700 12px ' + MONO;
+      x.fillText(P.n, s.x, s.y - 33);
     }
   }
 
-  if (p.pw && p.pwT > 0) {
-    const P = POWERS[p.pw], up = project(p.x, p.y, 92) || base, w = 88;
-    x.fillStyle = 'rgba(24,20,14,.5)'; x.fillRect(up.x - w / 2, up.y - 4, w, 8);
+  for (const c of v.crates || []) {
+    const s = project(c.x, 62, c.y);
+    if (!s) continue;
+    const P = POWERS[c.k];
+    x.globalAlpha = c.life < 4 && Math.sin(TNOW * 18) < 0 ? 0.25 : 1;
+    const label = P.n, w = 8 + label.length * 7.2;
+    x.fillStyle = 'rgba(18,15,11,.78)';
+    x.fillRect(s.x - w / 2, s.y - 10, w, 19);
     x.fillStyle = P.c;
-    x.fillRect(up.x - w / 2, up.y - 4, w * clamp(p.pwT / P.t, 0, 1), 8);
-    x.font = '700 15px "Share Tech Mono",ui-monospace,monospace';
-    x.textAlign = 'center';
-    x.fillText(P.n, up.x, up.y - 15);
+    x.fillRect(s.x - w / 2, s.y - 10, w, 2);
+    x.font = '700 11px ' + MONO;
+    x.fillText(label, s.x, s.y + 1);
+    x.globalAlpha = 1;
   }
-}
 
-/* Floating tallies at the kill site: you can see who took what from across
-   the yard, without reading the scoreboard. */
-function feed(x, v) {
   for (const c of v.kills || []) {
     const k = clamp(c.t / 1.4, 0, 1);
-    const at = project(c.x, c.y, 40 + k * 90);
-    if (!at) continue;
+    const s = project(c.x, 60 + k * 90, c.y);
+    if (!s) continue;
     x.globalAlpha = 1 - k;
     x.fillStyle = c.own === 0 ? COL.host : COL.guest;
-    x.font = '700 34px "Staatliches",Impact,sans-serif';
-    x.textAlign = 'center';
-    x.fillText('+' + c.pts, at.x, at.y);
+    x.font = '700 34px ' + DISP;
+    x.fillText('+' + c.pts, s.x, s.y);
+    x.globalAlpha = 1;
   }
-  x.globalAlpha = 1;
 }
 
-function tally(x, v, r) {
-  const boss = (v.foes || []).find(e => e.k === WARLORD);
+function tally(x, v, r, W, H, mw) {
   const dbl = v.phase === 'ot' || (v.left || 0) <= DOUBLE_AT;
-  const W = PROJ.w, y = HUD_TOP + 22, pad = Math.min(26, W * 0.05);
+  const top = 74, h = 42, pad = 12;
+  x.fillStyle = dbl ? 'rgba(84,24,20,.72)' : 'rgba(20,17,12,.55)';
+  const w = Math.max(150, Math.min(W - pad * 2 - mw - 10, 360));
+  x.fillRect(pad, top, w, h);
+  x.strokeStyle = dbl ? 'rgba(255,92,92,.5)' : 'rgba(242,236,220,.12)';
+  x.lineWidth = 1; x.strokeRect(pad + 0.5, top + 0.5, w - 1, h - 1);
 
-  x.fillStyle = dbl ? 'rgba(84,24,20,.66)' : 'rgba(26,22,16,.5)';
-  x.fillRect(pad - 12, y - 25, W - (pad - 12) * 2, 50);
-
+  const mid = top + h / 2;
   for (const k of SIDES) {
-    const left = k === 'host', px = left ? pad : W - pad;
+    const left = k === 'host';
+    const px = left ? pad + 14 : pad + w - 14;
     x.textAlign = left ? 'left' : 'right';
     x.fillStyle = COL[k];
-    x.font = '700 40px "Staatliches",Impact,sans-serif';
-    x.fillText(String((v[k] && v[k].sc) || 0), px, y);
-    x.font = '600 13px "Share Tech Mono",ui-monospace,monospace';
+    x.font = '700 30px ' + DISP;
+    x.fillText(String((v[k] && v[k].sc) || 0), px, mid);
+    x.font = '600 11px ' + MONO;
     x.fillStyle = k === r.side ? '#F2ECDC' : 'rgba(242,236,220,.5)';
-    x.fillText(k === r.side ? 'YOU' : 'ALLY', px + (left ? 46 : -46), y + 1);
+    x.fillText(k === r.side ? 'YOU' : 'ALLY', px + (left ? 34 : -34), mid + 1);
   }
-
   x.textAlign = 'center';
-  x.font = '700 20px "Share Tech Mono",ui-monospace,monospace';
-  if (dbl) {
-    x.fillStyle = COL.optic;
-    x.fillText('DOUBLE', W / 2, y);
-  } else {
+  x.font = '700 15px ' + MONO;
+  if (dbl) { x.fillStyle = COL.optic; x.fillText('DOUBLE', pad + w / 2, mid); }
+  else {
     const mine = (v[r.side] && v[r.side].sc) || 0;
     const theirs = (v[other(r.side)] && v[other(r.side)].sc) || 0;
     x.fillStyle = mine === theirs ? '#F2ECDC' : COL[mine > theirs ? r.side : other(r.side)];
     x.fillText(mine === theirs ? 'LEVEL'
-             : `${mine > theirs ? 'YOU' : 'ALLY'} +${Math.abs(mine - theirs)}`, W / 2, y);
+             : `${mine > theirs ? 'YOU' : 'ALLY'} +${Math.abs(mine - theirs)}`, pad + w / 2, mid);
   }
 
-  if (boss && boss.sp <= 0) {
-    const w = Math.min(W - pad * 2, 420), by = y + 34;
-    x.fillStyle = 'rgba(26,22,16,.55)'; x.fillRect(W / 2 - w / 2, by, w, 16);
+  const boss = (v.foes || []).find(e => e.k === WARLORD && e.sp <= 0);
+  if (boss) {
+    const bw = w, by = top + h + 8;
+    x.fillStyle = 'rgba(20,17,12,.6)'; x.fillRect(pad, by, bw, 16);
     x.fillStyle = COL.optic;
-    x.fillRect(W / 2 - w / 2, by, w * clamp(boss.hp / KIND[WARLORD].hp, 0, 1), 16);
-    x.fillStyle = '#F2ECDC';
-    x.font = '700 14px "Share Tech Mono",ui-monospace,monospace';
-    x.fillText('WARLORD · 12 POINTS', W / 2, by + 8);
+    x.fillRect(pad, by, bw * clamp(boss.hp / KIND[WARLORD].hp, 0, 1), 16);
+    x.fillStyle = '#F2ECDC'; x.font = '700 12px ' + MONO;
+    x.fillText('WARLORD · 12 POINTS', pad + bw / 2, by + 8);
   }
 
   if (v.pause) {
-    x.fillStyle = 'rgba(16,14,10,.6)';
-    x.fillRect(0, 0, W, PROJ.h);
-    x.fillStyle = '#F2ECDC';
-    x.font = '700 34px "Share Tech Mono",ui-monospace,monospace';
-    x.fillText(`HELD ${clock(v.pauseT || 0)}`, W / 2, PROJ.h * 0.42);
+    x.fillStyle = 'rgba(20,17,12,.66)'; x.fillRect(0, 0, W, H);
+    x.fillStyle = '#F2ECDC'; x.textAlign = 'center';
+    x.font = '700 30px ' + MONO;
+    x.fillText(`HELD ${clock(v.pauseT || 0)}`, W / 2, H / 2 + 60);
   }
 }
 
-/* The stick is drawn where the thumb actually is, at the size it actually
-   has, because it is now measured in screen pixels rather than sand. */
-function stick(x) {
-  x.strokeStyle = 'rgba(24,20,14,.30)'; x.lineWidth = 4;
-  x.beginPath(); x.arc(S.bx, S.by, MAXT, 0, TAU); x.stroke();
-  x.strokeStyle = 'rgba(242,236,220,.22)'; x.lineWidth = 2;
-  x.beginPath(); x.arc(S.bx, S.by, DEADZ, 0, TAU); x.stroke();
-  const c = COL[MY] || COL.host;
-  x.strokeStyle = c; x.globalAlpha = 0.7; x.lineWidth = 7;
-  x.beginPath(); x.moveTo(S.bx, S.by); x.lineTo(S.kx, S.ky); x.stroke();
-  x.globalAlpha = 1;
-  x.fillStyle = c;
-  x.beginPath(); x.arc(S.kx, S.ky, 22, 0, TAU); x.fill();
-  x.fillStyle = 'rgba(255,255,255,.85)';
-  x.beginPath(); x.arc(S.kx, S.ky, 7, 0, TAU); x.fill();
-  x.fillStyle = 'rgba(255,255,255,.5)';
-  x.beginPath(); x.arc(S.bx, S.by, 5, 0, TAU); x.fill();
+/* The whole yard in the corner: red for the machines, blue for your ally,
+   your own colour for you, gold for a crate. */
+function minimap(x, v, r, W, H, mw) {
+  const mh = mw * (HH / HW);
+  const mx = W - mw - 12, my = 74;
+  x.fillStyle = 'rgba(14,12,9,.68)';
+  x.fillRect(mx, my, mw, mh);
+  x.strokeStyle = 'rgba(242,236,220,.22)'; x.lineWidth = 1;
+  x.strokeRect(mx + 0.5, my + 0.5, mw - 1, mh - 1);
+
+  const sx = mw / (HW * 2), sy = mh / (HH * 2);
+  const px = wx => mx + (wx + HW) * sx, pz = wz => my + (wz + HH) * sy;
+
+  x.fillStyle = 'rgba(150,142,128,.55)';
+  for (const w of WALLS) {
+    x.fillRect(px(w[0] - w[2]), pz(w[1] - w[3]), w[2] * 2 * sx, w[3] * 2 * sy);
+  }
+  x.fillStyle = '#E0A84E';
+  for (const c of v.crates || []) x.fillRect(px(c.x) - 2, pz(c.y) - 2, 4, 4);
+
+  for (const e of v.foes || []) {
+    const big = e.k === WARLORD;
+    x.fillStyle = e.sp > 0 ? 'rgba(255,92,92,.45)' : COL.optic;
+    x.beginPath(); x.arc(px(e.x), pz(e.y), big ? 5 : 3, 0, TAU); x.fill();
+  }
+
+  const ally = v[other(r.side)];
+  if (ally && ally.dead <= 0) {
+    x.fillStyle = '#4FA8FF';
+    x.beginPath(); x.arc(px(ally.x), pz(ally.y), 4, 0, TAU); x.fill();
+    x.strokeStyle = 'rgba(255,255,255,.7)'; x.lineWidth = 1; x.stroke();
+  }
+  const me = v[r.side];
+  if (me) {
+    x.save();
+    x.translate(px(me.x), pz(me.y));
+    x.rotate(me.a);
+    x.fillStyle = me.dead > 0 ? 'rgba(242,236,220,.4)' : COL[r.side];
+    x.beginPath(); x.moveTo(7, 0); x.lineTo(-5, -5); x.lineTo(-5, 5);
+    x.closePath(); x.fill();
+    x.strokeStyle = '#fff'; x.lineWidth = 1; x.stroke();
+    x.restore();
+  }
 }
 
-/* One hit left, or just took one: the edges of the glass go red. */
-function hurtEdge(x, v, r, t) {
+function stick(x, r) {
+  const cx = STICK.ox + STICK.ax, cy = STICK.oy + STICK.ay;
+  x.strokeStyle = 'rgba(242,236,220,.22)'; x.lineWidth = 3;
+  x.beginPath(); x.arc(cx, cy, STICK.max, 0, TAU); x.stroke();
+  x.strokeStyle = COL[r.side]; x.globalAlpha = 0.75; x.lineWidth = 7;
+  x.beginPath(); x.moveTo(cx, cy);
+  x.lineTo(cx + STICK.dx, cy + STICK.dy); x.stroke();
+  x.globalAlpha = 1;
+  x.fillStyle = COL[r.side];
+  x.beginPath(); x.arc(cx + STICK.dx, cy + STICK.dy, 22, 0, TAU); x.fill();
+  x.fillStyle = 'rgba(255,255,255,.5)';
+  x.beginPath(); x.arc(cx, cy, 5, 0, TAU); x.fill();
+}
+
+let VIG = null, VIGK = 0;
+function damage(x, v, r, W, H, t) {
   const me = v[r.side];
   if (!me || me.dead > 0) return;
-  const low = me.hp <= 1 ? 0.26 + Math.sin(t * 6) * 0.09 : 0;
+  const low = me.hp <= 1 ? 0.24 + Math.sin(t * 6) * 0.08 : 0;
   const a = Math.max(low, clamp(me.hit / 0.25, 0, 1) * 0.45);
   if (a <= 0.01) return;
-  const w = PROJ.w, h = PROJ.h, key = Math.round(w + h);
-  if (!ART.vig || ART.vigK !== key) {
-    ART.vigK = key;
-    const g = x.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.26,
-                                     w / 2, h / 2, Math.hypot(w, h) * 0.56);
+  const key = Math.round(W + H);
+  if (!VIG || VIGK !== key) {
+    VIGK = key;
+    const g = x.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.28,
+                                     W / 2, H / 2, Math.max(W, H) * 0.72);
     g.addColorStop(0, 'rgba(255,60,50,0)');
     g.addColorStop(1, 'rgba(255,40,34,1)');
-    ART.vig = g;
+    VIG = g;
   }
-  x.globalAlpha = a;
-  x.fillStyle = ART.vig;
-  x.fillRect(0, 0, w, h);
-  x.globalAlpha = 1;
+  x.globalAlpha = a; x.fillStyle = VIG; x.fillRect(0, 0, W, H); x.globalAlpha = 1;
 }
 
 function clock(sec) {
@@ -4290,7 +3802,46 @@ function clock(sec) {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
-/* ═══ HUD ══════════════════════════════════════════════════════════════ */
+/* ═══ 12 · render ══════════════════════════════════════════════════════ */
+
+function treads(p, dt) {
+  if (!p || p.dead > 0 || Math.hypot(p.vx, p.vy) <= 90) return;
+  p.trail = (p.trail || 0) + dt;
+  if (p.trail <= 0.08) return;
+  p.trail = 0;
+  scar(p.x, p.y, p.a, R * 1.7);
+  dust(p.x - Math.cos(p.a) * R, p.y - Math.sin(p.a) * R);
+}
+
+function render(x, v, r) {
+  VIEW = v; MY = r.side; DRAWN = Date.now();
+  const dt = Math.min(0.05, r.dt || 0.016);
+  TNOW += dt;
+  const t = TNOW;
+
+  STICK.max = clamp(Math.min(B.w, B.h) * 0.17, 52, 96);
+  for (const k of SIDES) treads(v[k], dt);
+  stepFX(dt);
+
+  /* a rematch starts on clean sand — the clock jumping back up is the tell */
+  if ((v.left || 0) > (render.seen || 0) + 1) { DECALS.length = 0; FX.length = 0; }
+  render.seen = v.left || 0;
+
+  camera(v, dt);
+
+  if (glInit()) {
+    try { glFrame(v, r, t, dt); }
+    catch (e) {
+      G3.on = 0; G3.err = (e && e.message) || 'gl frame threw';
+      if (G3.cv && G3.cv.parentNode) G3.cv.parentNode.removeChild(G3.cv);
+    }
+  }
+  if (!G3.on) flat2D(x, v, r);
+
+  screen(x, v, r, t);
+}
+
+/* ═══ 13 · HUD ═════════════════════════════════════════════════════════ */
 
 function status(v, side) {
   const me = v[side];
@@ -4334,62 +3885,16 @@ function status(v, side) {
   };
 }
 
-/* ═══ the controls ═════════════════════════════════════════════════════
- *
- * The stick is measured in screen pixels rather than in sand, so it feels
- * the same on a small phone and a large one and does not change under you
- * when the camera moves. Its base floats: drag past the edge and the base
- * follows your thumb, so a long drag never runs out of travel.
- *
- * Every touch carries its pointer id from the first frame, so a second
- * finger — reaching for FIRE, or a hand resting on the glass — cannot steal
- * the stick or leave the tank driving into a wall when it lifts.
- *
- * And because the camera looks along a tilt, the drag is un-tilted before it
- * is sent: push the thumb toward the top of the screen and the tank goes to
- * the top of the screen, not somewhere short of it.
- * ─────────────────────────────────────────────────────────────────────── */
+game.render = render;
+game.status = status;
 
-const MAXT = 76, DEADZ = 10;
-const S = { on: 0, id: null, bx: 0, by: 0, cx: 0, cy: 0, kx: 0, ky: 0,
-            pow: 0, tap: 0, sent: null };
-
-function send(m) { if (m && RT && RT.dispatch) RT.dispatch(m); }
-
-/* Only put a direction on the wire when it is meaningfully new. */
-function maybe(dx, dy, pow) {
-  if (S.sent && Math.abs(pow - S.sent.pow) < 0.04 &&
-      dx * S.sent.dx + dy * S.sent.dy > 0.9985) return null;
-  S.sent = { dx, dy, pow };
-  return { dx, dy, pow };
-}
-function drive(dx, dy, pow) { send(maybe(dx, dy, pow)); }
-
-const tilt = () => (GFX.on ? Math.max(0.35, Math.sin(CAM.pitch)) : 1);
-
-function stickMove() {
-  let dx = S.cx - S.bx, dy = S.cy - S.by;
-  let len = Math.hypot(dx, dy);
-  if (len > MAXT) {
-    const k = (len - MAXT) / len;
-    S.bx += dx * k; S.by += dy * k;
-    dx = S.cx - S.bx; dy = S.cy - S.by; len = MAXT;
-  }
-  S.kx = S.bx + dx; S.ky = S.by + dy;
-  if (len < DEADZ) { S.pow = 0; drive(0, 0, 0); return; }
-  const eff = clamp((len - DEADZ) / (MAXT - DEADZ), 0, 1);
-  S.pow = eff * eff * 0.45 + eff * 0.55;
-  const ty = dy / tilt();
-  const l = Math.hypot(dx, ty) || 1;
-  drive(dx / l, ty / l, S.pow);
-}
-
-function stickUp() {
-  S.on = 0; S.id = null; S.pow = 0; S.sent = null;
-  send({ dx: 0, dy: 0, pow: 0 });
-}
-
-/* ═══ sound and feel ═══════════════════════════════════════════════════ */
+/* ═══ 14 · the pad ═════════════════════════════════════════════════════
+   Drive by dragging anywhere on the sand — the stick appears under your
+   thumb wherever it lands. The turret fires itself, because holding a
+   button down for four minutes is not a skill. Everything else is a big,
+   thumb-height target in a corner, sized from the screen rather than from
+   a guess about what a phone is.
+   ─────────────────────────────────────────────────────────────────────── */
 
 let AC = null, MUTED = false;
 function tone(f, len, o = {}) {
@@ -4409,43 +3914,51 @@ function tone(f, len, o = {}) {
 }
 function buzz(ms) { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) { /* ignore */ } }
 
-/* ═══ the pad ══════════════════════════════════════════════════════════
-   Drive anywhere on the sand. The trigger fires itself by default, because
-   holding a button down for four minutes is not a skill; DASH and the hold
-   get their own targets in the corners, at thumb height.
-   ─────────────────────────────────────────────────────────────────────── */
-
 if (typeof document !== 'undefined') {
+  const send = m => { if (RT && RT.dispatch) RT.dispatch(m); };
   let AUTO = true;
+
+  /* The stick is drawn on the canvas, so the pad only has to know where the
+     thumb went down. The engine keeps the actual input. */
+  const watch = e => {
+    const board = document.getElementById('board');
+    if (!board) return;
+    const b = board.getBoundingClientRect();
+    if (e.type === 'pointerdown') { STICK.ox = e.clientX - b.left; STICK.oy = e.clientY - b.top; }
+    STICK.sx = e.clientX - b.left; STICK.sy = e.clientY - b.top;
+  };
+  document.addEventListener('pointerdown', watch, { passive: true });
+  document.addEventListener('pointermove', watch, { passive: true });
 
   const st = document.createElement('style');
   st.textContent =
-    '#yard3d{background:#191712}' +
+    '#pad{position:fixed;inset:auto 0 0 0;z-index:70;display:none;' +
+    'justify-content:space-between;align-items:flex-end;pointer-events:none;' +
+    'padding:0 max(16px,env(safe-area-inset-right)) calc(20px + env(safe-area-inset-bottom))' +
+    ' max(16px,env(safe-area-inset-left));gap:10px}' +
+    '#pad .row{display:flex;gap:10px;align-items:flex-end;pointer-events:none}' +
     '.pd{pointer-events:auto;border:none;border-radius:50%;color:#F2ECDC;' +
-    'font-family:var(--mono),monospace;font-weight:700;letter-spacing:.08em;' +
+    'font-family:var(--mono),monospace;font-weight:700;letter-spacing:.06em;' +
     'touch-action:none;user-select:none;-webkit-tap-highlight-color:transparent;' +
-    'display:grid;place-items:center;line-height:1;backdrop-filter:blur(2px);' +
-    'box-shadow:0 6px 0 rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.18);' +
+    'display:grid;place-items:center;line-height:1;background:rgba(28,25,19,.84);' +
+    'backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);' +
+    'box-shadow:0 6px 0 rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.16);' +
     'transition:transform .06s,background .12s,opacity .18s}' +
-    '.pd:active{transform:translateY(3px);box-shadow:0 3px 0 rgba(0,0,0,.42)}' +
-    '.pd b{font-size:.62em;opacity:.62;font-weight:600;display:block;margin-top:3px}';
+    '.pd:active{transform:translateY(3px);box-shadow:0 3px 0 rgba(0,0,0,.45)}' +
+    '.pd b{font-size:.6em;opacity:.62;font-weight:600;display:block;margin-top:3px}';
   document.head.appendChild(st);
 
   const knob = (size, label, aria) => {
     const b = document.createElement('button');
     b.type = 'button'; b.className = 'pd';
     b.innerHTML = label; b.setAttribute('aria-label', aria);
-    b.style.width = b.style.height = size + 'px';
-    b.style.fontSize = (size > 80 ? 17 : size > 58 ? 14 : 13) + 'px';
-    b.style.background = 'rgba(30,27,21,.82)';
+    b.style.width = b.style.height = `clamp(${Math.round(size * 0.8)}px,${size / 4.3}vmin,${Math.round(size * 1.24)}px)`;
+    b.style.fontSize = `clamp(${size > 80 ? 14 : 11}px,${size / 26}vmin,${size > 80 ? 19 : 15}px)`;
     return b;
   };
 
   const pad = document.createElement('div');
-  pad.style.cssText = 'position:fixed;inset:auto 0 0 0;z-index:70;display:none;' +
-    'justify-content:space-between;align-items:flex-end;gap:12px;pointer-events:none;' +
-    'padding:14px calc(18px + env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) ' +
-    'calc(18px + env(safe-area-inset-left))';
+  pad.id = 'pad';
 
   const mute = knob(46, '♪', 'Sound on or off');
   mute.onclick = () => {
@@ -4455,7 +3968,15 @@ if (typeof document !== 'undefined') {
     if (!MUTED) tone(660, 0.1, { type: 'triangle', gain: 0.15 });
   };
 
-  const hold = knob(54, '❚❚', 'Hold the match, or let it go');
+  const zoom = knob(46, '⌕', 'Pull the camera back, or bring it in');
+  zoom.onclick = () => {
+    CAM.zoom = CAM.zoom > 1.15 ? 0.82 : CAM.zoom > 0.95 ? 1.32 : 1;
+    Duel.toast(CAM.zoom > 1.15 ? 'Camera pulled back'
+             : CAM.zoom < 0.95 ? 'Camera close in' : 'Camera reset');
+    buzz(8);
+  };
+
+  const hold = knob(52, '❚❚', 'Hold the match, or let it go');
   hold.onclick = () => {
     const held = VIEW && VIEW.pause;
     send({ z: held ? 0 : 1 });
@@ -4463,9 +3984,9 @@ if (typeof document !== 'undefined') {
     tone(held ? 620 : 340, 0.12, { type: 'triangle', gain: 0.14 });
   };
 
-  const auto = knob(54, 'AUTO', 'Fire by itself whenever a target is locked');
+  const auto = knob(52, 'AUTO', 'Fire by itself whenever a target is locked');
   const paintAuto = () => {
-    auto.style.background = AUTO ? 'rgba(224,168,78,.92)' : 'rgba(30,27,21,.82)';
+    auto.style.background = AUTO ? 'rgba(224,168,78,.92)' : 'rgba(28,25,19,.84)';
     auto.style.color = AUTO ? '#241F17' : '#F2ECDC';
   };
   auto.onclick = () => {
@@ -4477,7 +3998,7 @@ if (typeof document !== 'undefined') {
   };
   paintAuto();
 
-  const dash = knob(70, 'DASH', 'Burst forward');
+  const dash = knob(66, 'DASH', 'Burst forward');
   dash.addEventListener('pointerdown', e => {
     e.preventDefault();
     const me = VIEW && MY ? VIEW[MY] : null;
@@ -4486,7 +4007,7 @@ if (typeof document !== 'undefined') {
     tone(240, 0.14, { type: 'sawtooth', to: 760, gain: 0.14 });
   });
 
-  const guns = knob(108, 'FIRE', 'Hold to fire');
+  const guns = knob(104, 'FIRE', 'Hold to fire');
   let firing = 0;
   const press = e => {
     e.preventDefault(); firing = 1;
@@ -4496,71 +4017,33 @@ if (typeof document !== 'undefined') {
   const release = () => {
     if (!firing) return;
     firing = 0;
-    guns.style.background = 'rgba(30,27,21,.82)';
+    guns.style.background = 'rgba(28,25,19,.84)';
     send({ f: AUTO ? 2 : 0 });
   };
   guns.addEventListener('pointerdown', press);
   ['pointerup', 'pointercancel', 'pointerleave'].forEach(k => guns.addEventListener(k, release));
 
-  const group = (...kids) => {
+  const row = (...kids) => {
     const d = document.createElement('div');
-    d.style.cssText = 'display:flex;gap:12px;align-items:flex-end;pointer-events:none';
+    d.className = 'row';
     kids.forEach(k => d.appendChild(k));
     return d;
   };
-  pad.appendChild(group(mute, hold));
-  pad.appendChild(group(auto, dash, guns));
+  pad.appendChild(row(mute, zoom, hold));
+  pad.appendChild(row(auto, dash, guns));
   document.body.appendChild(pad);
 
-  /* ── the stick, on the board itself ── */
-  const board = document.getElementById('board');
-  if (board) {
-    board.addEventListener('pointerdown', e => {
-      if (S.id !== null || !RT || !VIEW) return;
-      e.preventDefault();
-      S.id = e.pointerId; S.on = 1;
-      S.bx = S.cx = S.kx = e.clientX;
-      S.by = S.cy = S.ky = e.clientY;
-      S.sent = null; S.pow = 0;
-      const now = Date.now();
-      if (now - S.tap < 300) {                     // double tap the sand to dash
-        const me = VIEW && MY ? VIEW[MY] : null;
-        if (!me || me.dcd <= 0) {
-          send({ d: 1 }); buzz(18);
-          tone(240, 0.14, { type: 'sawtooth', to: 760, gain: 0.14 });
-        }
-      }
-      S.tap = now;
-    }, { passive: false });
-
-    /* move and lift are watched on the window, so a thumb that slides off the
-       board — or off the screen edge — still steers and still lets go */
-    addEventListener('pointermove', e => {
-      if (e.pointerId !== S.id) return;
-      S.cx = e.clientX; S.cy = e.clientY;
-      stickMove();
-    }, { passive: true });
-    const lift = e => { if (e.pointerId === S.id) stickUp(); };
-    addEventListener('pointerup', lift);
-    addEventListener('pointercancel', lift);
-    addEventListener('blur', () => { if (S.id !== null) stickUp(); });
-  }
-
-  /* The pad belongs to the yard, and every button reads the authoritative
-     state rather than guessing what should have happened. */
+  /* Every button reads the authoritative state rather than guessing what
+     should have happened. */
   setInterval(() => {
     const sheet = document.getElementById('sheet');
     const playing = Date.now() - DRAWN < 500 && !(sheet && sheet.classList.contains('on'));
     pad.style.display = playing ? 'flex' : 'none';
-    if (!playing) {
-      release();
-      if (S.id !== null) stickUp();
-      return;
-    }
+    if (!playing) { release(); return; }
 
     const held = VIEW ? VIEW.pause : null, mine = held === MY;
     hold.innerHTML = mine ? '▶' : '❚❚';
-    hold.style.background = mine ? 'rgba(224,168,78,.92)' : 'rgba(30,27,21,.82)';
+    hold.style.background = mine ? 'rgba(224,168,78,.92)' : 'rgba(28,25,19,.84)';
     hold.style.color = mine ? '#241F17' : '#F2ECDC';
     hold.disabled = !!held && !mine;
     hold.style.opacity = held && !mine ? '.45' : '1';
@@ -4575,28 +4058,26 @@ if (typeof document !== 'undefined') {
 
   /* a keyboard, for trying it on a laptop */
   const keys = { w: 0, a: 0, s: 0, d: 0 };
-  const alias = { arrowup: 'w', arrowleft: 'a', arrowdown: 's', arrowright: 'd' };
   const pushKeys = () => {
     const dx = keys.d - keys.a, dy = keys.s - keys.w;
-    if (!dx && !dy) { S.sent = null; send({ dx: 0, dy: 0, pow: 0 }); return; }
-    const ty = dy / tilt(), l = Math.hypot(dx, ty) || 1;
-    drive(dx / l, ty / l, 1);
+    const l = Math.hypot(dx, dy) || 1;
+    send({ dx: dx / l, dy: dy / l, pow: dx || dy ? 1 : 0 });
   };
   document.addEventListener('keydown', e => {
-    const k = alias[e.key.toLowerCase()] || e.key.toLowerCase();
+    const k = e.key.toLowerCase();
     if (k in keys && !e.repeat) { keys[k] = 1; pushKeys(); }
     if (k === ' ' && !e.repeat) { e.preventDefault(); send({ f: 1 }); }
     if (k === 'shift' && !e.repeat) send({ d: 1 });
     if (k === 'p' && !e.repeat) send({ z: VIEW && VIEW.pause ? 0 : 1 });
   });
   document.addEventListener('keyup', e => {
-    const k = alias[e.key.toLowerCase()] || e.key.toLowerCase();
+    const k = e.key.toLowerCase();
     if (k in keys) { keys[k] = 0; pushKeys(); }
     if (k === ' ') send({ f: AUTO ? 2 : 0 });
   });
 }
 
-/* ═══ boot ═════════════════════════════════════════════════════════════ */
+/* ═══ 15 · boot ════════════════════════════════════════════════════════ */
 
 Duel.start({
   meta: {
