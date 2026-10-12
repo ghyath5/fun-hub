@@ -1,53 +1,63 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
   <url>
     <loc>https://funhub.super-dar.com/</loc>
     <lastmod>2026-10-13</lastmod>
     <priority>1.0</priority>
-  </url>
-  <url>
-    <loc>https://funhub.super-dar.com/orbis/</loc>
-    <lastmod>2026-10-12</lastmod>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://funhub.super-dar.com/orchard/</loc>
-    <lastmod>2026-07-27</lastmod>
-    <priority>0.8</priority>
+    <image:image><image:loc>https://funhub.super-dar.com/og.png</image:loc></image:image>
   </url>
   <url>
     <loc>https://funhub.super-dar.com/airhockey/</loc>
-    <lastmod>2026-07-27</lastmod>
+    <lastmod>2026-10-13</lastmod>
     <priority>0.8</priority>
+    <image:image><image:loc>https://funhub.super-dar.com/airhockey/og.png</image:loc></image:image>
   </url>
   <url>
     <loc>https://funhub.super-dar.com/chess/</loc>
-    <lastmod>2026-07-28</lastmod>
+    <lastmod>2026-10-13</lastmod>
     <priority>0.8</priority>
+    <image:image><image:loc>https://funhub.super-dar.com/chess/og.png</image:loc></image:image>
   </url>
   <url>
     <loc>https://funhub.super-dar.com/dawnpatrol/</loc>
-    <lastmod>2026-07-27</lastmod>
+    <lastmod>2026-10-13</lastmod>
     <priority>0.8</priority>
+    <image:image><image:loc>https://funhub.super-dar.com/dawnpatrol/og.png</image:loc></image:image>
   </url>
   <url>
     <loc>https://funhub.super-dar.com/hairpin/</loc>
-    <lastmod>2026-10-12</lastmod>
+    <lastmod>2026-10-13</lastmod>
     <priority>0.8</priority>
+    <image:image><image:loc>https://funhub.super-dar.com/hairpin/og.png</image:loc></image:image>
   </url>
   <url>
     <loc>https://funhub.super-dar.com/moonbloom/</loc>
-    <lastmod>2026-07-27</lastmod>
+    <lastmod>2026-10-13</lastmod>
     <priority>0.8</priority>
+    <image:image><image:loc>https://funhub.super-dar.com/moonbloom/og.png</image:loc></image:image>
+  </url>
+  <url>
+    <loc>https://funhub.super-dar.com/orbis/</loc>
+    <lastmod>2026-10-13</lastmod>
+    <priority>0.8</priority>
+    <image:image><image:loc>https://funhub.super-dar.com/orbis/og.png</image:loc></image:image>
+  </url>
+  <url>
+    <loc>https://funhub.super-dar.com/orchard/</loc>
+    <lastmod>2026-10-13</lastmod>
+    <priority>0.8</priority>
+    <image:image><image:loc>https://funhub.super-dar.com/orchard/og.png</image:loc></image:image>
   </url>
   <url>
     <loc>https://funhub.super-dar.com/pylon/</loc>
     <lastmod>2026-10-13</lastmod>
     <priority>0.8</priority>
+    <image:image><image:loc>https://funhub.super-dar.com/pylon/og.png</image:loc></image:image>
   </url>
   <url>
     <loc>https://funhub.super-dar.com/scrapwar/</loc>
-    <lastmod>2026-07-30</lastmod>
+    <lastmod>2026-10-13</lastmod>
     <priority>0.8</priority>
+    <image:image><image:loc>https://funhub.super-dar.com/scrapwar/og.png</image:loc></image:image>
   </url>
 </urlset>
