@@ -1,6 +1,6 @@
 # Fun Hub
 
-> Seven free two-player games that run in a mobile browser. Two people each use
+> Eight free two-player games that run in a mobile browser. Two people each use
 > their own phone in the same room, paired by scanning a QR code. No app
 > install, no account, no signup, no advertising. The two phones exchange game
 > data directly over the local WiFi using a WebRTC data channel, so no game
@@ -23,6 +23,11 @@ guest WiFi with client isolation enabled will block pairing.
 - [Dawn Patrol](https://funhub.super-dar.com/dawnpatrol/): Real time. 2 players,
   ~3 min. Dogfight. Drag to bank, hold FIRE until the guns overheat. Parachuted
   crates boost rate of fire, damage and gun count. First to 5 kills wins.
+- [Hairpin](https://funhub.super-dar.com/hairpin/): Real time. 2 players, ~2 min.
+  Rally race up a winding mountain pass. Drag to steer, throttle always open.
+  Snowploughs slide to block your line, rockfalls are aimed at the leader, boost
+  chevrons and slipstream speed you up, ice cuts your grip. First to 2 climbs wins.
+  Practice bot available.
 - [Moonbloom](https://funhub.super-dar.com/moonbloom/): Real time. 2 players,
   ~2 min. Lead a moth with a fingertip and hold it over a closed bud to open it
   in your colour. Blooms cannot be taken back. First to 8 blossoms wins.

@@ -249,7 +249,7 @@ footer p{margin:0}
       "@type": "ItemList",
       "@id": "https://funhub.super-dar.com/#games",
       "name": "Games on Fun Hub",
-      "numberOfItems": 7,
+      "numberOfItems": 8,
       "itemListOrder": "https://schema.org/ItemListOrderAscending",
       "itemListElement": [
         {
@@ -454,6 +454,35 @@ footer p{margin:0}
               "availability": "https://schema.org/InStock"
             }
           }
+        },
+        {
+          "@type": "ListItem",
+          "position": 8,
+          "url": "https://funhub.super-dar.com/hairpin/",
+          "item": {
+            "@type": "VideoGame",
+            "@id": "https://funhub.super-dar.com/hairpin/#game",
+            "name": "Hairpin",
+            "url": "https://funhub.super-dar.com/hairpin/",
+            "description": "Race a rally car up a winding mountain pass, dragging left or right to steer while the throttle stays open. Snowploughs slide to block your line and rockfalls land where the leader is heading; boost chevrons and slipstream help, ice does not. First to win two climbs takes the rally.",
+            "genre": ["Racing", "Arcade"],
+            "playMode": "MultiPlayer",
+            "numberOfPlayers": { "@type": "QuantitativeValue", "minValue": 2, "maxValue": 2 },
+            "gamePlatform": "Web browser",
+            "applicationCategory": "GameApplication",
+            "operatingSystem": "Any",
+            "browserRequirements": "Requires a modern mobile browser with WebRTC support",
+            "inLanguage": "en",
+            "isFamilyFriendly": true,
+            "isAccessibleForFree": true,
+            "publisher": { "@id": "https://funhub.super-dar.com/#org" },
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "USD",
+              "availability": "https://schema.org/InStock"
+            }
+          }
         }
       ]
     },
@@ -625,6 +654,13 @@ footer p{margin:0}
   <circle cx="15.6" cy="12.2" r="1.7" fill="#3E9C84"/>
   <circle cx="17.4" cy="7.2" r="1.6" fill="#D9A441"/>
 </symbol>
+<symbol id="i-hairpin" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M4 22V12a5 5 0 0 1 10 0v2a3 3 0 0 0 6 0V2" stroke="#4A4F59" stroke-width="4.2"/>
+  <path d="M4 22V12a5 5 0 0 1 10 0v2a3 3 0 0 0 6 0V2" stroke="#F4EFE6" stroke-width=".9" stroke-dasharray="1.6 1.8"/>
+  <rect x="2.4" y="15.2" width="3.2" height="5.2" rx="1" fill="#5DA9D6"/>
+  <rect x="18.4" y="5" width="3.2" height="5.2" rx="1" fill="#D8432E"/>
+  <circle cx="12.4" cy="5" r="1.7" fill="#6E6A66"/>
+</symbol>
 </defs></svg>
 
 <a class="skip" href="#main">Skip to content</a>
@@ -687,6 +723,14 @@ footer p{margin:0}
           <p>Drag anywhere to bank your fighter and hold the FIRE button until the guns overheat. Parachuted crates multiply your rate of fire, damage and gun count for a few seconds, while mines and flak bursts hurt whoever is nearest; five kills takes the patrol.</p>
           <ul class="tags"><li>2 players</li><li>3 min</li><li>realtime</li></ul>
         </li>
+        <li class="game" style="--accent-2:#F07D2A">
+          <p class="pair" role="img" aria-label="Hairpin icon: two phones playing together">
+            <span class="p1"><svg aria-hidden="true"><use href="#i-hairpin"/></svg></span><span class="p2"><svg aria-hidden="true"><use href="#i-hairpin"/></svg></span>
+          </p>
+          <h3><a href="/hairpin/">Hairpin</a></h3>
+          <p>Race a rally car up a winding mountain pass, dragging left or right to steer while the throttle stays open. Snowploughs slide to block your line and rockfalls land where the leader is heading; boost chevrons and slipstream help, ice does not. First to win two climbs takes the rally.</p>
+          <ul class="tags"><li>2 players</li><li>2 min</li><li>realtime</li></ul>
+        </li>
         <li class="game" style="--accent-2:#F0A6C8">
           <p class="pair" role="img" aria-label="Moonbloom icon: two phones playing together">
             <span class="p1"><svg aria-hidden="true"><use href="#i-moonbloom"/></svg></span><span class="p2"><svg aria-hidden="true"><use href="#i-moonbloom"/></svg></span>
@@ -731,6 +775,7 @@ footer p{margin:0}
             <tr><th scope="row"><a href="/airhockey/">Air Hockey</a></th><td>2</td><td>~3 min</td><td>Real time</td><td>Yes</td><td>7 goals</td></tr>
             <tr><th scope="row"><a href="/chess/">Chess</a></th><td>1–2</td><td>~10 min</td><td>Turn based</td><td>Yes, 3 levels</td><td>Checkmate or clock</td></tr>
             <tr><th scope="row"><a href="/dawnpatrol/">Dawn Patrol</a></th><td>2</td><td>~3 min</td><td>Real time</td><td>Yes</td><td>5 kills</td></tr>
+            <tr><th scope="row"><a href="/hairpin/">Hairpin</a></th><td>2</td><td>~2 min</td><td>Real time</td><td>Yes</td><td>2 climbs</td></tr>
             <tr><th scope="row"><a href="/moonbloom/">Moonbloom</a></th><td>2</td><td>~2 min</td><td>Real time</td><td>Yes</td><td>8 blossoms</td></tr>
             <tr><th scope="row"><a href="/orbis/">Orbis</a></th><td>2</td><td>~3 min</td><td>Real time</td><td>Yes</td><td>3 rounds</td></tr>
             <tr><th scope="row"><a href="/orchard/">Orchard</a></th><td>2</td><td>~3 min</td><td>Real time</td><td>Yes</td><td>5 hits</td></tr>
