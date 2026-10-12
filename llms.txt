@@ -1,6 +1,6 @@
 # Fun Hub
 
-> Eight free two-player games that run in a mobile browser. Two people each use
+> Nine free two-player games that run in a mobile browser. Two people each use
 > their own phone in the same room, paired by scanning a QR code. No app
 > install, no account, no signup, no advertising. The two phones exchange game
 > data directly over the local WiFi using a WebRTC data channel, so no game
@@ -39,6 +39,12 @@ guest WiFi with client isolation enabled will block pairing.
   the left or right half of the screen to turn, golden apples add length, running
   into any body loses the round, and a 60 second round goes to the longer snake.
   First to 3 rounds wins. Practice bot available.
+- [Pylon](https://funhub.super-dar.com/pylon/): Real time. 2 players, ~3 min.
+  Seaplane race down a 3D cliff gorge with a chase camera on each phone. Drag
+  like a joystick to bank, climb and dive. Gold rings give a burst of speed,
+  diving trades height for speed, and flying close behind the other plane gives
+  a slipstream. Barrage balloons, striped pylons, steel girders, the cliffs and
+  the sea all force a ditching. First to 2 race wins. Practice bot available.
 - [Scrap War](https://funhub.super-dar.com/scrapwar/): Real time. 2 players,
   ~4 min. Two allied tanks hold one 3D yard against a machine army. Drag to
   drive while the turret aims and fires itself. The higher tally wins.
