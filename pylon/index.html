@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ar" dir="rtl">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
@@ -7,9 +7,10 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>loading…</title>
+<title>جارٍ التحميل…</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;600;800;900&display=swap">
 <style>
 /* Tokens. Every one of these is overridable from meta.theme, so a game
    restyles the whole shell without touching this file. */
@@ -135,7 +136,7 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 .tally{display:flex;flex-direction:column;gap:5px;min-width:0}
 .tally.r{align-items:flex-end;margin-left:auto}
 .tally .who{font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase}
-.tally .who.me::after{content:" ·you";color:var(--mist)}
+.tally .who.me::after{content:" · أنت";color:var(--mist)}
 .tally .pips{display:flex;gap:4px}
 .tally .pips i{width:9px;height:9px;border-radius:50%;border:1.5px solid currentColor;opacity:.35}
 .tally .pips i.won{background:var(--gold);border-color:var(--gold);opacity:1}
@@ -191,6 +192,20 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 #toast.on{opacity:1;transform:translate(-50%,0)}
 
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ── Arabic, right to left ── */
+:root{--display:"Alexandria",Impact,sans-serif;--body:"Alexandria",system-ui,sans-serif}
+html[lang=ar] *{letter-spacing:0!important;text-transform:none!important}
+html[lang=ar] button,html[lang=ar] input{font-family:var(--body)}
+#board,#ambient{direction:ltr}
+.hud{direction:ltr}
+.hud .who,.hud .meta{direction:rtl;unicode-bidi:plaintext}
+.side{margin-left:0;margin-right:auto}
+.diag-bar b{margin-right:0;margin-left:auto}
+#diag-log{direction:ltr;text-align:left}
+.paste input{text-align:right}
+.act .lbl,.act .sub{display:block}
+.act .arrow{margin-left:0;margin-right:auto}
 </style>
 </head>
 <body>
@@ -208,21 +223,21 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
     <button class="act" id="go-host">
       <span class="kanji" id="mark-host"></span>
       <span><span class="lbl" id="lbl-host"></span><span class="sub" id="sub-host"></span></span>
-      <span class="arrow">→</span>
+      <span class="arrow">←</span>
     </button>
     <button class="act" id="go-join">
       <span class="kanji" id="mark-guest"></span>
       <span><span class="lbl" id="lbl-guest"></span><span class="sub" id="sub-guest"></span></span>
-      <span class="arrow">→</span>
+      <span class="arrow">←</span>
     </button>
     <button class="act" id="go-solo">
       <span class="kanji">·</span>
       <span><span class="lbl" id="lbl-solo"></span><span class="sub" id="sub-solo"></span></span>
-      <span class="arrow">→</span>
+      <span class="arrow">←</span>
     </button>
   </div>
   <div class="steps">
-    <h2>Getting the two phones together</h2>
+    <h2>كيف يتصل الهاتفان</h2>
     <ol id="steps-list"></ol>
   </div>
   <p id="foot"></p>
@@ -230,42 +245,42 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 
 <section class="screen" id="host">
   <div class="pair">
-    <div class="bar"><button class="back" data-back>← Back</button><span class="side" id="side-host"></span></div>
-    <h3>Point the other<br>phone at this</h3>
-    <p>Use the normal camera app, then tap the link that pops up.</p>
+    <div class="bar"><button class="back" data-back>→ رجوع</button><span class="side" id="side-host"></span></div>
+    <h3>وجّه الهاتف الآخر<br>نحو هذا الرمز</h3>
+    <p>استخدم تطبيق الكاميرا العادي، ثم اضغط الرابط الذي يظهر.</p>
     <div class="qr-wrap"><div id="qr-offer"></div></div>
-    <p class="qr-cap">Invite code</p>
-    <button class="btn" id="scan-answer">Scan their reply code</button>
+    <p class="qr-cap">رمز الدعوة</p>
+    <button class="btn" id="scan-answer">امسح رمز الرد</button>
     <div class="paste">
-      <input id="paste-answer" placeholder="…or paste their reply code" autocomplete="off" spellcheck="false">
-      <button id="use-answer">Use</button>
+      <input id="paste-answer" placeholder="أو الصق رمز الرد…" autocomplete="off" spellcheck="false">
+      <button id="use-answer">استخدم</button>
     </div>
-    <div class="status" id="host-status"><span class="dot"></span><span>Waiting for the other phone</span></div>
-    <button class="diag-open" data-diag>Diagnostics</button>
+    <div class="status" id="host-status"><span class="dot"></span><span>بانتظار الهاتف الآخر</span></div>
+    <button class="diag-open" data-diag>التشخيص</button>
   </div>
 </section>
 
 <section class="screen" id="join">
   <div class="pair">
-    <div class="bar"><button class="back" data-back>← Back</button><span class="side" id="side-guest"></span></div>
+    <div class="bar"><button class="back" data-back>→ رجوع</button><span class="side" id="side-guest"></span></div>
     <div id="join-scan">
-      <h3>Find their<br>invite code</h3>
-      <p>Hold this over the square code on the other phone.</p>
+      <h3>ابحث عن<br>رمز الدعوة</h3>
+      <p>وجّه الكاميرا نحو الرمز المربّع على الهاتف الآخر.</p>
       <div class="cam"><video id="cam-v" playsinline muted></video><div class="frame"></div></div>
       <div class="paste">
-        <input id="paste-offer" placeholder="…or paste the invite code" autocomplete="off" spellcheck="false">
-        <button id="use-offer">Use</button>
+        <input id="paste-offer" placeholder="أو الصق رمز الدعوة…" autocomplete="off" spellcheck="false">
+        <button id="use-offer">استخدم</button>
       </div>
     </div>
     <div id="join-reply" style="display:none">
-      <h3>Show this<br>back to them</h3>
-      <p>Last step. Their phone scans this and you are in.</p>
+      <h3>اعرض هذا<br>على الهاتف الأول</h3>
+      <p>الخطوة الأخيرة: يمسحه الهاتف الأول وتبدأ اللعبة.</p>
       <div class="qr-wrap"><div id="qr-answer"></div></div>
-      <p class="qr-cap">Reply code</p>
-      <button class="btn ghost" id="share-answer">Send the code instead</button>
-      <div class="status"><span class="dot"></span><span>Waiting for them to scan</span></div>
+      <p class="qr-cap">رمز الرد</p>
+      <button class="btn ghost" id="share-answer">أرسل الرمز بدلًا من ذلك</button>
+      <div class="status"><span class="dot"></span><span>بانتظار المسح</span></div>
     </div>
-    <button class="diag-open" data-diag>Diagnostics</button>
+    <button class="diag-open" data-diag>التشخيص</button>
   </div>
 </section>
 
@@ -285,17 +300,17 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
   <div class="sheet" id="sheet">
     <b id="sheet-title">—</b>
     <p id="sheet-note"></p>
-    <button class="btn" id="again">Play again</button>
-    <button class="btn ghost" id="quit">Leave</button>
+    <button class="btn" id="again">العب مجددًا</button>
+    <button class="btn ghost" id="quit">خروج</button>
   </div>
 </section>
 
 <div id="diag">
   <div class="diag-bar">
-    <b>Connection log</b>
+    <b>سجل الاتصال</b>
     <button id="diag-stun">STUN on</button>
-    <button id="diag-copy">Copy</button>
-    <button id="diag-close" aria-label="Close">×</button>
+    <button id="diag-copy">نسخ</button>
+    <button id="diag-close" aria-label="إغلاق">×</button>
   </div>
   <pre id="diag-log"></pre>
 </div>
@@ -526,7 +541,7 @@ const Sdp = {
   unpack(code) {
     const [ufrag, pwd, fp64, setupIdx, candStr = ''] =
       b64u.decText(code.trim()).split(',');
-    if (!ufrag || !pwd || !fp64) throw new Error('That code is not a ring code.');
+    if (!ufrag || !pwd || !fp64) throw new Error('هذا ليس رمز لعبة.');
 
     const lines = [
       'v=0', 'o=- 0 0 IN IP4 127.0.0.1', 's=-', 't=0 0',
@@ -836,7 +851,7 @@ const Qr = {
       try { q = qrcode(type, 'M'); q.addData(text, 'Byte'); q.make(); break; }
       catch { q = null; }
     }
-    if (!q) { el.textContent = 'code too long'; return false; }
+    if (!q) { el.textContent = 'الرمز طويل جدًا'; return false; }
     el.innerHTML = q.createImgTag(6, 0);
     return true;
   },
@@ -983,18 +998,18 @@ const Net = {
     const spin = kind === 'wait';
     d.querySelector('#net-spin').style.display = spin ? '' : 'none';
     d.querySelector('#net-title').textContent =
-      kind === 'wait' ? (m.netLost || 'Reconnecting…')
-      : kind === 'left' ? (m.netLeft || 'The other player left')
-      : (m.netGone || 'Lost the other phone');
+      kind === 'wait' ? (m.netLost || 'جارٍ إعادة الاتصال…')
+      : kind === 'left' ? (m.netLeft || 'غادر اللاعب الآخر')
+      : (m.netGone || 'انقطع الاتصال بالهاتف الآخر');
     d.querySelector('#net-note').textContent =
-      kind === 'wait' ? (m.netNote || 'The match is held exactly where it was. Waiting for the other phone…')
-      : kind === 'left' ? (m.netLeftNote || 'They closed the match on their side.')
-      : (m.netGoneNote || 'The link did not come back on its own. Try again, or leave the match.');
+      kind === 'wait' ? (m.netNote || 'المباراة متوقّفة كما هي. بانتظار الهاتف الآخر…')
+      : kind === 'left' ? (m.netLeftNote || 'أنهى المباراة من جهته.')
+      : (m.netGoneNote || 'لم يعد الاتصال وحده. حاول مجددًا أو اخرج من المباراة.');
     const go = d.querySelector('#net-go'), out = d.querySelector('#net-out');
     go.style.display = kind === 'gone' ? '' : 'none';
-    go.textContent = m.netRetry || 'Try again';
+    go.textContent = m.netRetry || 'حاول مجددًا';
     go.onclick = () => { Runtime.peer?.retry(); this.show('wait'); };
-    out.textContent = m.netLeave || 'Leave the match';
+    out.textContent = m.netLeave || 'اخرج من المباراة';
     out.onclick = () => Runtime.leave();
     /* A connection card outranks anything the player was being asked. */
     Runtime.asking = false;
@@ -1331,10 +1346,10 @@ const Runtime = {
         armed = 0; clearTimeout(reset); reset = 0;
         this.asking = true;
         Net.ask({
-          title: this.meta.backAsk || 'Leave the match?',
-          note:  this.meta.backAskNote || 'The other player will be told that you left.',
-          yes:   this.meta.backAskYes || 'Leave',
-          no:    this.meta.backAskNo || 'Keep playing',
+          title: this.meta.backAsk || 'تخرج من المباراة؟',
+          note:  this.meta.backAskNote || 'سيُبلَّغ اللاعب الآخر بخروجك.',
+          yes:   this.meta.backAskYes || 'خروج',
+          no:    this.meta.backAskNo || 'تابع اللعب',
           onYes: () => { this.asking = false; this._unbindBack(false); this.leave(); },
           onNo:  () => { this.asking = false; },
         });
@@ -1346,7 +1361,7 @@ const Runtime = {
       armed = Date.now();
       clearTimeout(reset);
       reset = setTimeout(() => { armed = 0; }, W());
-      toast(this.meta.backWarn || 'Press back again to leave the game');
+      toast(this.meta.backWarn || 'اضغط رجوع مرة أخرى للخروج');
     };
 
     this._back = pop;
@@ -1392,8 +1407,8 @@ const Runtime = {
       $('#who-' + role).classList.toggle('me', this.side === role);
     }
     $('#clock').textContent = st.clock || '';
-    $('#lag').textContent = this.mode === 'solo' ? (this.meta.soloTag || 'practice')
-                          : (this.lag ? this.lag + ' ms' : 'linked');
+    $('#lag').textContent = this.mode === 'solo' ? (this.meta.soloTag || 'تدريب')
+                          : (this.lag ? this.lag + ' ms' : 'متصل');
 
     const b = st.banner, key = st.key || (b ? b.text : '');
     if (key !== this.bannerKey) {
@@ -1410,8 +1425,8 @@ const Runtime = {
       $('#sheet-title').textContent = st.done.title;
       $('#sheet-title').style.color = st.done.color || 'inherit';
       $('#sheet-note').textContent = st.done.note || '';
-      $('#again').textContent = this.state ? (this.meta.againHost || 'Play again')
-                                           : (this.meta.againGuest || 'Ask for another');
+      $('#again').textContent = this.state ? (this.meta.againHost || 'العب مجددًا')
+                                           : (this.meta.againGuest || 'اطلب جولة أخرى');
       $('#sheet').classList.add('on');
     } else if (!st.done && this.ended) {
       this.ended = false; this._closeSheet();
@@ -1422,7 +1437,7 @@ const Runtime = {
 
   again() {
     if (this.state) { this.state = this.game.create(); this.view = this.state; this._closeSheet(); }
-    else { this.peer?.send('cmd', { k: 'g' }); toast(this.meta.rematchAsk || 'Asked for another'); }
+    else { this.peer?.send('cmd', { k: 'g' }); toast(this.meta.rematchAsk || 'طلبت جولة أخرى'); }
   },
 };
 
@@ -1474,11 +1489,11 @@ const Screens = {
 
     $('#use-offer').onclick = () => {
       const c = Qr.extract($('#paste-offer').value);
-      c ? this.consumeOffer(c) : toast('Paste the invite code first');
+      c ? this.consumeOffer(c) : toast('الصق رمز الدعوة أولًا');
     };
     $('#use-answer').onclick = () => {
       const c = Qr.extract($('#paste-answer').value);
-      c ? this.consumeAnswer(c) : toast('Paste their reply code first');
+      c ? this.consumeAnswer(c) : toast('الصق رمز الرد أولًا');
     };
     $('#scan-answer').onclick = () => this.scanAnswer();
     $('#share-answer').onclick = () => this.shareAnswer();
@@ -1491,8 +1506,8 @@ const Screens = {
       Diag.log('STUN turned ' + (Peer.stun ? 'on' : 'off') + ' — reopen to apply');
     };
     $('#diag-copy').onclick = async () => {
-      try { await navigator.clipboard.writeText(Diag.report()); toast('Report copied'); }
-      catch { toast('Select the text and copy it by hand'); }
+      try { await navigator.clipboard.writeText(Diag.report()); toast('نُسخ التقرير'); }
+      catch { toast('حدّد النص وانسخه يدويًا'); }
     };
 
     if (this.spec.ambient !== false) this.ambient();
@@ -1517,29 +1532,28 @@ const Screens = {
     document.title = m.title.replace('|', '') + (m.subtitle ? ' — ' + m.subtitle : '');
     const [a, b = ''] = m.title.split('|');
     $('#wordmark').innerHTML = a + (b ? `<span class="accent">${b}</span>` : '');
-    $('#eyebrow').textContent = m.eyebrow || 'Local WiFi · peer to peer · no accounts';
+    $('#eyebrow').textContent = m.eyebrow || 'نفس الواي فاي · من هاتف لهاتف · بلا حسابات';
     $('#tagline').textContent = m.tagline || '';
     $('#foot').textContent = m.foot ||
-      'Both phones need the same WiFi. Once linked, nothing goes through a server — ' +
-      'the phones talk straight to each other.';
+      'يحتاج الهاتفان نفس شبكة الواي فاي. بعد الربط يتحدّث الهاتفان مباشرة، بلا خادم.';
 
     for (const role of ['host', 'guest']) {
       const r = m.roles[role];
       $('#mark-' + role).textContent = r.mark || '';
-      $('#lbl-' + role).textContent = r.invite || (role === 'host' ? 'Start a game' : 'Join a game');
-      $('#sub-' + role).textContent = r.blurb || ('you play as ' + r.name);
+      $('#lbl-' + role).textContent = r.invite || (role === 'host' ? 'ابدأ لعبة' : 'انضم إلى لعبة');
+      $('#sub-' + role).textContent = r.blurb || ('تلعب باسم ' + r.name);
       $('#side-' + role).textContent = r.name + (r.mark ? ' ' + r.mark : '');
       $('#who-' + role).textContent = r.name + (r.mark ? ' ' + r.mark : '');
     }
-    $('#lbl-solo').textContent = m.solo || 'Practice alone';
-    $('#sub-solo').textContent = m.soloBlurb || 'no second phone needed';
+    $('#lbl-solo').textContent = m.solo || 'تدرّب وحدك';
+    $('#sub-solo').textContent = m.soloBlurb || 'بلا هاتف ثانٍ';
     $('#go-solo').style.display = this.spec.bot ? '' : 'none';
 
     const ol = $('#steps-list');
     ol.innerHTML = (m.steps || [
-      ['One of you starts a game', 'A square code appears on that phone.'],
-      ['The other points their camera at it', "Your phone's normal camera app works — tap the link."],
-      ['Show the reply code back', 'The first phone scans it, and you are in.'],
+      ['يبدأ أحدكما لعبة', 'يظهر رمز مربّع على هاتفه.'],
+      ['يوجّه الآخر كاميرته نحوه', 'تطبيق الكاميرا العادي يكفي، اضغط الرابط.'],
+      ['اعرض رمز الرد', 'يمسحه الهاتف الأول وتبدأ اللعبة.'],
     ]).map(([t, d], i) =>
       `<li><span class="n">${String(i + 1).padStart(2, '0')}</span><span><b>${t}</b>${d}</span></li>`
     ).join('');
@@ -1556,7 +1570,7 @@ const Screens = {
     $('#sheet').classList.remove('on');
     $('#paste-offer').value = ''; $('#paste-answer').value = '';
     $('#join-scan').style.display = ''; $('#join-reply').style.display = 'none';
-    $('#host-status').lastElementChild.textContent = 'Waiting for the other phone';
+    $('#host-status').lastElementChild.textContent = 'بانتظار الهاتف الآخر';
     this.show('lobby');
     if (this.spec.ambient !== false) this.ambient();
   },
@@ -1565,8 +1579,8 @@ const Screens = {
     if (Runtime.mode) return;
     Diag.log('!! no candidate pair worked');
     const st = $('#host-status');
-    if (st) st.lastElementChild.textContent = 'Could not reach the other phone';
-    toast('No route between the phones — open diagnostics');
+    if (st) st.lastElementChild.textContent = 'تعذّر الوصول إلى الهاتف الآخر';
+    toast('لا طريق بين الهاتفين — افتح التشخيص');
   },
 
   _link(param, code) {
@@ -1576,7 +1590,7 @@ const Screens = {
   async host() {
     this.stopAmbient();
     this.show('host');
-    $('#qr-offer').textContent = 'preparing…';
+    $('#qr-offer').textContent = 'جارٍ التحضير…';
     await warmCamera();
 
     this.peer?.close();
@@ -1587,9 +1601,9 @@ const Screens = {
     try {
       const link = this._link('o', await this.peer.makeOffer());
       if (!Qr.draw($('#qr-offer'), link)) this._fallbackText('#qr-offer', link);
-      $('#host-status').lastElementChild.textContent = 'Waiting for the other phone to reply';
+      $('#host-status').lastElementChild.textContent = 'بانتظار رد الهاتف الآخر';
     } catch (err) {
-      toast('Could not start: ' + err.message);
+      toast('تعذّر البدء: ' + err.message);
       this.home();
     }
   },
@@ -1601,7 +1615,7 @@ const Screens = {
 
   async scanAnswer() {
     try {
-      $('#scan-answer').textContent = 'Point at their reply code…';
+      $('#scan-answer').textContent = 'وجّه الكاميرا نحو رمز الرد…';
       const wrap = $('#qr-offer').parentElement;
       wrap.style.display = 'none';
       const holder = document.createElement('div');
@@ -1610,22 +1624,22 @@ const Screens = {
       wrap.parentElement.insertBefore(holder, wrap);
       this.stopScan = await Qr.scan(holder.querySelector('video'), code => {
         holder.remove(); wrap.style.display = '';
-        $('#scan-answer').textContent = 'Scan their reply code';
+        $('#scan-answer').textContent = 'امسح رمز الرد';
         this.consumeAnswer(code);
       });
     } catch {
-      $('#scan-answer').textContent = 'Scan their reply code';
-      toast('No camera here — paste the code instead');
+      $('#scan-answer').textContent = 'امسح رمز الرد';
+      toast('لا توجد كاميرا — الصق الرمز بدلًا من ذلك');
     }
   },
 
   async consumeAnswer(code) {
     try {
-      $('#host-status').lastElementChild.textContent = 'Linking…';
+      $('#host-status').lastElementChild.textContent = 'جارٍ الربط…';
       await this.peer.takeAnswer(code);
     } catch (err) {
-      toast('That reply code did not fit: ' + err.message);
-      $('#host-status').lastElementChild.textContent = 'Waiting for the other phone to reply';
+      toast('رمز الرد غير صالح: ' + err.message);
+      $('#host-status').lastElementChild.textContent = 'بانتظار رد الهاتف الآخر';
     }
   },
 
@@ -1641,7 +1655,7 @@ const Screens = {
 
     if (code) return this.consumeOffer(code);
     try { this.stopScan = await Qr.scan($('#cam-v'), c => this.consumeOffer(c)); }
-    catch { toast('No camera here — paste the invite code instead'); }
+    catch { toast('لا توجد كاميرا — الصق رمز الدعوة بدلًا من ذلك'); }
   },
 
   async consumeOffer(code) {
@@ -1654,7 +1668,7 @@ const Screens = {
       $('#join-reply').style.display = '';
       if (!Qr.draw($('#qr-answer'), answer)) this._fallbackText('#qr-answer', answer);
     } catch (err) {
-      toast('That invite code did not fit: ' + err.message);
+      toast('رمز الدعوة غير صالح: ' + err.message);
     }
   },
 
@@ -1663,8 +1677,8 @@ const Screens = {
     try {
       if (navigator.share) { await navigator.share({ text }); return; }
       await navigator.clipboard.writeText(text);
-      toast('Reply code copied — send it to them');
-    } catch { toast('Copy failed, read it out instead'); }
+      toast('نُسخ رمز الرد — أرسله إليه');
+    } catch { toast('تعذّر النسخ، اقرأه له بصوت عالٍ'); }
   },
 
   /* Lobby ambience. A game may replace it via spec.ambient(ctx, t, size). */
@@ -2036,35 +2050,35 @@ const game = {
     const pct = me && me.z ? Math.min(100, Math.floor(me.z / L * 100)) : 0;
     const out = {
       host: { pips: pips(sc.host) }, guest: { pips: pips(sc.guest) },
-      clock: `R${v.race || 1} · ${pct}%${me && them ? ' · ' + gapText(me, them) : ''}`,
+      clock: `سباق ${v.race || 1} · ${pct}%${me && them ? ' · ' + gapText(me, them) : ''}`,
       banner: null, key: '', done: null,
     };
     const name = k => META.roles[k].name;
     if (v.pause) {
       out.key = 'held' + v.pause;
       out.banner = v.pause === side
-        ? { text: 'HELD', color: GOLD, sub: 'tap ▶ when you are ready' }
-        : { text: 'HELD', color: GOLD, sub: `${name(v.pause)} is holding the race` };
+        ? { text: 'متوقّف', color: GOLD, sub: 'اضغط ▶ عندما تجهز' }
+        : { text: 'متوقّف', color: GOLD, sub: `${name(v.pause)} أوقف اللعبة` };
       return out;
     }
     if (v.phase === 'ready') {
       const n = Math.ceil(READY_FOR - (v.phaseT || 0) - 0.2);
       out.key = 'r' + v.race + ':' + n;
-      out.banner = n > 0 ? { text: String(n), color: GOLD, sub: `race ${v.race} · drag to fly` }
-                         : { text: 'CONTACT', color: GOLD, sub: 'rings for speed' };
+      out.banner = n > 0 ? { text: String(n), color: GOLD, sub: `سباق ${v.race} · اسحب لتطير` }
+                         : { text: 'انطلق', color: GOLD, sub: 'الحلقات تمنحك سرعة' };
     } else if (v.phase === 'live' && me && me.down > 0) {
       out.key = 'down' + (v.ev ? v.ev[side === 'host' ? 0 : 1] : 0);
-      out.banner = { text: 'DITCHED', color: META.roles[side].color, sub: 'back in the air in a moment' };
+      out.banner = { text: 'سقطت!', color: META.roles[side].color, sub: 'تعود للجو بعد لحظة' };
     } else if (v.phase === 'over') {
       out.key = 'o' + v.race;
       const gap = (v.gap || 0).toFixed(1);
       out.banner = v.last === side
-        ? { text: 'FIRST HOME', color: META.roles[side].color, sub: `by ${gap} s` }
-        : { text: 'SECOND', color: META.roles[other(side)].color, sub: `${name(other(side))} by ${gap} s` };
+        ? { text: 'وصلت أولًا', color: META.roles[side].color, sub: `بفارق ${gap} ث` }
+        : { text: 'وصلت ثانيًا', color: META.roles[other(side)].color, sub: `${name(other(side))} سبقك بـ ${gap} ث` };
     } else if (v.phase === 'done') {
       const won = sc.host >= TO_WIN ? 'host' : 'guest';
       out.key = 'done';
-      out.done = { title: won === side ? 'The cup is yours' : 'They took the cup',
+      out.done = { title: won === side ? 'الكأس لك' : 'الكأس لخصمك',
                    note: `${sc[side]}–${sc[other(side)]}`, color: META.roles[won].color };
     }
     return out;
@@ -2073,8 +2087,8 @@ const game = {
 
 function gapText(me, them) {
   const d = (them.z - me.z) / Math.max(200, me.vz || V0);
-  if (Math.abs(d) < 0.05) return 'level';
-  return d > 0 ? `+${d.toFixed(1)}s` : `−${(-d).toFixed(1)}s`;   // + means you are behind
+  if (Math.abs(d) < 0.05) return 'متعادل';
+  return d > 0 ? `+${d.toFixed(1)}ث` : `−${(-d).toFixed(1)}ث`;   // + means you are behind
 }
 
 /* ── sound: synthesised, one engine per phone, triggered off the view ── */
@@ -2612,9 +2626,9 @@ function buttons(x, v, r, px) {
   x.globalAlpha = 1;
   if (v.pause) {
     const sec = Math.floor(v.pauseT || 0), ss = String(sec % 60).padStart(2, '0');
-    x.fillStyle = '#F7F2E6'; x.font = `500 ${14 * u}px "DM Mono",monospace`;
+    x.fillStyle = '#F7F2E6'; x.font = `500 ${14 * u}px "DM Mono","Alexandria",monospace`;
     x.textAlign = 'right'; x.textBaseline = 'middle';
-    x.fillText(`held ${Math.floor(sec / 60)}:${ss}`, h.x - h.r - 12 * u, h.y);
+    x.fillText(`متوقّف ${Math.floor(sec / 60)}:${ss}`, h.x - h.r - 12 * u, h.y);
   }
   /* the stick: where your thumb landed and where it is */
   if (r.aim && UI.mode === 'stick') {
@@ -2664,30 +2678,30 @@ const bot = {
 
 /* ── presentation ──────────────────────────────────────────────────── */
 const META = {
-  title: 'PY|LON',
-  subtitle: 'two seaplanes, one cliff-lined coast',
-  tagline: 'Race a seaplane down a coastal gorge. Thread the rings, dodge the balloons and pylons, ride their slipstream.',
-  hint: 'Drag like a joystick · up climbs, down dives',
-  eyebrow: 'Same WiFi · phone to phone',
-  foot: 'Each phone flies its own chase camera. Two race wins take the cup.',
-  fonts: 'https://fonts.googleapis.com/css2?family=Limelight&family=Barlow+Condensed:wght@400;600&family=DM+Mono:wght@500&display=swap',
-  type: { display: '"Limelight",Georgia,serif', body: '"Barlow Condensed","Arial Narrow",sans-serif',
-          mono: '"DM Mono",ui-monospace,monospace' },
+  title: 'سباق |الأعمدة',
+  subtitle: 'طائرتان مائيتان وساحل صخري',
+  tagline: 'سابق بطائرة مائية عبر خانق ساحلي. اعبر الحلقات، تفادَ المناطيد والأعمدة، واركب تيار خصمك.',
+  hint: 'اسحب كعصا تحكم · للأعلى تصعد، للأسفل تهبط',
+  eyebrow: 'نفس الواي فاي · من هاتف لهاتف',
+  foot: 'كل هاتف يلاحق طائرته بكاميرته. فوزان بسباقين يمنحانك الكأس.',
+  fonts: 'https://fonts.googleapis.com/css2?family=Limelight&family=Barlow+Condensed:wght@400;600&family=DM+Mono:wght@500&family=Alexandria:wght@400;600;800;900&display=swap',
+  type: { display: '"Alexandria","Limelight",Georgia,serif', body: '"Alexandria","Barlow Condensed","Arial Narrow",sans-serif',
+          mono: '"DM Mono","Alexandria",ui-monospace,monospace' },
   theme: { bg: '#10243A', panel: '#0A182A', ink: '#F7F2E6',
            accent: '#E8B122', rule: '#7FA3BF', gold: GOLD },
   roles: {
-    host:  { name: 'Crimson', mark: '7', color: HOST_C,
-             invite: 'Open the course', blurb: 'you fly the red racer' },
-    guest: { name: 'Cobalt', mark: '4', color: GUEST_C,
-             invite: 'Join the race', blurb: 'you fly the blue racer' },
+    host:  { name: 'القرمزي', mark: '7', color: HOST_C,
+             invite: 'افتح المسار', blurb: 'تقود الطائرة الحمراء' },
+    guest: { name: 'الأزرق', mark: '4', color: GUEST_C,
+             invite: 'انضم للسباق', blurb: 'تقود الطائرة الزرقاء' },
   },
-  solo: 'Practice alone', soloBlurb: 'against a cautious rival, no second phone',
-  againHost: 'Race again', againGuest: 'Ask for a rematch',
+  solo: 'تدرّب وحدك', soloBlurb: 'ضد منافس حذر، بلا هاتف ثانٍ',
+  againHost: 'العب مجددًا', againGuest: 'اطلب جولة أخرى',
   steps: [
-    ['Fly', 'Drag anywhere like a joystick. Sideways banks, up climbs, down dives. Let go to level out.'],
-    ['Rings', 'Gold rings fire a burst of speed. Diving trades height for speed too.'],
-    ['Dodge', 'Balloons, striped pylons, steel girders, the cliffs and the sea all put you in the water.'],
-    ['Draft', 'Tuck in close behind the other plane to ride its slipstream.'],
+    ['الطيران', 'اسحب في أي مكان كعصا تحكم. للجانب تميل، للأعلى تصعد، للأسفل تهبط. اترك لتستقيم.'],
+    ['الحلقات', 'الحلقات الذهبية تمنحك دفعة سرعة. والهبوط يحوّل الارتفاع إلى سرعة أيضًا.'],
+    ['تفادَ', 'المناطيد والأعمدة المخططة والعوارض الحديدية والمنحدرات والبحر، كلها تُسقطك في الماء.'],
+    ['التيار', 'التصق خلف الطائرة الأخرى لتركب تيارها وتسرع.'],
   ],
 };
 

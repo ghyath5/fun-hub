@@ -1,59 +1,25 @@
-# Fun Hub
+# ملعب (Fun Hub)
 
-> Nine free two-player games that run in a mobile browser. Two people each use
-> their own phone in the same room, paired by scanning a QR code. No app
-> install, no account, no signup, no advertising. The two phones exchange game
-> data directly over the local WiFi using a WebRTC data channel, so no game
-> data passes through a server.
+> 9 ألعاب مجانية لشخصين تعمل في متصفح الهاتف. كل لاعب يستخدم هاتفه في الغرفة نفسها، ويُربط الهاتفان بمسح رمز QR. بلا تثبيت تطبيق، بلا حساب، بلا إعلانات. يتبادل الهاتفان بيانات اللعبة مباشرة عبر الواي فاي المحلي (قناة بيانات WebRTC)، فلا تمر بيانات اللعب عبر أي خادم.
 
-Requirements: two phones on the same WiFi network, each with a modern browser
-that supports WebRTC data channels (Safari on iOS, Chrome on Android, Edge,
-Brave, Samsung Internet). Mobile data does not work for pairing. Public and
-guest WiFi with client isolation enabled will block pairing.
+المتطلبات: هاتفان على نفس شبكة الواي فاي، بمتصفح حديث يدعم قنوات بيانات WebRTC (سفاري على iOS، كروم على أندرويد، إيدج، بريف، سامسونج إنترنت). بيانات الجوال لا تكفي للربط، وشبكات الضيوف التي تعزل الأجهزة تمنعه.
 
-## Games
+## الألعاب
 
-- [Air Hockey](https://funhub.super-dar.com/airhockey/): Real time. 2 players,
-  ~3 min. Drag your thumb across your own half to slide your mallet. Each phone
-  shows the table from its own end. First to 7 goals wins. Practice bot available.
-- [Chess](https://funhub.super-dar.com/chess/): Turn based. 1-2 players, ~10 min.
-  Full rules including castling, en passant, promotion and threefold repetition.
-  Five minutes each with a three second increment. Single-player computer
-  opponent at easy, normal or hard.
-- [Dawn Patrol](https://funhub.super-dar.com/dawnpatrol/): Real time. 2 players,
-  ~3 min. Dogfight. Drag to bank, hold FIRE until the guns overheat. Parachuted
-  crates boost rate of fire, damage and gun count. First to 5 kills wins.
-- [Hairpin](https://funhub.super-dar.com/hairpin/): Real time. 2 players, ~2 min.
-  Rally race up a winding mountain pass. Drag to steer, throttle always open.
-  Snowploughs slide to block your line, rockfalls are aimed at the leader, boost
-  chevrons and slipstream speed you up, ice cuts your grip. First to 2 climbs wins.
-  Practice bot available.
-- [Moonbloom](https://funhub.super-dar.com/moonbloom/): Real time. 2 players,
-  ~2 min. Lead a moth with a fingertip and hold it over a closed bud to open it
-  in your colour. Blooms cannot be taken back. First to 8 blossoms wins.
-- [Orchard](https://funhub.super-dar.com/orchard/): Real time. 2 players, ~3 min.
-  Snake in a wrapping orchard. Swipe to steer, hold to sprint. Fruit lengthens
-  you, bombs cost 100 points, ramming the other snake scores. First to 5 hits wins.
-- [Orbis](https://funhub.super-dar.com/orbis/): Real time. 2 players, ~3 min.
-  Snake on a small 3D globe; each phone rides behind its own snake's head. Hold
-  the left or right half of the screen to turn, golden apples add length, running
-  into any body loses the round, and a 60 second round goes to the longer snake.
-  First to 3 rounds wins. Practice bot available.
-- [Pylon](https://funhub.super-dar.com/pylon/): Real time. 2 players, ~3 min.
-  Seaplane race down a 3D cliff gorge with a chase camera on each phone. Drag
-  like a joystick to bank, climb and dive. Gold rings give a burst of speed,
-  diving trades height for speed, and flying close behind the other plane gives
-  a slipstream. Barrage balloons, striped pylons, steel girders, the cliffs and
-  the sea all force a ditching. First to 2 race wins. Practice bot available.
-- [Scrap War](https://funhub.super-dar.com/scrapwar/): Real time. 2 players,
-  ~4 min. Two allied tanks hold one 3D yard against a machine army. Drag to
-  drive while the turret aims and fires itself. The higher tally wins.
+- [هوكي الهواء](https://funhub.super-dar.com/airhockey/) (Air Hockey): لعب مباشر، لاعبان، نحو 3 دقائق. اسحب إصبعك في نصف الطاولة لتحريك المضرب وضرب القرص نحو مرمى خصمك. كل هاتف يعرض الطاولة من جهته، ومن يسجّل 7 أهداف يفوز. يتوفر تدريب ضد الكمبيوتر.
+- [الشطرنج](https://funhub.super-dar.com/chess/) (Chess): بالأدوار، لاعبان، نحو 10 دقائق. مباراة شطرنج كاملة على هاتفين، كلٌّ يرى الرقعة من جهته. المس قطعة ثم مربعها؛ التبييت والأخذ بالمرور والترقية والتكرار الثلاثي كلها مطبّقة، مع 5 دقائق لكل لاعب و3 ثوانٍ لكل نقلة، وتدريب ضد الكمبيوتر بثلاثة مستويات. يتوفر تدريب ضد الكمبيوتر.
+- [دورية الفجر](https://funhub.super-dar.com/dawnpatrol/) (Dawn Patrol): لعب مباشر، لاعبان، نحو 3 دقائق. اسحب في أي مكان لتميل طائرتك، واضغط زر النار حتى تسخن الرشاشات. الصناديق المظلية تضاعف سرعة الإطلاق والضرر وعدد الرشاشات لثوانٍ، ومن يُسقط خصمه 5 مرات يفوز. يتوفر تدريب ضد الكمبيوتر.
+- [المنعطف](https://funhub.super-dar.com/hairpin/) (Hairpin): لعب مباشر، لاعبان، نحو دقيقتان. سباق سيارات صعودًا في ممر جبلي متعرّج: اسحب للتوجيه، والجرّافات تسدّ طريقك والصخور تتساقط على المتصدّر. أسهم التسارع والتيار الهوائي تزيد سرعتك والجليد يقلّل تماسكك، ومن يفوز بصعودين يأخذ المباراة. يتوفر تدريب ضد الكمبيوتر.
+- [زهر القمر](https://funhub.super-dar.com/moonbloom/) (Moonbloom): لعب مباشر، لاعبان، نحو دقيقتان. قُد فراشتك بطرف إصبعك وحلّق فوق برعم مغلق حتى يتفتّح بلونك. يمكن للهاتفين العمل على البرعم نفسه، وما تزرعه لا يُسلب، ومن يجمع 8 زهرات يفوز بالليلة. يتوفر تدريب ضد الكمبيوتر.
+- [الكوكب](https://funhub.super-dar.com/orbis/) (Orbis): لعب مباشر، لاعبان، نحو 3 دقائق. أفعيان تزحفان على كوكب صغير ثلاثي الأبعاد، وكل هاتف يتبع رأس أفعاه. اضغط نصف الشاشة الأيسر أو الأيمن للانعطاف، وكُل التفاح الذهبي لتطول، واجعل خصمك يصطدم بجسدك؛ من يفوز بثلاث جولات يأخذ العالم. يتوفر تدريب ضد الكمبيوتر.
+- [بستان الأفاعي](https://funhub.super-dar.com/orchard/) (Orchard): لعب مباشر، لاعبان، نحو 3 دقائق. اسحب لتوجيه أفعاك في بستان بلا حدود، واضغط مطوّلًا للاندفاع. الفاكهة تطيلك والقنبلة تكلّفك 100 نقطة، ومن يضرب جسد الآخر برأسه يسجّل، و5 ضربات تحسم المباراة. يتوفر تدريب ضد الكمبيوتر.
+- [سباق الأعمدة](https://funhub.super-dar.com/pylon/) (Pylon): لعب مباشر، لاعبان، نحو 3 دقائق. سابق بطائرة مائية في خانق صخري ثلاثي الأبعاد بكاميرا خلف طائرتك. اسحب كعصا تحكم لتميل وتصعد وتهبط، واعبر الحلقات الذهبية للتسارع، وتفادَ المناطيد والأعمدة والعوارض، واركب تيار خصمك؛ من يفوز بسباقين يأخذ الكأس. يتوفر تدريب ضد الكمبيوتر.
+- [حرب الخردة](https://funhub.super-dar.com/scrapwar/) (Scrap War): لعب مباشر، لاعبان، نحو 4 دقائق. دبابتان حليفتان تدافعان عن ساحة ثلاثية الأبعاد ضد جيش من الآلات، والرصيد الأعلى يفوز. اسحب للقيادة بينما يصوّب البرج ويطلق وحده، والتقط المدافع والدروع ونبضات الصعق، والثلاثون ثانية الأخيرة بضعف النقاط. يتوفر تدريب ضد الكمبيوتر.
 
-## Privacy
+## الخصوصية
 
-No accounts, no tracking cookies, no gameplay analytics, no server-side record
-of any match. Scores exist only in the two browsers until the tab closes.
+بلا حسابات، بلا ملفات تتبّع، بلا تحليلات للعب، ولا سجل للمباريات على أي خادم. النتائج موجودة في المتصفحين فقط حتى إغلاق الصفحة.
 
-## Source
+## المصدر
 
-- [GitHub repository](https://github.com/ghyath5/fun-hub)
+- [مستودع GitHub](https://github.com/ghyath5/fun-hub)
