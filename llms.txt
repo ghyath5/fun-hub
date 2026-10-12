@@ -1,6 +1,6 @@
 # Fun Hub
 
-> Five free two-player games that run in a mobile browser. Two people each use
+> Seven free two-player games that run in a mobile browser. Two people each use
 > their own phone in the same room, paired by scanning a QR code. No app
 > install, no account, no signup, no advertising. The two phones exchange game
 > data directly over the local WiFi using a WebRTC data channel, so no game
@@ -29,6 +29,14 @@ guest WiFi with client isolation enabled will block pairing.
 - [Orchard](https://funhub.super-dar.com/orchard/): Real time. 2 players, ~3 min.
   Snake in a wrapping orchard. Swipe to steer, hold to sprint. Fruit lengthens
   you, bombs cost 100 points, ramming the other snake scores. First to 5 hits wins.
+- [Orbis](https://funhub.super-dar.com/orbis/): Real time. 2 players, ~3 min.
+  Snake on a small 3D globe; each phone rides behind its own snake's head. Hold
+  the left or right half of the screen to turn, golden apples add length, running
+  into any body loses the round, and a 60 second round goes to the longer snake.
+  First to 3 rounds wins. Practice bot available.
+- [Scrap War](https://funhub.super-dar.com/scrapwar/): Real time. 2 players,
+  ~4 min. Two allied tanks hold one 3D yard against a machine army. Drag to
+  drive while the turret aims and fires itself. The higher tally wins.
 
 ## Privacy
 

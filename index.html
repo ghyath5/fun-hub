@@ -235,14 +235,21 @@ footer p{margin:0}
       "isPartOf": { "@id": "https://funhub.super-dar.com/#website" },
       "about": { "@id": "https://funhub.super-dar.com/#org" },
       "primaryImageOfPage": "https://funhub.super-dar.com/og.png",
-      "dateModified": "2026-07-30",
+      "dateModified": "2026-10-12",
       "inLanguage": "en"
+    },
+    {
+      "@type": "BreadcrumbList",
+      "@id": "https://funhub.super-dar.com/#breadcrumbs",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Fun Hub", "item": "https://funhub.super-dar.com/" }
+      ]
     },
     {
       "@type": "ItemList",
       "@id": "https://funhub.super-dar.com/#games",
       "name": "Games on Fun Hub",
-      "numberOfItems": 6,
+      "numberOfItems": 7,
       "itemListOrder": "https://schema.org/ItemListOrderAscending",
       "itemListElement": [
         {
@@ -401,6 +408,35 @@ footer p{margin:0}
             "url": "https://funhub.super-dar.com/scrapwar/",
             "description": "Two allied tanks hold one yard against a machine army, and only the higher tally wins. Drag anywhere to drive while the turret finds, leads and fires on its own target, grab railguns, shields and stun pulses off the sand, and watch the last thirty seconds pay double.",
             "genre": ["Action", "Arcade"],
+            "playMode": "MultiPlayer",
+            "numberOfPlayers": { "@type": "QuantitativeValue", "minValue": 2, "maxValue": 2 },
+            "gamePlatform": "Web browser",
+            "applicationCategory": "GameApplication",
+            "operatingSystem": "Any",
+            "browserRequirements": "Requires a modern mobile browser with WebRTC support",
+            "inLanguage": "en",
+            "isFamilyFriendly": true,
+            "isAccessibleForFree": true,
+            "publisher": { "@id": "https://funhub.super-dar.com/#org" },
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "USD",
+              "availability": "https://schema.org/InStock"
+            }
+          }
+        },
+        {
+          "@type": "ListItem",
+          "position": 7,
+          "url": "https://funhub.super-dar.com/orbis/",
+          "item": {
+            "@type": "VideoGame",
+            "@id": "https://funhub.super-dar.com/orbis/#game",
+            "name": "Orbis",
+            "url": "https://funhub.super-dar.com/orbis/",
+            "description": "Two snakes crawl over one small 3D globe, and each phone rides behind its own head. Hold the left or right half of the screen to turn, eat golden apples to grow, and make the other snake bite your body; first to three rounds wins.",
+            "genre": ["Arcade", "Snake"],
             "playMode": "MultiPlayer",
             "numberOfPlayers": { "@type": "QuantitativeValue", "minValue": 2, "maxValue": 2 },
             "gamePlatform": "Web browser",
@@ -581,6 +617,14 @@ footer p{margin:0}
   <path d="M12.7 15.7 15.2 12.9" stroke="#241F17" stroke-width="1.9"/>
   <circle cx="11.5" cy="17.6" r="2.3" fill="#C4562B" stroke="#241F17" stroke-width=".9"/>
 </symbol>
+<symbol id="i-orbis" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <circle cx="12" cy="12.4" r="9.4" fill="#EFE4CC" stroke="currentColor" stroke-width="1.6"/>
+  <path d="M2.8 13.6c3 1.8 15.4 1.8 18.4 0" stroke="#8C6A43" stroke-width="1" stroke-opacity=".6"/>
+  <path d="M12 3c-3 3-3 15.8 0 18.8" stroke="#8C6A43" stroke-width="1" stroke-opacity=".6"/>
+  <path d="M6.4 17.6c1.6-4.4 4.8-6 8.6-5.4" stroke="#3E9C84" stroke-width="2.6"/>
+  <circle cx="15.6" cy="12.2" r="1.7" fill="#3E9C84"/>
+  <circle cx="17.4" cy="7.2" r="1.6" fill="#D9A441"/>
+</symbol>
 </defs></svg>
 
 <a class="skip" href="#main">Skip to content</a>
@@ -651,6 +695,14 @@ footer p{margin:0}
           <p>Lead your moth with a fingertip and hold it over a closed bud until the bud opens in your colour. Both phones can work the same bud and nothing you have grown can be taken back; eight blossoms wins the night.</p>
           <ul class="tags"><li>2 players</li><li>2 min</li><li>realtime</li></ul>
         </li>
+        <li class="game" style="--accent-2:#3E9C84">
+          <p class="pair" role="img" aria-label="Orbis icon: two phones playing together">
+            <span class="p1"><svg aria-hidden="true"><use href="#i-orbis"/></svg></span><span class="p2"><svg aria-hidden="true"><use href="#i-orbis"/></svg></span>
+          </p>
+          <h3><a href="/orbis/">Orbis</a></h3>
+          <p>Two snakes crawl over one small 3D globe, and each phone rides behind its own head. Hold the left or right half of the screen to turn, eat golden apples to grow, and make the other snake bite your body; first to three rounds wins.</p>
+          <ul class="tags"><li>2 players</li><li>3 min</li><li>realtime</li></ul>
+        </li>
         <li class="game" style="--accent-2:#C9A227">
           <p class="pair" role="img" aria-label="Orchard icon: two phones playing together">
             <span class="p1"><svg aria-hidden="true"><use href="#i-orchard"/></svg></span><span class="p2"><svg aria-hidden="true"><use href="#i-orchard"/></svg></span>
@@ -680,6 +732,7 @@ footer p{margin:0}
             <tr><th scope="row"><a href="/chess/">Chess</a></th><td>1–2</td><td>~10 min</td><td>Turn based</td><td>Yes, 3 levels</td><td>Checkmate or clock</td></tr>
             <tr><th scope="row"><a href="/dawnpatrol/">Dawn Patrol</a></th><td>2</td><td>~3 min</td><td>Real time</td><td>Yes</td><td>5 kills</td></tr>
             <tr><th scope="row"><a href="/moonbloom/">Moonbloom</a></th><td>2</td><td>~2 min</td><td>Real time</td><td>Yes</td><td>8 blossoms</td></tr>
+            <tr><th scope="row"><a href="/orbis/">Orbis</a></th><td>2</td><td>~3 min</td><td>Real time</td><td>Yes</td><td>3 rounds</td></tr>
             <tr><th scope="row"><a href="/orchard/">Orchard</a></th><td>2</td><td>~3 min</td><td>Real time</td><td>Yes</td><td>5 hits</td></tr>
             <tr><th scope="row"><a href="/scrapwar/">Scrap War</a></th><td>2</td><td>~4 min</td><td>Real time</td><td>Yes</td><td>Higher tally</td></tr>
           </tbody>
