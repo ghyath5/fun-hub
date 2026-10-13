@@ -129,13 +129,13 @@
      "@type": "HowToStep",
      "position": 1,
      "name": "اقرأ الطلب",
-     "text": "فوق كل زبون بطاقة تُظهر البرغر الذي يريده بالضبط."
+     "text": "تذكرة كل زبون معلّقة في الأعلى بلون قميصه: صورة البرغر، مكوّناته، والثواني الباقية."
     },
     {
      "@type": "HowToStep",
      "position": 2,
      "name": "ابنِ البرغر",
-     "text": "المس الخبز والجبن والطماطم والخس ليُضاف إلى صحنك. سلة القمامة تفرّغ الصحن."
+     "text": "المس الصواني: خبز، جبن، طماطم، خس. الصينية المضيئة هي ما ينقص طلبك التالي، والسلة تفرّغ الصحن."
     },
     {
      "@type": "HowToStep",
@@ -147,7 +147,7 @@
      "@type": "HowToStep",
      "position": 4,
      "name": "قدّم",
-     "text": "حين تطابق صحنك بطاقة تظهر علامة ✓. المس الزبون لتأخذ العملات، والصبر الباقي بقشيش."
+     "text": "كل مكوّن على صحنك يأخذ ✓ في التذكرة. حين يكتمل يظهر ختم «قدّم»: المس التذكرة أو الزبون."
     }
    ]
   }
@@ -387,7 +387,7 @@ html[lang=ar] button,html[lang=ar] input{font-family:var(--body)}
   </div>
   <div class="steps">
     <h2>كيف يتصل الهاتفان</h2>
-    <ol id="steps-list"><li><span class="n">01</span><span><b>اقرأ الطلب</b>فوق كل زبون بطاقة تُظهر البرغر الذي يريده بالضبط.</span></li><li><span class="n">02</span><span><b>ابنِ البرغر</b>المس الخبز والجبن والطماطم والخس ليُضاف إلى صحنك. سلة القمامة تفرّغ الصحن.</span></li><li><span class="n">03</span><span><b>اشوِ اللحم</b>المس صندوق اللحم ليوضع على الشواية، والمسها حين تخضرّ الدائرة. إن احترق فالمسها لترميه.</span></li><li><span class="n">04</span><span><b>قدّم</b>حين تطابق صحنك بطاقة تظهر علامة ✓. المس الزبون لتأخذ العملات، والصبر الباقي بقشيش.</span></li></ol>
+    <ol id="steps-list"><li><span class="n">01</span><span><b>اقرأ الطلب</b>تذكرة كل زبون معلّقة في الأعلى بلون قميصه: صورة البرغر، مكوّناته، والثواني الباقية.</span></li><li><span class="n">02</span><span><b>ابنِ البرغر</b>المس الصواني: خبز، جبن، طماطم، خس. الصينية المضيئة هي ما ينقص طلبك التالي، والسلة تفرّغ الصحن.</span></li><li><span class="n">03</span><span><b>اشوِ اللحم</b>المس صندوق اللحم ليوضع على الشواية، والمسها حين تخضرّ الدائرة. إن احترق فالمسها لترميه.</span></li><li><span class="n">04</span><span><b>قدّم</b>كل مكوّن على صحنك يأخذ ✓ في التذكرة. حين يكتمل يظهر ختم «قدّم»: المس التذكرة أو الزبون.</span></li></ol>
   </div>
   <p id="foot">كل هاتف يرى المطعم من مطبخه. الزبون يُخدم مرة واحدة فقط، فسابق خصمك عليه.</p>
 </section>
@@ -1888,9 +1888,16 @@ document.addEventListener('gesturestart', e => e.preventDefault());
    Rules run on the host only. The guest mirrors the queue and both kitchens
    from small snapshots and predicts its own taps on its own kitchen.
 
+   Time: every timer in the game is a moment on one match clock, s.clk,
+   which only moves while nobody is holding the match. A customer carries the
+   moment they reach the counter and the moment they give up; a grill carries
+   the moment its patty went on. Nothing counts down, so nothing can drift,
+   and the guest eases its own copy of the clock forward — never backward —
+   so a patience bar or a grill ring cannot twitch between snapshots.
+
    Drawing: a small WebGL renderer sits under the shell's 2D board. If WebGL
-   is unavailable, the same meshes are painted with the 2D canvas instead,
-   sorted back to front. Order cards, coins and buttons are always 2D. */
+   is unavailable, the same meshes are painted with the 2D canvas instead.
+   Order tickets, ingredient labels, coins and buttons are always 2D. */
 
 const { clamp, lerp, TAU, REDUCED } = Duel;
 
@@ -1901,86 +1908,90 @@ const RUSH_AT = 20;             // last seconds: customers come faster
 const SLOTS = 4;                // places at the counter
 const COOK = 2.2;               // seconds until a patty is done
 const BURN = 8.5;               // seconds until it is charcoal
-const LEAVE_FOR = 1.3;          // a served or angry customer walking off
+const WALK = 0.9;               // a customer walking up to the counter
+const LEAVE_FOR = 1.3;          // a served, angry or turned-away customer walking off
 const PER_ITEM = 10, TIP_MAX = 10;
 
 /* ingredients, bottom of the burger to the top */
 const BUN = 0, MEAT = 1, CHEESE = 2, TOMATO = 3, LETTUCE = 4;
 const BIT = i => 1 << i;
 const ALL_EXTRAS = [MEAT, CHEESE, TOMATO, LETTUCE];
+const ING_NAME = ['خبز', 'لحم', 'جبن', 'طماطم', 'خس'];
 
 /* tap targets */
 const T_BIN = [BUN, CHEESE, TOMATO, LETTUCE, MEAT];  // front row, left to right
 const T_GRILL = 5, T_TRASH = 6, T_SLOT0 = 10;
 
 /* customer states */
-const WAIT = 0, BY_HOST = 1, BY_GUEST = 2, ANGRY = 3;
+const WAIT = 0, BY_HOST = 1, BY_GUEST = 2, ANGRY = 3, CLOSED = 4;
 
 const SIDES = ['host', 'guest'];
 const other = k => (k === 'host' ? 'guest' : 'host');
 const bits = m => { let n = 0; for (let i = 0; i < 5; i++) if (m & BIT(i)) n++; return n; };
 const r1 = v => Math.round(v * 10) / 10;
+const q2 = v => Math.round(v * 100) / 100;
 
 /* ── palette: a tiled diner, mustard and ketchup ───────────────────── */
 const KETCHUP = '#D9412B', PICKLE = '#4E9E5A', MUSTARD = '#E8A33D', CREAM = '#FBEFD9';
 const ESPRESSO = '#2B1D16', GOLD = '#F6C445';
 
-/* ── the match ─────────────────────────────────────────────────────── */
-function cook() { return { coins: 0, plate: 0, grill: 0, served: 0 }; }   // grill: 0 empty, else seconds+0.001
+/* ── the clock and everything read off it ──────────────────────────── */
+function cook() { return { coins: 0, plate: 0, g: -1, served: 0 }; }    // g: clock when the patty went on, -1 empty
+const ptime = v => (v.clk || 0) - (v.p0 || 0);                           // seconds into the current phase
+const grillAge = (c, clk) => (!c || c.g < 0 ? -1 : Math.max(0, clk - c.g));
+/* seconds of patience left; full while still walking up, 0 once they stop waiting */
+const patience = (c, clk) => (!c || c.st !== WAIT ? 0 : clk < c.arrive ? c.P : clamp(c.until - clk, 0, c.P));
+const arrived = (c, clk) => !!c && clk >= c.arrive;
+/* seconds since the customer's current state began, for animation */
+const stateAge = (c, clk) => (c.st === WAIT ? clk - (c.arrive - WALK) : clk - c.at);
 
 const game = {
   create() {
     return {
-      phase: 'ready', t: 0, pause: null, pauseT: 0,
+      phase: 'ready', clk: 0, p0: 0, pause: null, pauseT: 0,
       host: cook(), guest: cook(),
       slots: Array.from({ length: SLOTS }, () => null),
-      nextId: 1, spawnT: 0.4, rush: 0,
+      nextId: 1, spawnAt: 0, rush: 0,
     };
   },
 
   step(s, dt, api) {
-    if (s.pause) { s.pauseT += dt; return; }
-    s.t += dt;
+    if (s.pause) { s.pauseT += dt; return; }       // the clock itself stops
+    s.clk += dt;
+    const t = s.clk - s.p0;
 
     if (s.phase === 'ready') {
-      if (s.t >= READY_FOR) { s.phase = 'live'; s.t = 0; }
+      if (t >= READY_FOR) { s.phase = 'live'; s.p0 = s.clk; s.spawnAt = s.clk + 0.3; }
       return;
     }
-    if (s.phase !== 'live') return;
 
-    const left = SHIFT - s.t;
-    s.rush = left <= RUSH_AT ? 1 : 0;
-
-    for (const k of SIDES) {
-      const c = s[k];
-      if (c.grill) c.grill = Math.min(BURN + 2, c.grill + dt);
-    }
-
+    /* the queue keeps moving after closing time, so people can walk out */
     for (let i = 0; i < SLOTS; i++) {
       const c = s.slots[i];
       if (!c) continue;
-      c.tt += dt;
-      if (c.st === WAIT) {
-        c.pat -= dt;
-        if (c.pat <= 0) { c.st = ANGRY; c.tt = 0; }
-      } else if (c.tt >= LEAVE_FOR) s.slots[i] = null;
+      if (c.st === WAIT) { if (s.clk >= c.until) { c.st = ANGRY; c.at = s.clk; } }
+      else if (s.clk - c.at >= LEAVE_FOR) s.slots[i] = null;
     }
+    if (s.phase !== 'live') return;
 
-    s.spawnT -= dt;
-    if (s.spawnT <= 0 && left > 4) {
+    const left = SHIFT - t;
+    s.rush = left <= RUSH_AT ? 1 : 0;
+
+    if (s.clk >= s.spawnAt && left > 5) {
       const free = [];
       for (let i = 0; i < SLOTS; i++) if (!s.slots[i]) free.push(i);
       if (free.length) {
         const i = free[Math.floor(Math.random() * free.length)];
         s.slots[i] = newCustomer(s);
         const waiting = s.slots.filter(c => c && c.st === WAIT).length;
-        s.spawnT = waiting < 2 ? 0.5 + Math.random() * 0.6
-                 : (s.rush ? 1.1 : 2.2) + Math.random() * (s.rush ? 0.9 : 1.6);
-      } else s.spawnT = 0.5;
+        s.spawnAt = s.clk + (waiting < 2 ? 0.5 + Math.random() * 0.6
+                 : (s.rush ? 1.1 : 2.2) + Math.random() * (s.rush ? 0.9 : 1.6));
+      } else s.spawnAt = s.clk + 0.5;
     }
 
     if (left <= 0) {
-      s.phase = 'done'; s.t = 0;
+      s.phase = 'done'; s.p0 = s.clk;
+      for (const c of s.slots) if (c && c.st === WAIT) { c.st = CLOSED; c.at = s.clk; }
       api && api.kick && api.kick(6);
     }
   },
@@ -2032,11 +2043,12 @@ const game = {
     }
     if (!best || bd > 1.25) return null;
 
-    if (best.k >= T_SLOT0) {                       // local feedback for a wrong plate
-      const cu = v.slots && v.slots[best.k - T_SLOT0];
-      const mine = v[api.side];
-      if (cu && cu.st === WAIT && mine && mine.plate !== cu.o) {
-        FX.push({ kind: 'nope', slot: best.k - T_SLOT0, t: 0 });
+    if (best.k >= T_SLOT0) {                       // say why a plate was refused, locally
+      const slot = best.k - T_SLOT0, cu = v.slots && v.slots[slot], mine = v[api.side];
+      if (!cu || cu.st !== WAIT) return null;
+      if (mine && mine.plate !== cu.o) {
+        const missing = cu.o & ~mine.plate;
+        FX.push({ kind: 'nope', slot, t: 0, text: !mine.plate ? 'صحنك فارغ' : missing ? 'ينقصه شيء' : 'فيه زيادة' });
         Sound.tone(150, 0.12, { type: 'square', gain: 0.08 });
         return null;
       }
@@ -2046,40 +2058,39 @@ const game = {
   },
 
   snapshot(s) {
-    const ck = c => [c.coins, c.plate, c.grill ? Math.max(0.1, r1(c.grill)) : 0, c.served];
+    const ck = c => [c.coins, c.plate, c.g < 0 ? -1 : q2(c.g), c.served];
     return {
-      ph: s.phase, t: r1(s.t), rs: s.rush,
+      ph: s.phase, k: q2(s.clk), p0: q2(s.p0), rs: s.rush,
       pz: s.pause === 'host' ? 1 : s.pause === 'guest' ? 2 : 0, pzT: r1(s.pauseT),
       h: ck(s.host), g: ck(s.guest),
-      c: s.slots.map(c => c ? [c.id, c.o, r1(c.pat), c.P, c.look, c.st, r1(c.tt)] : 0),
+      c: s.slots.map(c => c ? [c.id, c.o, c.look, c.st, q2(c.at), q2(c.arrive), q2(c.until), c.P] : 0),
     };
   },
 
   apply(v, d, api) {
-    v.phase = d.ph; v.t = d.t; v.rush = d.rs;
+    v.phase = d.ph; v.p0 = d.p0; v.rush = d.rs;
     v.pause = d.pz === 1 ? 'host' : d.pz === 2 ? 'guest' : null; v.pauseT = d.pzT;
+    v.clkTo = d.k;
+    if (!v.seeded || Math.abs((v.clk || 0) - d.k) > 0.6) v.clk = d.k;   // first sight, or a rematch
     const me = api && api.side;
     for (const [k, key] of [['host', 'h'], ['guest', 'g']]) {
       const a = d[key], c = v[k] || (v[k] = cook());
       c.coins = a[0]; c.served = a[3];
       if (k === me && v.hold > 0) continue;        // our own tap is still in flight
-      c.plate = a[1]; c.grill = a[2];
+      c.plate = a[1]; c.g = a[2];
     }
-    v.slots = d.c.map(a => a ? { id: a[0], o: a[1], pat: a[2], P: a[3], look: a[4], st: a[5], tt: a[6] } : null);
+    v.slots = d.c.map(a => a ? { id: a[0], o: a[1], look: a[2], st: a[3], at: a[4], arrive: a[5], until: a[6], P: a[7] } : null);
     v.seeded = true;
   },
 
-  smooth(v, dt) {
+  /* the guest's clock runs at real speed, leaning a little faster or slower
+     to close on the host's — so it never steps backward */
+  smooth(v, dt, age) {
     if (!v.seeded || v.pause) return;
     if (v.hold > 0) v.hold -= dt;
-    v.t += dt;
-    if (v.phase !== 'live') return;
-    for (const k of SIDES) { const c = v[k]; if (c && c.grill) c.grill = Math.min(BURN + 2, c.grill + dt); }
-    for (const c of v.slots || []) {
-      if (!c) continue;
-      c.tt += dt;
-      if (c.st === WAIT) c.pat = Math.max(0, c.pat - dt);
-    }
+    const target = (v.clkTo || 0) + (age || 0), err = target - v.clk;
+    if (Math.abs(err) > 0.6) v.clk = target;
+    else v.clk += dt * clamp(1 + err * 3, 0.4, 1.6);
   },
 
   render(x, v, r) { draw(x, v, r); },
@@ -2088,6 +2099,7 @@ const game = {
     const me = (v[side] && v[side].coins) || 0, them = (v[other(side)] && v[other(side)].coins) || 0;
     const out = { host: { pips: [] }, guest: { pips: [] }, clock: clockText(v), banner: null, key: '', done: null };
     const name = k => META.roles[k].name;
+    const t = ptime(v);
 
     if (v.pause) {
       out.key = 'held' + v.pause;
@@ -2097,12 +2109,12 @@ const game = {
       return out;
     }
     if (v.phase === 'ready') {
-      const n = Math.ceil(READY_FOR - (v.t || 0) - 0.4);
+      const n = Math.ceil(READY_FOR - t - 0.4);
       out.key = 'r' + n;
       out.banner = n > 0 ? { text: String(n), color: GOLD, sub: 'جهّز أدواتك' }
-                         : { text: 'افتح المطبخ', color: GOLD, sub: 'ابنِ البرغر · المس الزبون لتقدّمه' };
+                         : { text: 'افتح المطبخ', color: GOLD, sub: 'اقرأ الطلب · ابنِ البرغر · المس الزبون' };
     } else if (v.phase === 'live') {
-      const left = SHIFT - (v.t || 0);
+      const left = SHIFT - t;
       if (v.rush && left > RUSH_AT - 2.2) {
         out.key = 'rush';
         out.banner = { text: 'ساعة الذروة', color: KETCHUP, sub: 'الزبائن يتوافدون أسرع' };
@@ -2125,42 +2137,45 @@ const game = {
 function act(s, side, c, k) {
   if (k === T_TRASH) { c.plate = 0; return; }
   if (k === T_GRILL) {
-    if (!c.grill) return;
-    if (c.grill >= BURN) { c.grill = 0; return; }              // scrape off the charcoal
-    if (c.grill >= COOK && !(c.plate & BIT(MEAT))) { c.plate |= BIT(MEAT); c.grill = 0; }
+    const age = grillAge(c, s.clk);
+    if (age < 0) return;
+    if (age >= BURN) { c.g = -1; return; }                    // scrape off the charcoal
+    if (age >= COOK && !(c.plate & BIT(MEAT))) { c.plate |= BIT(MEAT); c.g = -1; }
     return;
   }
   if (k >= 0 && k < T_BIN.length) {
     const ing = T_BIN[k];
-    if (ing === MEAT) { if (!c.grill) c.grill = 0.001; return; }   // raw patty onto the grill
+    if (ing === MEAT) { if (c.g < 0) c.g = s.clk; return; }    // raw patty onto the grill
     c.plate |= BIT(ing);
     return;
   }
   if (k >= T_SLOT0 && k < T_SLOT0 + SLOTS) {
     const cu = s.slots && s.slots[k - T_SLOT0];
     if (!cu || cu.st !== WAIT || c.plate !== cu.o) return;
-    const tip = Math.round(TIP_MAX * clamp(cu.pat / cu.P, 0, 1));
+    const tip = Math.round(TIP_MAX * patience(cu, s.clk) / cu.P);
     c.coins += bits(cu.o) * PER_ITEM + tip;
     c.served++;
     c.plate = 0;
-    cu.st = side === 'host' ? BY_HOST : BY_GUEST; cu.tt = 0;
+    cu.st = side === 'host' ? BY_HOST : BY_GUEST; cu.at = s.clk;
   }
 }
 
 function newCustomer(s) {
-  const prog = clamp(s.t / SHIFT, 0, 1);
+  const prog = clamp((s.clk - s.p0) / SHIFT, 0, 1);
   const maxExtra = prog < 0.25 ? 2 : prog < 0.6 ? 3 : 4;
   const minExtra = prog < 0.4 ? 1 : 2;
   const n = minExtra + Math.floor(Math.random() * (maxExtra - minExtra + 1));
   const pool = ALL_EXTRAS.slice();
   let o = BIT(BUN);
   for (let i = 0; i < n; i++) o |= BIT(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
-  const P = Math.round(lerp(24, 15, prog) + bits(o) * 1.5);
-  return { id: s.nextId++, o, pat: P, P, look: Math.floor(Math.random() * 64), st: WAIT, tt: 0 };
+  const P = Math.round(lerp(24, 16, prog) + bits(o) * 1.5);
+  const arrive = s.clk + WALK;                     // patience starts at the counter, not at the door
+  return { id: s.nextId++, o, look: Math.floor(Math.random() * 64), st: WAIT,
+           at: s.clk, arrive, until: arrive + P, P };
 }
 
 function clockText(v) {
-  const left = v.phase === 'live' ? Math.max(0, Math.ceil(SHIFT - (v.t || 0)))
+  const left = v.phase === 'live' ? Math.max(0, Math.ceil(SHIFT - ptime(v)))
              : v.phase === 'ready' ? SHIFT : 0;
   return `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
 }
@@ -2176,24 +2191,24 @@ const bot = {
     if (!tgt || tgt.st !== WAIT) {
       let best = -1, score = -Infinity;
       for (let i = 0; i < SLOTS; i++) {
-        const c = slots[i];
-        if (!c || c.st !== WAIT || c.pat < 4) continue;
-        const sc = -bits(c.o) * 2 - c.pat * 0.3 + Math.random() * 3;
+        const c = slots[i], p = patience(c, s.clk);
+        if (!c || c.st !== WAIT || p < 4) continue;
+        const sc = -bits(c.o) * 2 - p * 0.3 + Math.random() * 3;
         if (sc > score) { score = sc; best = i; }
       }
       this.aim = best;
       this.wait = 0.5;
       return;
     }
-    const need = tgt.o;
+    const need = tgt.o, age = grillAge(me, s.clk);
     const tap = k => { game.command(s, 'guest', { k }); this.wait = 0.55 + Math.random() * 0.55; };
 
     if (me.plate & ~need) return tap(T_TRASH);
     if (me.plate === need) return tap(T_SLOT0 + this.aim);
     if ((need & BIT(MEAT)) && !(me.plate & BIT(MEAT))) {
-      if (!me.grill) return tap(T_BIN.indexOf(MEAT));
-      if (me.grill >= BURN) return tap(T_GRILL);
-      if (me.grill >= COOK + 0.3 + Math.random() * 0.6) return tap(T_GRILL);
+      if (age < 0) return tap(T_BIN.indexOf(MEAT));
+      if (age >= BURN) return tap(T_GRILL);
+      if (age >= COOK + 0.3 + Math.random() * 0.6) return tap(T_GRILL);
     }
     for (const ing of [BUN, CHEESE, TOMATO, LETTUCE]) {
       if ((need & BIT(ing)) && !(me.plate & BIT(ing))) return tap(T_BIN.indexOf(ing));
@@ -2279,39 +2294,189 @@ const COL = {
   steel: hex('#C9CED3'), steelD: hex('#8E959C'), tray: hex('#AEB4BA'),
   tileA: hex('#F3E6CC'), tileB: hex('#C8644A'),
   bun: hex('#D9984C'), bunTop: hex('#C97F35'), bunCut: hex('#F0D29B'),
-  patty: hex('#FFFFFF'), raw: hex('#D8857A'), done: hex('#6E3B22'), burnt: hex('#211714'),
+  patty: hex('#FFFFFF'), raw: hex('#E08C86'), done: hex('#7A4227'), burnt: hex('#221815'),
   cheese: hex('#F5C02E'), tomato: hex('#D8352A'), tomatoIn: hex('#EE6A4F'),
   lettuce: hex('#69B83E'), plate: hex('#F6F3EC'), grill: hex('#2A2A2E'), bar: hex('#55585E'),
   trash: hex('#4A4F55'), white: [1, 1, 1], black: [0, 0, 0],
   host: hex(KETCHUP), guest: hex(PICKLE),
 };
 
-/* ingredient pieces, each standing on y = 0 at the origin */
-const ING_H = [0.17, 0.15, 0.05, 0.08, 0.07];
-const BUN_TOP_H = 0.3;
+/* ── food ──────────────────────────────────────────────────────────────
+   Every piece is a solid of revolution with smooth normals, so a bun reads
+   as soft bread and a patty as a thick, uneven slab rather than a coin. */
+
+/* prof: [[radius, y, colour], …] from the underside out and up to the top
+   centre. rn(a) wobbles the radius, yw(a, j) lifts a profile point. */
+function lathe(G, prof, seg, rn, yw) {
+  seg = seg || 28;
+  const N = prof.map((p, i) => {
+    const a = prof[Math.max(0, i - 1)], b = prof[Math.min(prof.length - 1, i + 1)];
+    const nr = b[1] - a[1], ny = -(b[0] - a[0]), l = Math.hypot(nr, ny) || 1;
+    return [nr / l, ny / l];
+  });
+  const P = (i, j) => {
+    const a = i / seg * TAU, ca = Math.cos(a), sa = Math.sin(a);
+    const pr = prof[j], r = pr[0] * (rn ? rn(a) : 1), y = pr[1] + (yw ? yw(a, j) : 0);
+    return { p: [ca * r, y, sa * r], n: [N[j][0] * ca, N[j][1], N[j][0] * sa], c: pr[2] };
+  };
+  for (let j = 0; j < prof.length - 1; j++) for (let i = 0; i < seg; i++) {
+    const a = P(i, j), b = P(i + 1, j), c = P(i + 1, j + 1), d = P(i, j + 1);
+    vert(G, a.p, a.n, a.c); vert(G, b.p, b.n, b.c); vert(G, c.p, c.n, c.c);
+    vert(G, a.p, a.n, a.c); vert(G, c.p, c.n, c.c); vert(G, d.p, d.n, d.c);
+  }
+}
+
+/* a sheet over a square grid; f(u, v) -> [x, y, z, colour] */
+function sheet(G, n, f, down) {
+  const pt = (i, j) => f(i / n * 2 - 1, j / n * 2 - 1);
+  const nrm = (i, j) => {
+    const a = pt(Math.max(0, i - 1), j), b = pt(Math.min(n, i + 1), j);
+    const c = pt(i, Math.max(0, j - 1)), d = pt(i, Math.min(n, j + 1));
+    const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2];
+    const vx = d[0] - c[0], vy = d[1] - c[1], vz = d[2] - c[2];
+    let nx = uz * vy - uy * vz, ny = ux * vz - uz * vx, nz = uy * vx - ux * vy;
+    const l = Math.hypot(nx, ny, nz) || 1, k = (ny < 0) !== !!down ? -1 : 1;
+    return [nx / l * k, ny / l * k, nz / l * k];
+  };
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+    const Q = [[i, j], [i + 1, j], [i + 1, j + 1], [i, j + 1]].map(([a, b]) => ({ q: pt(a, b), n: nrm(a, b) }));
+    for (const t of [0, 1, 2, 0, 2, 3]) vert(G, Q[t].q.slice(0, 3), Q[t].n, Q[t].q[3]);
+  }
+}
+
+const C = h => hex(h);
+const ING_H = [0.22, 0.19, 0.04, 0.085, 0.06];   // bun base, patty, cheese, tomato, lettuce
+const BUN_TOP_H = 0.4;
 const PIECE = {};
 function buildPieces() {
-  let G = GEO(); cyl(G, 0, 0, 0, 0.46, 0.17, COL.bun, 18, COL.bunCut); PIECE.bunB = G;
-  G = GEO(); cyl(G, 0, 0, 0, 0.47, 0.05, COL.bunTop, 18, COL.bunTop);
-  ball(G, 0, 0.05, 0, 0.47, COL.bunTop, 0.55, 0, 18, 5);
-  for (let i = 0; i < 7; i++) {                        // sesame
-    const a = i * 2.4, rr = 0.12 + (i % 3) * 0.1;
-    ball(G, Math.cos(a) * rr, 0.05 + 0.47 * 0.55 * Math.sqrt(1 - (rr / 0.47) ** 2) - 0.01,
-         Math.sin(a) * rr, 0.035, hex('#FFF4D6'), 0.6, undefined, 5, 3);
+  let G;
+  /* bun base: a crusty underside, a pale soft cut face */
+  G = GEO();
+  lathe(G, [[0.36, 0, C('#A9622A')], [0.46, 0.03, C('#C27935')], [0.5, 0.1, C('#D98F45')],
+            [0.5, 0.17, C('#E5A65C')], [0.47, 0.21, C('#F1D29C')], [0.3, 0.22, C('#F4DBAA')], [0, 0.222, C('#F6E0B2')]], 30);
+  PIECE.bunB = G;
+
+  /* bun crown: a glossy dome, darker at the top, sesame scattered over it */
+  G = GEO();
+  const dome = [[0.47, 0, C('#F0CD92')], [0.51, 0.03, C('#E2A256')], [0.52, 0.09, C('#D58C40')],
+                [0.48, 0.2, C('#C77A33')], [0.39, 0.3, C('#BC6C2A')], [0.25, 0.37, C('#B36326')],
+                [0.1, 0.4, C('#AE5F24')], [0, 0.405, C('#AC5D23')]];
+  lathe(G, dome, 32);
+  const domeY = r => {                           // height of the crown at a radius
+    for (let j = 1; j < dome.length; j++) if (dome[j][0] <= r) {
+      const a = dome[j - 1], b = dome[j], k = (a[0] - r) / ((a[0] - b[0]) || 1);
+      return a[1] + (b[1] - a[1]) * k;
+    }
+    return 0.405;
+  };
+  for (let i = 0; i < 16; i++) {
+    const a = i * 2.39996, rr = 0.06 + 0.33 * Math.sqrt((i + 0.5) / 16);
+    const x = Math.cos(a) * rr, z = Math.sin(a) * rr, y = domeY(rr);
+    ball(G, x, y + 0.004, z, 0.034, C('#FFF2D2'), 0.42, undefined, 6, 3);
   }
   PIECE.bunT = G;
-  G = GEO(); cyl(G, 0, 0, 0, 0.47, 0.15, COL.patty, 18, COL.patty, i => 1 + 0.03 * Math.sin(i * 2.7)); PIECE.meat = G;
+
+  /* patty: thick, uneven edge, domed top with grill marks; coloured by tint */
   G = GEO();
-  quad(G, [0, 0.05, -0.62], [0.62, 0.05, 0], [0, 0.05, 0.62], [-0.62, 0.05, 0], [0, 1, 0], COL.cheese);
-  box(G, 0, 0, 0, 0.86, 0.05, 0.86, COL.cheese);
+  const rough = a => 1 + 0.045 * Math.sin(5 * a) + 0.03 * Math.sin(11 * a + 1.3) + 0.02 * Math.sin(23 * a);
+  lathe(G, [[0.38, 0, C('#B9B9B9')], [0.48, 0.025, C('#C9C9C9')], [0.53, 0.08, C('#D8D8D8')],
+            [0.52, 0.14, C('#DADADA')], [0.46, 0.18, C('#E6E6E6')], [0.25, 0.192, C('#F2F2F2')], [0, 0.196, C('#FFFFFF')]],
+        34, rough, (a, j) => (j >= 4 ? 0.006 * Math.sin(7 * a + j) : 0));
+  PIECE.meatRaw = { p: G.p.slice(), n: G.n.slice(), c: G.c.slice() };
+  for (const z of [-0.22, 0, 0.22]) {
+    sheet(G, 1, (u, v) => [u * 0.38 * Math.sqrt(1 - (z / 0.5) ** 2), 0.199, z + v * 0.035, C('#3A3A3A')]);
+  }
+  PIECE.meat = G;
+
+  /* cheese: a square slice laid diagonally, its corners melting down */
+  G = GEO();
+  const cheeseAt = (u, v, y0, top) => {
+    const d = Math.max(Math.abs(u), Math.abs(v)), sag = Math.max(0, d - 0.62) * 0.38 + Math.max(0, d - 0.85) * 0.5;
+    const x = (u - v) * 0.36, z = (u + v) * 0.36;
+    const col = top ? mixc(C('#FFD34D'), C('#F6B318'), Math.min(1, d * 0.9)) : C('#E09A12');
+    return [x, y0 - sag, z, col];
+  };
+  sheet(G, 10, (u, v) => cheeseAt(u, v, 0.04, true));
+  sheet(G, 10, (u, v) => cheeseAt(u, v, 0.012, false), true);
   PIECE.cheese = G;
-  G = GEO(); cyl(G, 0, 0, 0, 0.4, 0.08, COL.tomato, 16, COL.tomatoIn); PIECE.tomato = G;
-  G = GEO(); cyl(G, 0, 0, 0, 0.52, 0.07, COL.lettuce, 16, mixc(COL.lettuce, COL.white, 0.15), i => (i % 2 ? 1.08 : 0.86)); PIECE.lettuce = G;
-  G = GEO(); cyl(G, 0, 0, 0, 0.72, 0.06, COL.plate, 22, COL.plate); cyl(G, 0, 0.06, 0, 0.5, 0.005, mixc(COL.plate, COL.black, 0.06), 22); PIECE.plate = G;
+
+  /* tomato slice: deep red skin, glossy flesh, seed pockets */
+  G = GEO();
+  lathe(G, [[0.38, 0, C('#A51E14')], [0.42, 0.02, C('#C8281B')], [0.43, 0.06, C('#D3301F')],
+            [0.41, 0.085, C('#E2452F')], [0.34, 0.09, C('#EE5D45')], [0.12, 0.092, C('#F27A5F')], [0, 0.093, C('#F48C70')]], 30);
+  for (let i = 0; i < 6; i++) {
+    const a = i / 6 * TAU + 0.3, x = Math.cos(a) * 0.22, z = Math.sin(a) * 0.22;
+    ball(G, x, 0.092, z, 0.075, C('#F6A57C'), 0.12, undefined, 8, 3);
+    ball(G, x * 1.05, 0.097, z * 1.05, 0.022, C('#FBE3A2'), 0.5, undefined, 5, 3);
+  }
+  PIECE.tomato = G;
+
+  /* lettuce: a ruffled leaf ring, pale at the heart, deep at the frill */
+  G = GEO();
+  const leaf = (u, v, y0, top) => {
+    const a = Math.atan2(v, u), r = Math.hypot(u, v) / Math.SQRT2;
+    const R = 0.6 * (1 + 0.07 * Math.sin(9 * a) + 0.05 * Math.sin(17 * a + 2));
+    const rr = Math.min(r, 1) * R;
+    const wave = Math.pow(Math.min(r, 1), 2) * (0.045 * Math.sin(9 * a + 1) + 0.02 * Math.sin(21 * a));
+    const col = top ? mixc(C('#CDEB8E'), C('#4FA52C'), Math.min(1, r * 1.1)) : C('#3E8A22');
+    return [Math.cos(a) * rr, y0 + wave + Math.min(r, 1) * 0.015, Math.sin(a) * rr, col];
+  };
+  sheet(G, 14, (u, v) => leaf(u, v, 0.035, true));
+  sheet(G, 14, (u, v) => leaf(u, v, 0.012, false), true);
+  PIECE.lettuce = G;
+
+  /* plate: a real rim */
+  G = GEO();
+  lathe(G, [[0, 0, C('#E9E4DA')], [0.5, 0, C('#E9E4DA')], [0.64, 0.03, C('#F2EEE6')], [0.78, 0.085, C('#FAF8F3')],
+            [0.82, 0.105, C('#FFFFFF')], [0.79, 0.115, C('#FFFFFF')], [0.62, 0.065, C('#F5F2EC')],
+            [0.5, 0.045, C('#F3EFE8')], [0, 0.045, C('#F7F4EE')]], 36);
+  PIECE.plate = G;
+
+  /* raw produce for the trays: a whole tomato and a lettuce head */
+  G = GEO();
+  lathe(G, [[0, -0.005, C('#9E1A12')], [0.22, 0.02, C('#B7231A')], [0.36, 0.12, C('#D2301F')], [0.4, 0.25, C('#DD3A26')],
+            [0.37, 0.38, C('#D8361F')], [0.25, 0.47, C('#C92C1B')], [0.08, 0.5, C('#B5261A')], [0, 0.49, C('#AA2216')]],
+        26, a => 1 + 0.035 * Math.sin(5 * a));
+  for (let i = 0; i < 5; i++) {
+    const a = i / 5 * TAU;
+    sheet(G, 1, (u, v) => {
+      const along = (u + 1) / 2 * 0.17, across = v * 0.03;
+      return [Math.cos(a) * along - Math.sin(a) * across, 0.5 + along * 0.1, Math.sin(a) * along + Math.cos(a) * across, C('#3F7D27')];
+    });
+  }
+  cyl(G, 0, 0.48, 0, 0.025, 0.08, C('#4C7A2A'), 6);
+  PIECE.tomatoWhole = G;
+  G = GEO();
+  for (let i = 0; i < 6; i++) {
+    const a = i / 6 * TAU, k = 0.15;
+    ball(G, Math.cos(a) * k, 0.2, Math.sin(a) * k, 0.3, mixc(C('#5FB236'), C('#3E8A22'), (i % 3) / 3), 0.85, -0.2, 14, 6);
+  }
+  ball(G, 0, 0.26, 0, 0.27, C('#B9E07A'), 0.9, -0.1, 14, 6);
+  PIECE.lettuceHead = G;
+
   G = GEO(); disc(G, 1, COL.black); PIECE.shadow = G;
   G = GEO(); ball(G, 0, 0, 0, 0.13, COL.white, 1, undefined, 8, 5); PIECE.puff = G;
 }
 const PIECE_OF = ['bunB', 'meat', 'cheese', 'tomato', 'lettuce'];
+
+/* what each tray shows: the raw ingredient, recognisable at a glance */
+function trayContents(G, k, b) {
+  const s = sgnOf(k), lx = BIN_X[b] * s, z = ROW_F * s, ing = T_BIN[b], y = 1.2;
+  const at = (P, dx, dy, dz, sc, tint) => stamp(G, P, lx + dx * s, y + dy, z + dz * s, sc, tint || COL.white);
+  if (ing === BUN) {
+    for (const dx of [-0.42, 0.42]) { at(PIECE.bunB, dx, 0, 0, 0.78); at(PIECE.bunT, dx, ING_H[BUN] * 0.78, 0, 0.78); }
+  } else if (ing === MEAT) {
+    for (let n = 0; n < 3; n++) at(PIECE.meatRaw, -0.3 + n * 0.3, n * 0.03, (n % 2 ? 0.1 : -0.1), 0.74, COL.raw);
+  } else if (ing === CHEESE) {
+    for (let n = 0; n < 4; n++) at(PIECE.cheese, 0, n * 0.035, 0, 0.98);
+  } else if (ing === TOMATO) {
+    at(PIECE.tomatoWhole, -0.38, 0, 0, 0.9);
+    at(PIECE.tomato, 0.38, 0, -0.18, 0.72); at(PIECE.tomato, 0.42, 0.06, 0.16, 0.72);
+  } else if (ing === LETTUCE) {
+    at(PIECE.lettuceHead, -0.35, 0, 0, 0.95);
+    at(PIECE.lettuce, 0.4, 0, 0, 0.72);
+  }
+}
 
 /* the room: floor, both counters, trays and their contents, grills, bins */
 /* split into the floor and one mesh per kitchen, so the 2D painter can lay
@@ -2333,13 +2498,12 @@ function buildRoom() {
     at(0, 0.9, zc, CTR.x * 2, 0.1, zd, COL.steelD, COL.steel);              // worktop
     for (let b = 0; b < T_BIN.length; b++) {                                // trays + contents
       const lx = BIN_X[b], ing = T_BIN[b];
-      at(lx, 1.0, ROW_F, 1.78, 0.2, 1.08, COL.steelD, mixc(COL.tray, COL.black, 0.25));
-      for (let n = 0; n < 3; n++) {
-        const ox = (n - 1) * 0.5, oz = (n % 2 ? 0.12 : -0.12);
-        const P = PIECE[ing === BUN ? 'bunT' : PIECE_OF[ing]];
-        const tint = ing === MEAT ? COL.raw : COL.white;
-        stamp(G, P, lx * s + ox * s, 1.14 + (ing === BUN ? 0 : n * 0.02), (ROW_F + oz) * s, 0.62, tint);
-      }
+      at(lx, 1.0, ROW_F, 1.8, 0.06, 1.12, COL.steelD, mixc(COL.tray, COL.black, 0.35));   // tray floor
+      at(lx, 1.0, ROW_F - 0.53, 1.8, 0.22, 0.06, COL.steel);                               // and its lips
+      at(lx, 1.0, ROW_F + 0.53, 1.8, 0.22, 0.06, COL.steel);
+      at(lx - 0.87, 1.0, ROW_F, 0.06, 0.22, 1.12, COL.steel);
+      at(lx + 0.87, 1.0, ROW_F, 0.06, 0.22, 1.12, COL.steel);
+      trayContents(G, k, b); void ing;
     }
     at(GRILL_X, 1.0, ROW_B, 2.0, 0.16, 1.24, COL.grill, mixc(COL.grill, COL.white, 0.06));  // grill
     for (let b = -3; b <= 3; b++) at(GRILL_X + b * 0.26, 1.16, ROW_B, 0.06, 0.03, 1.14, COL.bar);
@@ -2690,44 +2854,45 @@ function flush2D(x) {
 let ROOM = null;
 const FX = [];                       // phone-local: '+coins', 'nope', puffs
 const PRESS = { k: -1, t: 0 };       // the target you just pressed, for a squash
-const SEEN = { ids: {}, coins: { host: 0, guest: 0 }, plate: 0, grill: 0, phase: '', tick: -1, slotSt: {} };
+const SEEN = { coins: { host: 0, guest: 0 }, plate: 0, grill: -1, phase: '', tick: -1, slotSt: {}, warned: {} };
 let CLOCK = 0, NOISE = 1;
 const rnd = () => { NOISE = (NOISE * 16807) % 2147483647; return NOISE / 2147483647; };   // cosmetic only
 
-function pattyTint(gt) {
-  if (gt < COOK) return mixc(COL.raw, COL.done, clamp(gt / COOK, 0, 1) * 0.85);
-  if (gt < BURN - 2) return COL.done;
-  return mixc(COL.done, COL.burnt, clamp((gt - (BURN - 2)) / 2, 0, 1));
+function pattyTint(age) {
+  if (age < COOK) return mixc(COL.raw, COL.done, clamp(age / COOK, 0, 1) * 0.9);
+  if (age < BURN - 2) return COL.done;
+  return mixc(COL.done, COL.burnt, clamp((age - (BURN - 2)) / 2, 0, 1));
 }
 
-/* a burger built from a plate mask, standing on y0 */
+/* a burger built from a plate mask, standing on y0: always the same order,
+   the same as the picture on every ticket */
 function burger(mask, x, y0, z, ry, sc) {
   let y = y0;
   for (let i = 0; i < 5; i++) {
     if (!(mask & BIT(i))) continue;
     const tint = i === MEAT ? COL.done : COL.white;
-    put(PIECE[PIECE_OF[i]], M4.trs(x, y, z, ry + i * 0.4, sc), tint);
+    put(PIECE[PIECE_OF[i]], M4.trs(x, y, z, ry + i * 0.7, sc), tint);
     y += ING_H[i] * sc;
   }
   if (mask & BIT(BUN)) put(PIECE.bunT, M4.trs(x, y, z, ry, sc));
   return y;
 }
 
-function slotPos(c, i) {
-  const sx = SLOT_X[i], out = sx < 0 ? -8.6 : 8.6;
+function slotPos(c, i, clk) {
+  const sx = SLOT_X[i], out = sx < 0 ? -8.6 : 8.6, tt = stateAge(c, clk);
   let x = sx, y = 0, tint = COL.white;
   if (c.st === WAIT) {
-    const a = clamp(c.tt / 0.9, 0, 1), e = 1 - (1 - a) ** 3;
+    const a = clamp(tt / WALK, 0, 1), e = 1 - (1 - a) ** 3;
     x = lerp(out, sx, e);
-    y = a < 1 ? Math.abs(Math.sin(c.tt * 14)) * 0.12 : Math.sin(CLOCK * 2.2 + i) * 0.03;
-    if (c.pat / c.P < 0.3) x += Math.sin(CLOCK * 30) * 0.03;        // fidgeting
-  } else if (c.st === ANGRY) {
-    const a = clamp(c.tt / LEAVE_FOR, 0, 1);
+    y = a < 1 ? Math.abs(Math.sin(tt * 14)) * 0.12 : Math.sin(CLOCK * 2.2 + i) * 0.03;
+    if (arrived(c, clk) && patience(c, clk) / c.P < 0.3) x += Math.sin(CLOCK * 30) * 0.035;   // fidgeting
+  } else if (c.st === ANGRY || c.st === CLOSED) {
+    const a = clamp(tt / LEAVE_FOR, 0, 1);
     x = lerp(sx, out, a * a);
-    tint = [1, 0.62, 0.58];
+    if (c.st === ANGRY) tint = [1, 0.62, 0.58];
   } else {
-    const a = clamp((c.tt - 0.45) / (LEAVE_FOR - 0.45), 0, 1);
-    y = c.tt < 0.5 ? Math.abs(Math.sin(c.tt * 12)) * 0.45 : 0;
+    const a = clamp((tt - 0.45) / (LEAVE_FOR - 0.45), 0, 1);
+    y = tt < 0.5 ? Math.abs(Math.sin(tt * 12)) * 0.45 : 0;
     x = lerp(sx, out, a * a);
   }
   return { x, y, tint };
@@ -2736,7 +2901,7 @@ function slotPos(c, i) {
 function scene(v, side) {
   DRAWS.length = 0;
   for (const m of [WALL[other(side)], ROOM.floor, ROOM[other(side)], ROOM[side]]) put(m, null, null, 1, null, true);
-  const s = sgnOf(side);
+  const s = sgnOf(side), clk = v.clk || 0;
 
   /* both kitchens: plate, its burger, the grill */
   for (const k of SIDES) {
@@ -2745,20 +2910,20 @@ function scene(v, side) {
     const ks = sgnOf(k);
     const pr = PRESS.t > 0 && k === side ? PRESS : null;
     const squash = t => (pr && pr.k === t ? 1 - 0.18 * Math.sin(pr.t / 0.18 * Math.PI) : 1);
-    put(PIECE.plate, M4.trs(PLATE_X * ks, 1.0, ROW_B * ks, 0, 1));
-    burger(c.plate, PLATE_X * ks, 1.06, ROW_B * ks, k === 'host' ? 0 : Math.PI, 1.05);
+    put(PIECE.plate, M4.trs(PLATE_X * ks, 1.0, ROW_B * ks, 0, 1.15));
+    burger(c.plate, PLATE_X * ks, 1.05, ROW_B * ks, k === 'host' ? 0 : Math.PI, 1.3);
 
-    const gx = GRILL_X * ks, gz = ROW_B * ks;
-    if (c.grill) {
-      put(PIECE.meat, M4.trs(gx, 1.18, gz, 0.3, 1.05, squash(T_GRILL)), pattyTint(c.grill));
+    const gx = GRILL_X * ks, gz = ROW_B * ks, age = grillAge(c, clk);
+    if (age >= 0) {
+      put(age < COOK * 0.45 ? PIECE.meatRaw : PIECE.meat, M4.trs(gx, 1.17, gz, 0.3, 1.12, squash(T_GRILL)), pattyTint(age));
       const glow = 0.18 + 0.06 * Math.sin(CLOCK * 9);
       put(PIECE.shadow, M4.trs(gx, 1.165, gz, 0, 0.95), [1, 0.45, 0.1], 0.35, [glow, glow * 0.3, 0]);
     }
-    if (pr && pr.k < T_BIN.length) {             // a ghost piece popping off the tray you hit
+    if (pr && pr.k < T_BIN.length) {             // a piece hopping off the tray you hit
       const lx = BIN_X[pr.k] * ks, ing = T_BIN[pr.k];
       const a = 1 - pr.t / 0.18;
-      put(PIECE[ing === BUN ? 'bunT' : PIECE_OF[ing]], M4.trs(lx, 1.2 + a * 0.6, ROW_F * ks, 0, 0.7),
-          ing === MEAT ? COL.raw : COL.white, 0.75);
+      put(PIECE[ing === BUN ? 'bunT' : ing === MEAT ? 'meatRaw' : PIECE_OF[ing]], M4.trs(lx, 1.25 + a * 0.7, ROW_F * ks, 0, 0.85),
+          ing === MEAT ? COL.raw : COL.white, 0.8);
     }
   }
 
@@ -2767,12 +2932,13 @@ function scene(v, side) {
   for (let i = 0; i < SLOTS; i++) {
     const c = slots[i];
     if (!c) continue;
-    const p = slotPos(c, i);
+    const p = slotPos(c, i, clk);
     const face = s > 0 ? 0 : Math.PI;
     put(PIECE.shadow, M4.trs(p.x, 0.012, 0, 0, 0.62 * CUST_SC), COL.black, 0.22);
     put(customerMesh(c.look), M4.trs(p.x, p.y, 0, face + Math.sin(CLOCK * 1.3 + i) * 0.12, CUST_SC), p.tint);
     if (c.st === BY_HOST || c.st === BY_GUEST) {
-      burger(c.o, p.x, p.y + 1.15 * CUST_SC, 0.7 * s, 0, 0.7);       // held out in front
+      put(PIECE.plate, M4.trs(p.x, p.y + 1.12 * CUST_SC, 0.7 * s, 0, 0.6));
+      burger(c.o, p.x, p.y + 1.15 * CUST_SC, 0.7 * s, 0, 0.7);       // carried away on a plate
     }
   }
 
@@ -2784,113 +2950,476 @@ function scene(v, side) {
   }
 }
 
-/* ═══ 2D overlay: order cards, coins, grill timer, buttons ══════════ */
+/* ═══ 2D food: the pictures on the tickets and the tray labels ═══════
+   Painted once into small bitmaps at the screen's pixel density, then
+   reused, so a ticket can afford gradients, sesame and melted cheese. */
+
+const SPR = new Map();
+function sprite(key, w, h, paint) {
+  w = Math.max(4, Math.round(w)); h = Math.max(4, Math.round(h));
+  const dpr = CAM.dpr || 1, k = `${key}|${w}x${h}@${dpr}`;
+  let c = SPR.get(k);
+  if (c) return c;
+  c = document.createElement('canvas');
+  c.width = Math.ceil(w * dpr); c.height = Math.ceil(h * dpr);
+  const g = c.getContext('2d');
+  g.scale(dpr, dpr);
+  paint(g, w, h);
+  c.w = w; c.h = h;
+  SPR.set(k, c);
+  if (SPR.size > 160) SPR.delete(SPR.keys().next().value);
+  return c;
+}
+
+const lin = (g, x0, y0, x1, y1, stops) => {
+  const gr = g.createLinearGradient(x0, y0, x1, y1);
+  stops.forEach((c, i) => gr.addColorStop(i / (stops.length - 1), c));
+  return gr;
+};
+function pill(g, x, y, w, h, r) {
+  r = Math.min(r, h / 2, w / 2);
+  g.beginPath();
+  g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r);
+  g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
+}
+
+/* side view of a burger, standing on (cx, by), w wide. Same order as 3D. */
+function paintBurger(g, mask, cx, by, w) {
+  const L = [];                                         // [kind, height] bottom to top
+  if (mask & BIT(BUN)) L.push(['bunB', w * 0.17]);
+  if (mask & BIT(MEAT)) L.push(['meat', w * 0.16]);
+  if (mask & BIT(CHEESE)) L.push(['cheese', w * 0.05]);
+  if (mask & BIT(TOMATO)) L.push(['tomato', w * 0.075]);
+  if (mask & BIT(LETTUCE)) L.push(['lettuce', w * 0.075]);
+  if (mask & BIT(BUN)) L.push(['bunT', w * 0.33]);
+
+  g.fillStyle = 'rgba(60,30,10,.22)';                  // the shadow it sits on
+  g.beginPath(); g.ellipse(cx, by - 1, w * 0.5, w * 0.06, 0, 0, TAU); g.fill();
+
+  let y = by;
+  const draws = [];
+  for (const [k, h] of L) { draws.push([k, y, h]); y -= h * 0.86; }
+  for (const [k, yb, h] of draws) layer2D(g, k, cx, yb, w, h);
+}
+
+function layer2D(g, k, cx, yb, w, h) {
+  const yt = yb - h;
+  if (k === 'bunB') {
+    const hw = w * 0.45;
+    g.fillStyle = lin(g, 0, yt, 0, yb, ['#F2D4A0', '#E2A35A', '#C27833', '#A2602A']);
+    g.beginPath(); g.moveTo(cx - hw, yt + h * 0.2);
+    g.quadraticCurveTo(cx - hw, yt, cx - hw + h * 0.4, yt);
+    g.lineTo(cx + hw - h * 0.4, yt); g.quadraticCurveTo(cx + hw, yt, cx + hw, yt + h * 0.2);
+    g.bezierCurveTo(cx + hw, yb, cx + hw * 0.7, yb, cx, yb);
+    g.bezierCurveTo(cx - hw * 0.7, yb, cx - hw, yb, cx - hw, yt + h * 0.2);
+    g.fill();
+    g.fillStyle = 'rgba(255,240,205,.85)';
+    pill(g, cx - hw + 2, yt, hw * 2 - 4, h * 0.28, h * 0.14); g.fill();
+  } else if (k === 'meat') {
+    const hw = w * 0.49;
+    g.fillStyle = lin(g, 0, yt, 0, yb, ['#8E5130', '#6A361D', '#4A2212', '#3A1A0D']);
+    g.beginPath(); g.moveTo(cx - hw, yt + h * 0.45);
+    for (let i = 0; i <= 12; i++) {                     // a lumpy top edge
+      const x = cx - hw + hw * 2 * i / 12, j = (i % 2 ? 0.08 : -0.06) * h + Math.sin(i * 2.1) * 0.05 * h;
+      g.lineTo(x, yt + h * 0.14 + j);
+    }
+    g.quadraticCurveTo(cx + hw + h * 0.25, yt + h * 0.5, cx + hw, yb - h * 0.12);
+    for (let i = 12; i >= 0; i--) {
+      const x = cx - hw + hw * 2 * i / 12, j = (i % 2 ? 0.06 : -0.05) * h;
+      g.lineTo(x, yb - h * 0.06 + j);
+    }
+    g.quadraticCurveTo(cx - hw - h * 0.25, yt + h * 0.5, cx - hw, yt + h * 0.45);
+    g.fill();
+    g.fillStyle = 'rgba(30,12,4,.35)';                  // char and texture
+    for (let i = 0; i < 14; i++) {
+      const x = cx - hw * 0.9 + (i * 37 % 100) / 100 * hw * 1.8, y = yt + h * (0.3 + (i * 53 % 50) / 100);
+      g.beginPath(); g.arc(x, y, Math.max(0.6, w * 0.008), 0, TAU); g.fill();
+    }
+    g.fillStyle = 'rgba(255,200,160,.22)';
+    pill(g, cx - hw * 0.7, yt + h * 0.2, hw * 1.1, h * 0.14, h * 0.07); g.fill();
+  } else if (k === 'cheese') {
+    const hw = w * 0.5;
+    g.fillStyle = lin(g, 0, yt, 0, yb + h * 2, ['#FFE070', '#FFC52E', '#F0A010']);
+    g.beginPath(); g.moveTo(cx - hw, yt); g.lineTo(cx + hw, yt); g.lineTo(cx + hw * 0.96, yb);
+    for (const [dx, len] of [[0.62, 2.6], [0.15, 3.6], [-0.45, 2.2]]) {   // drips
+      const x = cx + dx * hw, dw = w * 0.055;
+      g.lineTo(x + dw, yb); g.quadraticCurveTo(x + dw, yb + h * len, x, yb + h * len);
+      g.quadraticCurveTo(x - dw, yb + h * len, x - dw, yb);
+    }
+    g.lineTo(cx - hw * 0.96, yb); g.closePath(); g.fill();
+    g.fillStyle = 'rgba(255,255,255,.35)';
+    pill(g, cx - hw * 0.8, yt + 0.5, hw * 1.2, Math.max(1, h * 0.35), 1); g.fill();
+  } else if (k === 'tomato') {
+    const hw = w * 0.43;
+    g.fillStyle = lin(g, 0, yt, 0, yb, ['#F26A50', '#DE3A28', '#B5221A']);
+    pill(g, cx - hw, yt, hw * 2, h, h / 2); g.fill();
+    g.fillStyle = 'rgba(255,190,150,.75)';
+    for (const dx of [-0.55, -0.15, 0.25, 0.62]) {
+      g.beginPath(); g.ellipse(cx + dx * hw, yt + h * 0.5, w * 0.045, h * 0.22, 0, 0, TAU); g.fill();
+    }
+  } else if (k === 'lettuce') {
+    const hw = w * 0.53;
+    g.fillStyle = lin(g, 0, yt - h * 0.4, 0, yb, ['#B6E070', '#6DBE3C', '#3F8E22']);
+    g.beginPath(); g.moveTo(cx - hw, yb - h * 0.3);
+    const n = 11;
+    for (let i = 0; i <= n; i++) {                      // ruffled frill along the top
+      const x = cx - hw + hw * 2 * i / n;
+      g.quadraticCurveTo(x - hw / n, yt - h * (i % 2 ? 0.55 : 0.1), x, yt + h * 0.2);
+    }
+    for (let i = n; i >= 0; i--) {
+      const x = cx - hw + hw * 2 * i / n;
+      g.quadraticCurveTo(x + hw / n, yb + h * (i % 2 ? 0.45 : 0.05), x, yb - h * 0.1);
+    }
+    g.closePath(); g.fill();
+    g.strokeStyle = 'rgba(230,255,190,.55)'; g.lineWidth = Math.max(0.6, w * 0.008);
+    for (let i = 1; i < 5; i++) {
+      const x = cx - hw + hw * 2 * i / 5;
+      g.beginPath(); g.moveTo(x, yt + h * 0.1); g.lineTo(x + w * 0.03, yb - h * 0.1); g.stroke();
+    }
+  } else if (k === 'bunT') {
+    const hw = w * 0.47;
+    const gr = g.createRadialGradient(cx - hw * 0.3, yt + h * 0.32, h * 0.1, cx, yt + h * 0.6, hw * 1.15);
+    gr.addColorStop(0, '#F7CB7E'); gr.addColorStop(0.35, '#DE9549'); gr.addColorStop(0.8, '#B9692A'); gr.addColorStop(1, '#9B521F');
+    g.fillStyle = gr;
+    g.beginPath(); g.moveTo(cx - hw, yb - h * 0.08);
+    g.bezierCurveTo(cx - hw, yt + h * 0.05, cx - hw * 0.45, yt, cx, yt);
+    g.bezierCurveTo(cx + hw * 0.45, yt, cx + hw, yt + h * 0.05, cx + hw, yb - h * 0.08);
+    g.quadraticCurveTo(cx + hw, yb, cx + hw - h * 0.2, yb);
+    g.lineTo(cx - hw + h * 0.2, yb); g.quadraticCurveTo(cx - hw, yb, cx - hw, yb - h * 0.08);
+    g.fill();
+    g.fillStyle = 'rgba(255,245,215,.35)';            // gloss
+    g.beginPath(); g.ellipse(cx - hw * 0.32, yt + h * 0.3, hw * 0.28, h * 0.12, -0.35, 0, TAU); g.fill();
+    const seeds = [[-0.55, 0.55, 0.5], [-0.3, 0.3, -0.4], [-0.02, 0.2, 0.2], [0.28, 0.32, 0.6], [0.55, 0.55, -0.3],
+                   [-0.12, 0.55, -0.6], [0.18, 0.62, 0.1], [0.42, 0.75, 0.9], [-0.4, 0.8, 0.2]];
+    for (const [dx, dy, rot] of seeds) {
+      const x = cx + dx * hw, y = yt + dy * h;
+      g.fillStyle = 'rgba(90,40,10,.25)';
+      g.beginPath(); g.ellipse(x + 0.6, y + 0.8, w * 0.03, w * 0.016, rot, 0, TAU); g.fill();
+      g.fillStyle = '#FFF4D8';
+      g.beginPath(); g.ellipse(x, y, w * 0.03, w * 0.016, rot, 0, TAU); g.fill();
+    }
+  }
+}
+
+/* one ingredient as a chip icon, centred, s across: the same picture on a
+   ticket, on the tray's label and in the help */
+function paintIng(g, ing, cx, cy, s) {
+  if (ing === BUN) {
+    layer2D(g, 'bunB', cx, cy + s * 0.34, s * 0.95, s * 0.2);
+    layer2D(g, 'bunT', cx, cy + s * 0.17, s * 0.95, s * 0.46);
+  } else if (ing === MEAT) {
+    const gr = g.createRadialGradient(cx - s * 0.1, cy - s * 0.12, s * 0.05, cx, cy, s * 0.48);
+    gr.addColorStop(0, '#9A5A36'); gr.addColorStop(0.7, '#6A361D'); gr.addColorStop(1, '#43200F');
+    g.fillStyle = gr;
+    g.beginPath();
+    for (let i = 0; i <= 24; i++) {
+      const a = i / 24 * TAU, r = s * 0.44 * (1 + 0.05 * Math.sin(5 * a) + 0.03 * Math.sin(11 * a));
+      const x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r * 0.78;
+      i ? g.lineTo(x, y) : g.moveTo(x, y);
+    }
+    g.fill();
+    g.strokeStyle = 'rgba(25,10,4,.7)'; g.lineWidth = Math.max(1.2, s * 0.07); g.lineCap = 'round';
+    for (const d of [-0.2, 0, 0.2]) {
+      g.beginPath(); g.moveTo(cx - s * 0.26 + d * s * 0.3, cy + d * s - s * 0.12); g.lineTo(cx + s * 0.22 + d * s * 0.3, cy + d * s + s * 0.08); g.stroke();
+    }
+  } else if (ing === CHEESE) {
+    g.fillStyle = lin(g, cx, cy - s * 0.4, cx, cy + s * 0.45, ['#FFE278', '#FFC52E', '#EFA012']);
+    g.beginPath();
+    g.moveTo(cx, cy - s * 0.4); g.lineTo(cx + s * 0.46, cy - s * 0.05); g.lineTo(cx + s * 0.1, cy + s * 0.32);
+    g.quadraticCurveTo(cx + s * 0.05, cy + s * 0.5, cx - s * 0.02, cy + s * 0.32);
+    g.lineTo(cx - s * 0.46, cy - s * 0.05); g.closePath(); g.fill();
+    g.fillStyle = 'rgba(210,130,10,.55)';
+    for (const [dx, dy, r] of [[-0.12, -0.08, 0.06], [0.14, 0.0, 0.05], [0.0, 0.14, 0.04], [0.05, -0.2, 0.035]]) {
+      g.beginPath(); g.ellipse(cx + dx * s, cy + dy * s, r * s, r * s * 0.6, 0, 0, TAU); g.fill();
+    }
+  } else if (ing === TOMATO) {
+    const r = s * 0.43;
+    g.fillStyle = '#B7231A'; g.beginPath(); g.arc(cx, cy, r, 0, TAU); g.fill();
+    g.fillStyle = '#E94A34'; g.beginPath(); g.arc(cx, cy, r * 0.88, 0, TAU); g.fill();
+    for (let i = 0; i < 6; i++) {
+      const a = i / 6 * TAU + 0.3;
+      g.fillStyle = '#F69A76';
+      g.beginPath(); g.ellipse(cx + Math.cos(a) * r * 0.5, cy + Math.sin(a) * r * 0.5, r * 0.24, r * 0.15, a, 0, TAU); g.fill();
+      g.fillStyle = '#FCE6A6';
+      g.beginPath(); g.ellipse(cx + Math.cos(a) * r * 0.52, cy + Math.sin(a) * r * 0.52, r * 0.08, r * 0.05, a, 0, TAU); g.fill();
+    }
+    g.fillStyle = '#F27C60'; g.beginPath(); g.arc(cx, cy, r * 0.17, 0, TAU); g.fill();
+    g.fillStyle = 'rgba(255,255,255,.3)'; g.beginPath(); g.ellipse(cx - r * 0.45, cy - r * 0.5, r * 0.22, r * 0.1, -0.6, 0, TAU); g.fill();
+  } else if (ing === LETTUCE) {
+    g.fillStyle = lin(g, cx, cy - s * 0.4, cx, cy + s * 0.4, ['#C4E98A', '#72C13F', '#3F8E22']);
+    g.beginPath(); g.moveTo(cx, cy + s * 0.45);
+    for (let i = 0; i <= 14; i++) {
+      const a = Math.PI * 0.62 + i / 14 * Math.PI * 1.76, rr = s * (0.4 + (i % 2 ? 0.06 : 0));
+      g.lineTo(cx + Math.cos(a) * rr * 0.9, cy - s * 0.02 + Math.sin(a) * rr);
+    }
+    g.closePath(); g.fill();
+    g.strokeStyle = 'rgba(235,255,200,.8)'; g.lineWidth = Math.max(1, s * 0.05); g.lineCap = 'round';
+    g.beginPath(); g.moveTo(cx, cy + s * 0.42); g.lineTo(cx, cy - s * 0.3); g.stroke();
+    g.lineWidth = Math.max(0.7, s * 0.03);
+    for (const k of [0.15, -0.05, -0.22]) {
+      g.beginPath(); g.moveTo(cx, cy + k * s); g.lineTo(cx - s * 0.2, cy + k * s - s * 0.12);
+      g.moveTo(cx, cy + k * s); g.lineTo(cx + s * 0.2, cy + k * s - s * 0.12); g.stroke();
+    }
+  }
+}
+
+const ingSprite = (ing, s) => sprite('ing' + ing, s, s, (g, w) => paintIng(g, ing, w / 2, w / 2, w * 0.92));
+const burgerSprite = (mask, w) => sprite('bg' + mask, w, w * 0.92, (g, W, H) => paintBurger(g, mask, W / 2, H - 3, W * 0.9));
+
+/* ═══ 2D overlay: tickets, labels, grill timer, coins, buttons ═════════ */
 
 const DISP = '"Lalezar","Alexandria",sans-serif', BODY = '"Alexandria",system-ui,sans-serif';
+const rgb = c => `rgb(${Math.round(c[0] * 255)},${Math.round(c[1] * 255)},${Math.round(c[2] * 255)})`;
+const rr = pill;
 
-function rr(x, X, Y, W, H, R) {
+/* which order you are most likely building: the most urgent one your plate
+   still fits. Purely a hint, computed on this phone only. */
+function targetOf(v, side) {
+  const me = v[side], slots = v.slots || [], clk = v.clk || 0;
+  if (!me) return -1;
+  let best = -1, bt = Infinity, any = -1, at = Infinity;
+  for (let i = 0; i < SLOTS; i++) {
+    const c = slots[i];
+    if (!c || c.st !== WAIT) continue;
+    const p = patience(c, clk);
+    if (p < at) { at = p; any = i; }
+    if ((me.plate & ~c.o) || p < 1.5) continue;
+    if (p < bt) { bt = p; best = i; }
+  }
+  return best >= 0 ? best : any;
+}
+
+/* a face that gets crosser as patience runs out */
+function mood(x, cx, cy, r, f) {
+  x.fillStyle = f > 0.5 ? '#FFD45A' : f > 0.25 ? '#FFB347' : '#FF6B4A';
+  x.beginPath(); x.arc(cx, cy, r, 0, TAU); x.fill();
+  x.strokeStyle = 'rgba(60,30,10,.35)'; x.lineWidth = 1; x.stroke();
+  x.fillStyle = '#3B2414';
+  const ey = cy - r * 0.18;
+  if (f > 0.25) { x.beginPath(); x.arc(cx - r * 0.35, ey, r * 0.12, 0, TAU); x.arc(cx + r * 0.35, ey, r * 0.12, 0, TAU); x.fill(); }
+  else {                                              // cross brows
+    x.strokeStyle = '#3B2414'; x.lineWidth = Math.max(1.2, r * 0.16); x.lineCap = 'round';
+    x.beginPath(); x.moveTo(cx - r * 0.55, ey - r * 0.2); x.lineTo(cx - r * 0.15, ey); x.moveTo(cx + r * 0.55, ey - r * 0.2); x.lineTo(cx + r * 0.15, ey); x.stroke();
+  }
+  x.strokeStyle = '#3B2414'; x.lineWidth = Math.max(1.2, r * 0.14); x.lineCap = 'round';
   x.beginPath();
-  x.moveTo(X + R, Y); x.arcTo(X + W, Y, X + W, Y + H, R); x.arcTo(X + W, Y + H, X, Y + H, R);
-  x.arcTo(X, Y + H, X, Y, R); x.arcTo(X, Y, X + W, Y, R); x.closePath();
+  if (f > 0.5) x.arc(cx, cy + r * 0.05, r * 0.42, 0.2 * Math.PI, 0.8 * Math.PI);
+  else if (f > 0.25) { x.moveTo(cx - r * 0.35, cy + r * 0.38); x.lineTo(cx + r * 0.35, cy + r * 0.38); }
+  else x.arc(cx, cy + r * 0.7, r * 0.4, 1.2 * Math.PI, 1.8 * Math.PI);
+  x.stroke();
 }
 
-/* a flat burger icon, the same stack the customer wants, read in one glance */
-function icon(x, mask, cx, by, w) {
-  const h = w * 0.13;
-  let y = by;
-  const layer = (col, hh, shape) => { x.fillStyle = col; shape(y - hh, hh); y -= hh; };
-  const slab = (col, hh, inset) => layer(col, hh, (Y, H) => { rr(x, cx - w / 2 + inset, Y, w - inset * 2, H, H / 2); x.fill(); });
-  if (mask & BIT(BUN)) slab('#D9984C', h * 1.1, w * 0.04);
-  if (mask & BIT(MEAT)) slab('#6E3B22', h * 1.15, 0);
-  if (mask & BIT(CHEESE)) layer('#F5C02E', h * 0.55, (Y, H) => {
-    x.beginPath(); x.moveTo(cx - w / 2 - 1, Y + H); x.lineTo(cx + w / 2 + 1, Y + H);
-    x.lineTo(cx + w / 2 + 1, Y); x.lineTo(cx - w / 2 - 1, Y); x.closePath(); x.fill();
-    x.beginPath(); x.moveTo(cx - w * 0.15, Y + H); x.lineTo(cx, Y + H * 2.4); x.lineTo(cx + w * 0.15, Y + H); x.fill();
+/* one order ticket, hanging from the rail at (X, Y) */
+function ticket(x, v, side, c, i, X, Y, tw, th, isTarget) {
+  const me = v[side], clk = v.clk || 0, myCol = META.roles[side].color;
+  const plate = me ? me.plate : 0, match = plate === c.o;
+  const left = patience(c, clk), f = clamp(left / c.P, 0, 1);
+  const shirt = rgb(SHIRT[c.look % 8]);
+  const urgent = f < 0.25;
+
+  /* drop in from the rail while the customer walks up */
+  const drop = clamp((clk - (c.arrive - WALK)) / 0.45, 0, 1), e = 1 - (1 - drop) ** 3;
+  const nope = FX.find(q => q.kind === 'nope' && q.slot === i);
+  const shake = (urgent ? Math.sin(CLOCK * 38) * 1.6 : 0) + (nope ? Math.sin(nope.t * 60) * 5 * (1 - nope.t / 0.7) : 0);
+  x.save();
+  x.translate(X + shake, Y - (1 - e) * th * 0.7);
+  x.globalAlpha = e;
+  x.rotate(Math.sin(CLOCK * 1.7 + i * 1.3) * 0.012);
+
+  /* paper with a torn bottom edge */
+  const tooth = 6, n = Math.max(4, Math.round(tw / 11));
+  const paper = () => {
+    x.beginPath(); x.moveTo(0, 0); x.lineTo(tw, 0); x.lineTo(tw, th - tooth);
+    for (let k = n; k >= 0; k--) x.lineTo(tw * k / n, th - (k % 2 ? 0 : tooth));
+    x.closePath();
+  };
+  x.save();
+  x.shadowColor = 'rgba(0,0,0,.4)'; x.shadowBlur = 12; x.shadowOffsetY = 5;
+  paper(); x.fillStyle = '#FFF9EC'; x.fill();
+  x.restore();
+  x.save(); paper(); x.clip();
+  x.fillStyle = lin(x, 0, 0, 0, th, ['rgba(0,0,0,0)', 'rgba(120,80,40,.07)']); x.fillRect(0, 0, tw, th);
+
+  /* header: the customer's shirt colour, their mood, the seconds left */
+  const bh = Math.round(clamp(tw * 0.27, 22, 30));
+  x.fillStyle = shirt; x.fillRect(0, 0, tw, bh);
+  x.fillStyle = 'rgba(0,0,0,.18)'; x.fillRect(0, bh - 2, tw, 2);
+  mood(x, tw - bh * 0.55, bh / 2, bh * 0.34, f);
+  const secs = Math.ceil(left);
+  x.fillStyle = '#fff'; x.textAlign = 'left'; x.textBaseline = 'middle';
+  x.font = `900 ${Math.round(bh * 0.62)}px ${DISP}`;
+  x.lineWidth = 3; x.strokeStyle = 'rgba(0,0,0,.28)';
+  const txt = String(secs);                           // full patience while they walk up
+  x.strokeText(txt, 7, bh / 2 + 1); x.fillText(txt, 7, bh / 2 + 1);
+  const nw = x.measureText(txt).width;
+  x.font = `600 ${Math.round(bh * 0.36)}px ${BODY}`;
+  x.fillStyle = 'rgba(255,255,255,.85)'; x.fillText('ث', 10 + nw, bh / 2 + 2);
+
+  /* patience bar under the header */
+  const pb = 5, py = bh + 3;
+  x.fillStyle = 'rgba(60,35,15,.12)'; rr(x, 6, py, tw - 12, pb, pb / 2); x.fill();
+  x.fillStyle = f > 0.5 ? '#4FAE4A' : f > 0.25 ? '#F0A22E' : (Math.sin(CLOCK * 14) > 0 ? '#E2412B' : '#FF7A5C');
+  rr(x, 6, py, Math.max(pb, (tw - 12) * f), pb, pb / 2); x.fill();
+
+  /* the burger they want */
+  const bw = tw * 0.8, img = burgerSprite(c.o, bw);
+  const by = py + pb + 3;
+  x.drawImage(img, (tw - img.w) / 2, by, img.w, img.h);
+
+  /* every ingredient as a chip; a tick when it is already on your plate */
+  const req = [BUN, MEAT, CHEESE, TOMATO, LETTUCE].filter(g => c.o & BIT(g));
+  const extra = isTarget ? [BUN, MEAT, CHEESE, TOMATO, LETTUCE].filter(g => (plate & BIT(g)) && !(c.o & BIT(g))) : [];
+  const chips = req.map(g => [g, (plate & BIT(g)) ? 'have' : 'need']).concat(extra.map(g => [g, 'extra']));
+  const cols = 3, cs = Math.floor(Math.min((tw - 10) / cols - 4, 30));
+  const gy = by + img.h + 2;
+  chips.forEach(([g, st], k) => {
+    const row = Math.floor(k / cols), inRow = Math.min(cols, chips.length - row * cols);
+    const col = k % cols, rowW = inRow * (cs + 4) - 4;
+    const cx = tw / 2 + rowW / 2 - col * (cs + 4) - cs / 2;    // right to left, as Arabic reads
+    const cy = gy + row * (cs + 4) + cs / 2;
+    x.fillStyle = st === 'have' ? '#E3F5DA' : st === 'extra' ? '#FDE2DC' : '#FFFFFF';
+    x.beginPath(); x.arc(cx, cy, cs / 2, 0, TAU); x.fill();
+    x.lineWidth = st === 'need' ? 1.2 : 2;
+    x.strokeStyle = st === 'have' ? '#4FAE4A' : st === 'extra' ? '#E2412B' : 'rgba(80,50,25,.25)';
+    x.stroke();
+    const sp = ingSprite(g, cs * 0.9);
+    x.globalAlpha = e * (st === 'need' ? 1 : 0.9);
+    x.drawImage(sp, cx - sp.w / 2, cy - sp.h / 2, sp.w, sp.h);
+    x.globalAlpha = e;
+    if (st !== 'need') {
+      const bx = cx + cs * 0.36, byy = cy - cs * 0.36, r = Math.max(5, cs * 0.2);
+      x.fillStyle = st === 'have' ? '#3E9A3B' : '#D7382A';
+      x.beginPath(); x.arc(bx, byy, r, 0, TAU); x.fill();
+      x.strokeStyle = '#fff'; x.lineWidth = Math.max(1.4, r * 0.32); x.lineCap = 'round';
+      x.beginPath();
+      if (st === 'have') { x.moveTo(bx - r * 0.45, byy); x.lineTo(bx - r * 0.1, byy + r * 0.38); x.lineTo(bx + r * 0.5, byy - r * 0.38); }
+      else { x.moveTo(bx - r * 0.4, byy - r * 0.4); x.lineTo(bx + r * 0.4, byy + r * 0.4); x.moveTo(bx + r * 0.4, byy - r * 0.4); x.lineTo(bx - r * 0.4, byy + r * 0.4); }
+      x.stroke();
+    }
   });
-  if (mask & BIT(TOMATO)) slab('#D8352A', h * 0.8, w * 0.08);
-  if (mask & BIT(LETTUCE)) layer('#69B83E', h * 0.7, (Y, H) => {
-    x.beginPath(); x.moveTo(cx - w / 2 - 2, Y + H);
-    for (let i = 0; i <= 8; i++) x.lineTo(cx - w / 2 - 2 + (w + 4) * i / 8, Y + (i % 2 ? 0 : H * 0.55));
-    x.lineTo(cx + w / 2 + 2, Y + H); x.closePath(); x.fill();
-  });
-  if (mask & BIT(BUN)) layer('#C97F35', h * 2.1, (Y, H) => {
-    x.beginPath(); x.moveTo(cx - w / 2, Y + H); x.quadraticCurveTo(cx - w / 2, Y, cx, Y);
-    x.quadraticCurveTo(cx + w / 2, Y, cx + w / 2, Y + H); x.closePath(); x.fill();
-    x.fillStyle = '#FFF4D6';
-    for (const [ox, oy] of [[-0.2, 0.45], [0.05, 0.3], [0.22, 0.5]]) { x.beginPath(); x.ellipse(cx + ox * w, Y + oy * H, w * 0.035, w * 0.02, 0.3, 0, TAU); x.fill(); }
-  });
-  return by - y;
+  x.restore();                                        // unclip
+
+  /* ready to hand over: a stamp in your colour */
+  if (match) {
+    const pulse = 0.5 + 0.5 * Math.sin(CLOCK * 9);
+    x.lineWidth = 3 + pulse * 2; x.strokeStyle = myCol;
+    paper(); x.stroke();
+    x.save();
+    x.translate(tw / 2, by + img.h * 0.55); x.rotate(-0.12);
+    const sw = tw * 0.8, sh = Math.max(20, tw * 0.24);
+    x.fillStyle = myCol; x.globalAlpha = e * 0.92;
+    rr(x, -sw / 2, -sh / 2, sw, sh, 5); x.fill();
+    x.globalAlpha = e;
+    x.fillStyle = '#fff'; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.font = `900 ${Math.round(sh * 0.62)}px ${DISP}`;
+    x.fillText('✓ قدّم', 0, 1);
+    x.restore();
+  } else if (isTarget) {
+    x.setLineDash([5, 4]); x.lineWidth = 2.2; x.strokeStyle = myCol;
+    paper(); x.stroke(); x.setLineDash([]);
+  }
+
+  /* the clip that holds it to the rail */
+  x.fillStyle = lin(x, 0, -6, 0, 8, ['#E6E9EC', '#9AA2AA']);
+  rr(x, tw / 2 - 9, -6, 18, 12, 3); x.fill();
+  x.restore();
 }
+
+/* the size a ticket wants for a given width; every ticket is the same size */
+const ticketH = tw => {
+  const bh = Math.round(clamp(tw * 0.27, 22, 30)), cs = Math.floor(Math.min((tw - 10) / 3 - 4, 30));
+  return bh + 3 + 5 + 3 + Math.round(tw * 0.8 * 0.92) + 2 + 2 * (cs + 4) + 8;
+};
 
 function overlay(x, v, side) {
-  const W = CAM.w, H = CAM.h, me = v[side], them = v[other(side)];
+  const W = CAM.w, H = CAM.h, me = v[side], clk = v.clk || 0;
   const myCol = META.roles[side].color;
   CAM.targets = [];
-  const s = sgnOf(side);
+  const slots = v.slots || [];
+  const live = v.phase === 'live';
+  const tgt = live ? targetOf(v, side) : -1;
+  const tc = tgt >= 0 ? slots[tgt] : null;
+  const plate = me ? me.plate : 0, gAge = grillAge(me, clk);
 
-  /* kitchen targets: your own counter only */
+  /* what the target still needs, to light up the right trays */
+  const need = new Set();
+  let wantGrill = false, wantTrash = false;
+  if (tc) {
+    for (const g of [BUN, CHEESE, TOMATO, LETTUCE]) if ((tc.o & BIT(g)) && !(plate & BIT(g))) need.add(g);
+    if ((tc.o & BIT(MEAT)) && !(plate & BIT(MEAT))) {
+      if (gAge < 0) need.add(MEAT);
+      else if (gAge >= COOK) wantGrill = true;
+    }
+    wantTrash = !!(plate & ~tc.o);
+  }
+  if (gAge >= BURN) wantGrill = true;
+  const glowA = 0.55 + 0.45 * Math.sin(CLOCK * 7);
+
+  /* the trays: a label with the same picture as the tickets, and its name */
+  const ls = Math.round(clamp(W * 0.058, 20, 32));
   for (let b = 0; b < T_BIN.length; b++) {
+    const ing = T_BIN[b];
     const [wx, wz] = world(side, BIN_X[b], ROW_F);
     const p = project(wx, 1.15, wz);
-    CAM.targets.push({ k: b, x: p.x, y: p.y, r: Math.max(26, pxAt(wx, 1.15, wz, 0.95)) });
+    CAM.targets.push({ k: b, x: p.x, y: p.y, r: Math.max(28, pxAt(wx, 1.15, wz, 0.95)) });
+    const [fx, fz] = world(side, BIN_X[b], ROW_F + 0.62);
+    const q = project(fx, 0.62, fz);
+    const lit = live && need.has(ing);
+    const name = ING_NAME[ing];
+    x.font = `800 ${Math.round(ls * 0.46)}px ${BODY}`;
+    const tw = x.measureText(name).width, pw = ls + tw + 10, ph = ls + 4;
+    const px = q.x - pw / 2, py = q.y - ph / 2;
+    if (lit) {
+      x.save(); x.shadowColor = myCol; x.shadowBlur = 14 * glowA;
+      x.fillStyle = myCol; rr(x, px - 3, py - 3, pw + 6, ph + 6, ph); x.fill(); x.restore();
+    }
+    x.fillStyle = 'rgba(255,249,236,.96)'; rr(x, px, py, pw, ph, ph / 2); x.fill();
+    x.strokeStyle = lit ? myCol : 'rgba(43,29,22,.25)'; x.lineWidth = lit ? 2.5 : 1; x.stroke();
+    const sp = ingSprite(ing, ls);
+    x.drawImage(sp, px + pw - ls - 3, py + 2, sp.w, sp.h);
+    x.fillStyle = ESPRESSO; x.textAlign = 'right'; x.textBaseline = 'middle';
+    x.fillText(name, px + pw - ls - 7, py + ph / 2 + 1);
+    if (lit) {                                        // a bouncing arrow over the tray
+      const t = project(wx, 1.9, wz), bob = Math.abs(Math.sin(CLOCK * 6)) * 8;
+      x.fillStyle = myCol; x.strokeStyle = '#fff'; x.lineWidth = 2;
+      x.beginPath(); x.moveTo(t.x - 9, t.y - 12 - bob); x.lineTo(t.x + 9, t.y - 12 - bob); x.lineTo(t.x, t.y - bob); x.closePath();
+      x.fill(); x.stroke();
+    }
   }
   for (const [k, lx] of [[T_GRILL, GRILL_X], [T_TRASH, TRASH_X]]) {
     const [wx, wz] = world(side, lx, ROW_B);
     const p = project(wx, 1.2, wz);
-    CAM.targets.push({ k, x: p.x, y: p.y, r: Math.max(24, pxAt(wx, 1.2, wz, k === T_GRILL ? 1.0 : 0.7)) });
-  }
-
-  /* order cards over the queue */
-  const cw = clamp(W * 0.2, 62, 112);
-  const slots = v.slots || [];
-  for (let i = 0; i < SLOTS; i++) {
-    const c = slots[i];
-    if (!c) continue;
-    const pos = slotPos(c, i);
-    const body = project(pos.x, 1.2 * CUST_SC, 0);
-    CAM.targets.push({ k: T_SLOT0 + i, x: body.x, y: body.y, r: Math.max(30, pxAt(pos.x, 1.2 * CUST_SC, 0, 0.85)) });
-    if (c.st !== WAIT) continue;
-    const head = project(pos.x, 2.5 * CUST_SC + pos.y, 0);
-    const ch = cw * 0.86, X = clamp(head.x - cw / 2, 6, W - cw - 6), Y = head.y - ch - 6;
-    const match = me && me.plate === c.o;
-    const left = clamp(c.pat / c.P, 0, 1);
-    const pulse = match ? 0.5 + 0.5 * Math.sin(CLOCK * 10) : 0;
-    x.save();
-    x.shadowColor = 'rgba(0,0,0,.35)'; x.shadowBlur = 10; x.shadowOffsetY = 4;
-    x.fillStyle = CREAM; rr(x, X, Y, cw, ch, 10); x.fill();
-    x.restore();
-    x.beginPath(); x.moveTo(head.x - 7, Y + ch - 1); x.lineTo(head.x, Y + ch + 7); x.lineTo(head.x + 7, Y + ch - 1);
-    x.fillStyle = CREAM; x.fill();
-    if (match) {
-      x.lineWidth = 3 + pulse * 2; x.strokeStyle = myCol;
-      rr(x, X - 1, Y - 1, cw + 2, ch + 2, 11); x.stroke();
+    CAM.targets.push({ k, x: p.x, y: p.y, r: Math.max(26, pxAt(wx, 1.2, wz, k === T_GRILL ? 1.0 : 0.7)) });
+    if (k === T_TRASH && live && wantTrash) {
+      const R = Math.max(22, pxAt(wx, 1.2, wz, 0.7));
+      x.strokeStyle = KETCHUP; x.lineWidth = 3; x.globalAlpha = glowA;
+      x.beginPath(); x.arc(p.x, p.y, R, 0, TAU); x.stroke(); x.globalAlpha = 1;
+      x.font = `800 ${Math.round(ls * 0.42)}px ${BODY}`; x.textAlign = 'center';
+      x.lineWidth = 3; x.strokeStyle = ESPRESSO; x.strokeText('فرّغ الصحن', p.x, p.y - R - 8);
+      x.fillStyle = '#FFD7CF'; x.fillText('فرّغ الصحن', p.x, p.y - R - 8);
     }
-    icon(x, c.o, X + cw / 2, Y + ch * 0.74, cw * 0.62);
-    const bw = cw - 16, bh = 5;
-    x.fillStyle = 'rgba(43,29,22,.15)'; rr(x, X + 8, Y + ch - 12, bw, bh, 2.5); x.fill();
-    x.fillStyle = left > 0.5 ? '#4E9E5A' : left > 0.25 ? MUSTARD : KETCHUP;
-    rr(x, X + 8, Y + ch - 12, Math.max(bh, bw * left), bh, 2.5); x.fill();
-    if (match) {
-      x.fillStyle = myCol; x.beginPath(); x.arc(X + cw - 4, Y + 4, 11, 0, TAU); x.fill();
-      x.strokeStyle = '#fff'; x.lineWidth = 2.6; x.lineCap = 'round';
-      x.beginPath(); x.moveTo(X + cw - 9, Y + 4); x.lineTo(X + cw - 5, Y + 8); x.lineTo(X + cw + 1, Y); x.stroke();
-    }
-    CAM.targets.push({ k: T_SLOT0 + i, rect: [X - 4, Y - 4, X + cw + 4, Y + ch + 10] });
   }
 
   /* your grill: a ring that fills while it cooks */
-  if (me && me.grill) {
+  if (gAge >= 0) {
     const [wx, wz] = world(side, GRILL_X, ROW_B);
-    const p = project(wx, 1.55, wz), R = clamp(pxAt(wx, 1.55, wz, 0.42), 13, 26);
-    const g = me.grill, ready = g >= COOK && g < BURN, burnt = g >= BURN;
+    const p = project(wx, 1.6, wz), R = clamp(pxAt(wx, 1.6, wz, 0.42), 14, 26);
+    const ready = gAge >= COOK && gAge < BURN, burnt = gAge >= BURN;
+    if (wantGrill && live) {
+      x.save(); x.shadowColor = burnt ? KETCHUP : '#7BD35A'; x.shadowBlur = 16 * glowA;
+      x.fillStyle = burnt ? KETCHUP : '#4FAE4A'; x.beginPath(); x.arc(p.x, p.y, R + 5, 0, TAU); x.fill(); x.restore();
+    }
     x.lineWidth = 4; x.lineCap = 'round';
     x.strokeStyle = 'rgba(0,0,0,.35)'; x.beginPath(); x.arc(p.x, p.y, R, 0, TAU); x.stroke();
-    x.fillStyle = burnt ? '#211714' : ready ? '#4E9E5A' : 'rgba(43,29,22,.75)';
+    x.fillStyle = burnt ? '#211714' : ready ? '#4E9E5A' : 'rgba(43,29,22,.8)';
     x.beginPath(); x.arc(p.x, p.y, R - 3, 0, TAU); x.fill();
-    if (g < COOK) {
-      x.strokeStyle = GOLD; x.beginPath(); x.arc(p.x, p.y, R, -Math.PI / 2, -Math.PI / 2 + TAU * g / COOK); x.stroke();
+    if (gAge < COOK) {
+      x.strokeStyle = GOLD; x.beginPath(); x.arc(p.x, p.y, R, -Math.PI / 2, -Math.PI / 2 + TAU * gAge / COOK); x.stroke();
+      x.fillStyle = CREAM; x.textAlign = 'center'; x.textBaseline = 'middle';
+      x.font = `900 ${Math.round(R * 0.9)}px ${DISP}`;
+      x.fillText(String(Math.ceil(COOK - gAge)), p.x, p.y + 1);
     } else if (!burnt) {
-      const warn = clamp((g - (BURN - 2.5)) / 2.5, 0, 1);
+      const warn = clamp((gAge - (BURN - 2.5)) / 2.5, 0, 1);
       x.strokeStyle = warn > 0 ? KETCHUP : '#9BD27A';
       x.beginPath(); x.arc(p.x, p.y, R, -Math.PI / 2, -Math.PI / 2 + TAU * (1 - warn)); x.stroke();
       x.strokeStyle = '#fff'; x.lineWidth = 3;
@@ -2899,53 +3428,32 @@ function overlay(x, v, side) {
       x.strokeStyle = KETCHUP; x.lineWidth = 3;
       x.beginPath(); x.moveTo(p.x - R * 0.32, p.y - R * 0.32); x.lineTo(p.x + R * 0.32, p.y + R * 0.32);
       x.moveTo(p.x + R * 0.32, p.y - R * 0.32); x.lineTo(p.x - R * 0.32, p.y + R * 0.32); x.stroke();
-    }
-  }
-
-  /* floating feedback */
-  x.textAlign = 'center'; x.textBaseline = 'middle';
-  for (const f of FX) {
-    if (f.kind === 'coin') {
-      const a = clamp(1 - f.t / 1.2, 0, 1), p = project(f.x, 2.9 + f.t * 1.2, 0);
-      x.globalAlpha = a; x.font = `900 ${Math.round(clamp(W * 0.06, 20, 32))}px ${DISP}`;
-      x.lineWidth = 4; x.strokeStyle = ESPRESSO; x.strokeText('+' + f.n, p.x, p.y);
-      x.fillStyle = f.col; x.fillText('+' + f.n, p.x, p.y);
-      x.globalAlpha = 1;
-    } else if (f.kind === 'nope') {
-      const c = slots[f.slot]; if (!c) continue;
-      const pos = slotPos(c, f.slot), p = project(pos.x, 1.5, 0);
-      x.globalAlpha = clamp(1 - f.t / 0.7, 0, 1);
-      x.font = `900 ${Math.round(clamp(W * 0.05, 16, 24))}px ${BODY}`;
-      x.lineWidth = 4; x.strokeStyle = ESPRESSO; x.strokeText('ليس طلبي', p.x, p.y);
-      x.fillStyle = '#FFD7CF'; x.fillText('ليس طلبي', p.x, p.y);
-      x.globalAlpha = 1;
+      x.font = `800 ${Math.round(ls * 0.42)}px ${BODY}`; x.textAlign = 'center';
+      x.lineWidth = 3; x.strokeStyle = ESPRESSO; x.strokeText('احترق! المسه', p.x, p.y - R - 10);
+      x.fillStyle = '#FFD7CF'; x.fillText('احترق! المسه', p.x, p.y - R - 10);
     }
   }
 
   /* coins, under the shell's names: host left, guest right */
   const cy = clamp(H * 0.085, 58, 84), fs = Math.round(clamp(W * 0.075, 22, 36));
   for (const k of SIDES) {
-    const c = v[k], left = k === 'host';
-    const X = left ? 16 : W - 16;
-    x.textAlign = left ? 'left' : 'right';
+    const c = v[k], isLeft = k === 'host';
+    const X0 = isLeft ? 16 : W - 16;
+    x.textAlign = isLeft ? 'left' : 'right'; x.textBaseline = 'middle';
     x.font = `900 ${fs}px ${DISP}`;
-    const n = String((c && c.coins) || 0);
-    const tw = x.measureText(n).width;
-    const coinX = left ? X + fs * 0.42 : X - fs * 0.42;
+    const coinX = isLeft ? X0 + fs * 0.42 : X0 - fs * 0.42;
     x.fillStyle = GOLD; x.beginPath(); x.arc(coinX, cy, fs * 0.36, 0, TAU); x.fill();
     x.strokeStyle = '#B9871F'; x.lineWidth = 2; x.beginPath(); x.arc(coinX, cy, fs * 0.24, 0, TAU); x.stroke();
     x.fillStyle = META.roles[k].color;
-    x.fillText(n, left ? X + fs * 0.9 : X - fs * 0.9, cy + 2);
+    x.fillText(String((c && c.coins) || 0), isLeft ? X0 + fs * 0.9 : X0 - fs * 0.9, cy + 2);
     x.font = `600 ${Math.round(fs * 0.36)}px ${BODY}`;
     x.fillStyle = 'rgba(251,239,217,.6)';
-    const served = (c && c.served) || 0;
-    x.fillText(`${served} زبون`, left ? X + fs * 0.9 : X - fs * 0.9, cy + fs * 0.66);
-    void tw;
+    x.fillText(`${(c && c.served) || 0} زبون`, isLeft ? X0 + fs * 0.9 : X0 - fs * 0.9, cy + fs * 0.66);
   }
 
   /* hold and mute */
-  const br = clamp(W * 0.048, 16, 22), by = cy + 4;
-  CAM.buttons = [{ id: 'pause', x: W / 2 - br * 1.35, y: by, r: br }, { id: 'mute', x: W / 2 + br * 1.35, y: by, r: br }];
+  const br = clamp(W * 0.048, 16, 22), bty = cy + 4;
+  CAM.buttons = [{ id: 'pause', x: W / 2 - br * 1.35, y: bty, r: br }, { id: 'mute', x: W / 2 + br * 1.35, y: bty, r: br }];
   for (const b of CAM.buttons) {
     x.fillStyle = 'rgba(30,20,15,.62)'; x.beginPath(); x.arc(b.x, b.y, b.r, 0, TAU); x.fill();
     x.strokeStyle = 'rgba(251,239,217,.28)'; x.lineWidth = 1.5; x.stroke();
@@ -2969,9 +3477,7 @@ function overlay(x, v, side) {
       if (Sound.muted) {
         x.beginPath(); x.moveTo(b.x + b.r * 0.22, b.y - b.r * 0.22); x.lineTo(b.x + b.r * 0.5, b.y + b.r * 0.22);
         x.moveTo(b.x + b.r * 0.5, b.y - b.r * 0.22); x.lineTo(b.x + b.r * 0.22, b.y + b.r * 0.22); x.stroke();
-      } else {
-        x.beginPath(); x.arc(b.x + b.r * 0.1, b.y, b.r * 0.32, -0.7, 0.7); x.stroke();
-      }
+      } else { x.beginPath(); x.arc(b.x + b.r * 0.1, b.y, b.r * 0.32, -0.7, 0.7); x.stroke(); }
     }
   }
   if (v.pause) {
@@ -2979,7 +3485,58 @@ function overlay(x, v, side) {
     x.font = `600 ${Math.round(clamp(W * 0.035, 12, 15))}px ${BODY}`;
     x.fillStyle = 'rgba(251,239,217,.75)';
     const m = Math.floor((v.pauseT || 0) / 60), sec = Math.floor((v.pauseT || 0) % 60);
-    x.fillText(`${m}:${String(sec).padStart(2, '0')}`, W / 2, by + br + 14);
+    x.fillText(`${m}:${String(sec).padStart(2, '0')}`, W / 2, bty + br + 14);
+  }
+
+  /* the ticket rail: one ticket above each place at the counter */
+  const railY = Math.round(bty + br + 22);
+  const farTop = project(...(() => { const [a, b] = world(other(side), 0, CTR.z0); return [a, 1.2, b]; })()).y;
+  let tw = Math.min((W - 16) / SLOTS - 6, 128);
+  while (tw > 60 && railY + ticketH(tw) > Math.max(farTop + 30, railY + 120)) tw -= 2;
+  const th = ticketH(tw);
+  x.fillStyle = lin(x, 0, railY - 4, 0, railY + 4, ['#F1F3F5', '#A9B0B7', '#6F777F']);
+  rr(x, 6, railY - 3, W - 12, 6, 3); x.fill();
+  for (const bx of [10, W - 10]) { x.fillStyle = '#5E666E'; x.beginPath(); x.arc(bx, railY, 5, 0, TAU); x.fill(); }
+
+  const order = [];                                   // left to right on this screen
+  for (let i = 0; i < SLOTS; i++) order.push([project(SLOT_X[i], 2, 0).x, i]);
+  order.sort((a, b) => a[0] - b[0]);
+  const gap = (W - 12 - SLOTS * tw) / (SLOTS + 1);
+  order.forEach(([, i], col) => {
+    const c = slots[i];
+    if (!c) return;
+    const X = 6 + gap + col * (tw + gap), Y = railY + 2;
+    const pos = slotPos(c, i, clk);
+    const body = project(pos.x, 1.2 * CUST_SC, 0);
+    CAM.targets.push({ k: T_SLOT0 + i, x: body.x, y: body.y, r: Math.max(30, pxAt(pos.x, 1.2 * CUST_SC, 0, 0.85)) });
+    if (c.st !== WAIT || !live) return;
+    /* a string from the ticket down to its customer */
+    const head = project(pos.x, 2.45 * CUST_SC + pos.y, 0);
+    x.strokeStyle = rgb(SHIRT[c.look % 8]); x.globalAlpha = 0.55; x.lineWidth = 2; x.setLineDash([3, 4]);
+    x.beginPath(); x.moveTo(X + tw / 2, Y + th - 3); x.lineTo(head.x, head.y); x.stroke();
+    x.setLineDash([]); x.globalAlpha = 1;
+    ticket(x, v, side, c, i, X, Y, tw, th, i === tgt);
+    CAM.targets.push({ k: T_SLOT0 + i, rect: [X - 3, Y - 6, X + tw + 3, Y + th + 4] });
+  });
+
+  /* floating feedback */
+  x.textAlign = 'center'; x.textBaseline = 'middle';
+  for (const f of FX) {
+    if (f.kind === 'coin') {
+      const a = clamp(1 - f.t / 1.2, 0, 1), p = project(f.x, 3.0 + f.t * 1.2, 0);
+      x.globalAlpha = a; x.font = `900 ${Math.round(clamp(W * 0.07, 22, 34))}px ${DISP}`;
+      x.lineWidth = 5; x.strokeStyle = ESPRESSO; x.strokeText('+' + f.n, p.x, p.y);
+      x.fillStyle = f.col; x.fillText('+' + f.n, p.x, p.y);
+      x.globalAlpha = 1;
+    } else if (f.kind === 'nope') {
+      const c = slots[f.slot]; if (!c) continue;
+      const pos = slotPos(c, f.slot, clk), p = project(pos.x, 1.6, 0);
+      x.globalAlpha = clamp(1 - f.t / 0.9, 0, 1);
+      x.font = `900 ${Math.round(clamp(W * 0.05, 16, 24))}px ${BODY}`;
+      x.lineWidth = 5; x.strokeStyle = ESPRESSO; x.strokeText(f.text, p.x, p.y);
+      x.fillStyle = '#FFD7CF'; x.fillText(f.text, p.x, p.y);
+      x.globalAlpha = 1;
+    }
   }
 
   /* the opponent's name over their counter, so the far side reads as a person */
@@ -2988,22 +3545,19 @@ function overlay(x, v, side) {
   x.textAlign = 'center'; x.font = `600 ${Math.round(clamp(W * 0.034, 11, 15))}px ${BODY}`;
   x.fillStyle = META.roles[other(side)].color;
   x.fillText(`مطبخ ${META.roles[other(side)].name}`, op.x, op.y - 10);
-  void them; void s;
 }
 
 /* ═══ per-frame: events read off the view, so both phones agree ═════ */
 
 function events(v, side, dt) {
-  const slots = v.slots || [];
+  const slots = v.slots || [], clk = v.clk || 0;
   for (let i = 0; i < SLOTS; i++) {
     const c = slots[i];
     const was = SEEN.slotSt[i];
-    if (c && (!was || was.id !== c.id)) {
-      if (SEEN.phase === 'live') Sound.tone(1320, 0.12, { type: 'sine', gain: 0.06, delay: 0.02 });
-    }
+    if (c && (!was || was.id !== c.id) && SEEN.phase === 'live') Sound.tone(1320, 0.12, { type: 'sine', gain: 0.06, delay: 0.02 });
     if (c && was && was.id === c.id && was.st === WAIT && c.st !== WAIT) {
       if (c.st === ANGRY) Sound.tone(220, 0.35, { type: 'sawtooth', gain: 0.06, to: 120 });
-      else {
+      else if (c.st !== CLOSED) {
         const by = c.st === BY_HOST ? 'host' : 'guest';
         const n = ((v[by] && v[by].coins) || 0) - (SEEN.coins[by] || 0);
         FX.push({ kind: 'coin', x: SLOT_X[i], t: 0, n: Math.max(0, n), col: META.roles[by].color });
@@ -3013,47 +3567,52 @@ function events(v, side, dt) {
         } else Sound.tone(392, 0.18, { type: 'triangle', gain: 0.09, to: 330 });
       }
     }
+    /* a soft tick once, when a customer is down to five seconds */
+    if (c && c.st === WAIT && v.phase === 'live' && arrived(c, clk) && patience(c, clk) <= 5 && !SEEN.warned[c.id]) {
+      SEEN.warned[c.id] = 1;
+      Sound.tone(880, 0.05, { type: 'square', gain: 0.05 }); Sound.tone(660, 0.05, { type: 'square', gain: 0.05, delay: 0.12 });
+    }
     SEEN.slotSt[i] = c ? { id: c.id, st: c.st } : null;
   }
   for (const k of SIDES) SEEN.coins[k] = (v[k] && v[k].coins) || 0;
 
-  const me = v[side];
+  const me = v[side], age = grillAge(me, clk);
   if (me) {
     if ((me.plate & ~SEEN.plate) && me.plate) Sound.tone(520 + bits(me.plate) * 90, 0.07, { type: 'triangle', gain: 0.12 });
     if (!me.plate && SEEN.plate && !FX.some(f => f.kind === 'coin' && f.t < 0.05)) Sound.noise(0.12, { freq: 900, gain: 0.08 });
-    if (me.grill && !SEEN.grill) Sound.noise(0.25, { freq: 3200, filter: 'highpass', gain: 0.1 });
-    if (me.grill >= COOK && SEEN.grill < COOK && SEEN.grill) Sound.tone(1568, 0.09, { type: 'sine', gain: 0.08 });
-    if (me.grill >= BURN && SEEN.grill < BURN && SEEN.grill) Sound.noise(0.6, { freq: 1500, freqTo: 300, gain: 0.12 });
-    SEEN.plate = me.plate; SEEN.grill = me.grill;
+    if (age >= 0 && SEEN.grill < 0) Sound.noise(0.25, { freq: 3200, filter: 'highpass', gain: 0.1 });
+    if (age >= COOK && SEEN.grill >= 0 && SEEN.grill < COOK) Sound.tone(1568, 0.09, { type: 'sine', gain: 0.08 });
+    if (age >= BURN && SEEN.grill >= 0 && SEEN.grill < BURN) Sound.noise(0.6, { freq: 1500, freqTo: 300, gain: 0.12 });
+    SEEN.plate = me.plate; SEEN.grill = age;
   }
 
   /* the countdown beeps */
   if (v.phase === 'ready') {
-    const n = Math.ceil(READY_FOR - (v.t || 0) - 0.4);
+    const n = Math.ceil(READY_FOR - ptime(v) - 0.4);
     if (n !== SEEN.tick) { SEEN.tick = n; Sound.tone(n > 0 ? 660 : 990, n > 0 ? 0.1 : 0.3, { type: 'square', gain: 0.06 }); }
   } else SEEN.tick = -1;
   if (v.phase === 'done' && SEEN.phase === 'live') {
     Sound.tone(784, 0.15, { type: 'triangle', gain: 0.1 }); Sound.tone(1047, 0.4, { type: 'triangle', gain: 0.1, delay: 0.15 });
   }
-  if (v.phase === 'ready' && SEEN.phase === 'done') { FX.length = 0; }
+  if (v.phase === 'ready' && SEEN.phase === 'done') { FX.length = 0; SEEN.warned = {}; }
   SEEN.phase = v.phase;
 
   /* grill smoke */
   for (const k of SIDES) {
-    const c = v[k];
-    if (!c || !c.grill || v.pause) continue;
+    const c = v[k], a = grillAge(c, clk);
+    if (a < 0 || v.pause) continue;
     const [gx, gz] = world(k, GRILL_X, ROW_B);
-    const rate = c.grill >= BURN - 2 ? 14 : 5;
+    const rate = a >= BURN - 2 ? 14 : 5;
     if (rnd() < rate * dt) {
       FX.push({ kind: 'puff', x: gx + (rnd() - 0.5) * 0.6, y: 1.35, z: gz + (rnd() - 0.5) * 0.5, t: 0, life: 1.1,
-                c: c.grill >= BURN - 2 ? [0.25, 0.22, 0.2] : [1, 1, 1] });
+                c: a >= BURN - 2 ? [0.25, 0.22, 0.2] : [1, 1, 1] });
     }
   }
-  Sound.sizzle(me && me.grill && !v.pause && v.phase === 'live' ? (me.grill >= BURN ? 0.5 : 1) : 0);
+  Sound.sizzle(age >= 0 && !v.pause && v.phase === 'live' ? (age >= BURN ? 0.5 : 1) : 0);
 
   for (const f of FX) f.t += v.pause ? 0 : dt;
   for (let i = FX.length - 1; i >= 0; i--) {
-    const f = FX[i], life = f.kind === 'puff' ? f.life : f.kind === 'coin' ? 1.2 : 0.7;
+    const f = FX[i], life = f.kind === 'puff' ? f.life : f.kind === 'coin' ? 1.2 : 0.9;
     if (f.t >= life) FX.splice(i, 1);
   }
   if (FX.length > 80) FX.splice(0, FX.length - 80);
@@ -3073,6 +3632,7 @@ function draw(x, v, r) {
 
   x.save();
   const dpr = x.canvas && r.w ? x.canvas.width / r.w : 1;
+  CAM.dpr = Math.round(dpr * 4) / 4 || 1;
   x.setTransform(dpr, 0, 0, dpr, 0, 0);
   let gl = false;
   if (glInit()) {
@@ -3160,11 +3720,11 @@ Sound.init();
 function ambient(x, t, dt, w, h, reduced) {
   const n = 9;
   for (let i = 0; i < n; i++) {
-    const sp = 14 + (i * 7) % 11, sz = 26 + (i * 13) % 30;
+    const sp = 14 + (i * 7) % 11, sz = 30 + (i * 13) % 34;
     const X = ((i * 97) % 100) / 100 * w;
     const Y = h + sz - ((reduced ? 0 : t * sp) + i * 137) % (h + sz * 3);
-    x.globalAlpha = 0.16 + (i % 3) * 0.05;
-    icon(x, [31, 23, 7, 27, 19, 15, 3, 29, 31][i], X, Y, sz);
+    x.globalAlpha = 0.14 + (i % 3) * 0.05;
+    paintBurger(x, [31, 23, 7, 27, 19, 15, 3, 29, 31][i], X, Y, sz);
   }
   x.globalAlpha = 1;
 }
@@ -3190,10 +3750,10 @@ const META = {
   solo: 'تدرّب وحدك', soloBlurb: 'ضد طاهٍ مستعجل، بلا هاتف ثانٍ', soloTag: 'تدريب',
   againHost: 'وردية جديدة', againGuest: 'اطلب وردية أخرى',
   steps: [
-    ['اقرأ الطلب', 'فوق كل زبون بطاقة تُظهر البرغر الذي يريده بالضبط.'],
-    ['ابنِ البرغر', 'المس الخبز والجبن والطماطم والخس ليُضاف إلى صحنك. سلة القمامة تفرّغ الصحن.'],
+    ['اقرأ الطلب', 'تذكرة كل زبون معلّقة في الأعلى بلون قميصه: صورة البرغر، مكوّناته، والثواني الباقية.'],
+    ['ابنِ البرغر', 'المس الصواني: خبز، جبن، طماطم، خس. الصينية المضيئة هي ما ينقص طلبك التالي، والسلة تفرّغ الصحن.'],
     ['اشوِ اللحم', 'المس صندوق اللحم ليوضع على الشواية، والمسها حين تخضرّ الدائرة. إن احترق فالمسها لترميه.'],
-    ['قدّم', 'حين تطابق صحنك بطاقة تظهر علامة ✓. المس الزبون لتأخذ العملات، والصبر الباقي بقشيش.'],
+    ['قدّم', 'كل مكوّن على صحنك يأخذ ✓ في التذكرة. حين يكتمل يظهر ختم «قدّم»: المس التذكرة أو الزبون.'],
   ],
 };
 
