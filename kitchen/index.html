@@ -135,7 +135,7 @@
      "@type": "HowToStep",
      "position": 2,
      "name": "ابنِ البرغر",
-     "text": "المس الصواني: خبز، جبن، طماطم، خس. الصينية المضيئة هي ما ينقص طلبك التالي، والسلة تفرّغ الصحن."
+     "text": "المس الصواني لتضيف الخبز والجبن والطماطم والخس إلى صحنك. سلة القمامة تفرّغ الصحن."
     },
     {
      "@type": "HowToStep",
@@ -387,7 +387,7 @@ html[lang=ar] button,html[lang=ar] input{font-family:var(--body)}
   </div>
   <div class="steps">
     <h2>كيف يتصل الهاتفان</h2>
-    <ol id="steps-list"><li><span class="n">01</span><span><b>اقرأ الطلب</b>تذكرة كل زبون معلّقة في الأعلى بلون قميصه: صورة البرغر، مكوّناته، والثواني الباقية.</span></li><li><span class="n">02</span><span><b>ابنِ البرغر</b>المس الصواني: خبز، جبن، طماطم، خس. الصينية المضيئة هي ما ينقص طلبك التالي، والسلة تفرّغ الصحن.</span></li><li><span class="n">03</span><span><b>اشوِ اللحم</b>المس صندوق اللحم ليوضع على الشواية، والمسها حين تخضرّ الدائرة. إن احترق فالمسها لترميه.</span></li><li><span class="n">04</span><span><b>قدّم</b>كل مكوّن على صحنك يأخذ ✓ في التذكرة. حين يكتمل يظهر ختم «قدّم»: المس التذكرة أو الزبون.</span></li></ol>
+    <ol id="steps-list"><li><span class="n">01</span><span><b>اقرأ الطلب</b>تذكرة كل زبون معلّقة في الأعلى بلون قميصه: صورة البرغر، مكوّناته، والثواني الباقية.</span></li><li><span class="n">02</span><span><b>ابنِ البرغر</b>المس الصواني لتضيف الخبز والجبن والطماطم والخس إلى صحنك. سلة القمامة تفرّغ الصحن.</span></li><li><span class="n">03</span><span><b>اشوِ اللحم</b>المس صندوق اللحم ليوضع على الشواية، والمسها حين تخضرّ الدائرة. إن احترق فالمسها لترميه.</span></li><li><span class="n">04</span><span><b>قدّم</b>كل مكوّن على صحنك يأخذ ✓ في التذكرة. حين يكتمل يظهر ختم «قدّم»: المس التذكرة أو الزبون.</span></li></ol>
   </div>
   <p id="foot">كل هاتف يرى المطعم من مطبخه. الزبون يُخدم مرة واحدة فقط، فسابق خصمك عليه.</p>
 </section>
@@ -3172,23 +3172,6 @@ const DISP = '"Lalezar","Alexandria",sans-serif', BODY = '"Alexandria",system-ui
 const rgb = c => `rgb(${Math.round(c[0] * 255)},${Math.round(c[1] * 255)},${Math.round(c[2] * 255)})`;
 const rr = pill;
 
-/* which order you are most likely building: the most urgent one your plate
-   still fits. Purely a hint, computed on this phone only. */
-function targetOf(v, side) {
-  const me = v[side], slots = v.slots || [], clk = v.clk || 0;
-  if (!me) return -1;
-  let best = -1, bt = Infinity, any = -1, at = Infinity;
-  for (let i = 0; i < SLOTS; i++) {
-    const c = slots[i];
-    if (!c || c.st !== WAIT) continue;
-    const p = patience(c, clk);
-    if (p < at) { at = p; any = i; }
-    if ((me.plate & ~c.o) || p < 1.5) continue;
-    if (p < bt) { bt = p; best = i; }
-  }
-  return best >= 0 ? best : any;
-}
-
 /* a face that gets crosser as patience runs out */
 function mood(x, cx, cy, r, f) {
   x.fillStyle = f > 0.5 ? '#FFD45A' : f > 0.25 ? '#FFB347' : '#FF6B4A';
@@ -3210,7 +3193,7 @@ function mood(x, cx, cy, r, f) {
 }
 
 /* one order ticket, hanging from the rail at (X, Y) */
-function ticket(x, v, side, c, i, X, Y, tw, th, isTarget) {
+function ticket(x, v, side, c, i, X, Y, tw, th) {
   const me = v[side], clk = v.clk || 0, myCol = META.roles[side].color;
   const plate = me ? me.plate : 0, match = plate === c.o;
   const left = patience(c, clk), f = clamp(left / c.P, 0, 1);
@@ -3268,8 +3251,7 @@ function ticket(x, v, side, c, i, X, Y, tw, th, isTarget) {
 
   /* every ingredient as a chip; a tick when it is already on your plate */
   const req = [BUN, MEAT, CHEESE, TOMATO, LETTUCE].filter(g => c.o & BIT(g));
-  const extra = isTarget ? [BUN, MEAT, CHEESE, TOMATO, LETTUCE].filter(g => (plate & BIT(g)) && !(c.o & BIT(g))) : [];
-  const chips = req.map(g => [g, (plate & BIT(g)) ? 'have' : 'need']).concat(extra.map(g => [g, 'extra']));
+  const chips = req.map(g => [g, (plate & BIT(g)) ? 'have' : 'need']);
   const cols = 3, cs = Math.floor(Math.min((tw - 10) / cols - 4, 30));
   const gy = by + img.h + 2;
   chips.forEach(([g, st], k) => {
@@ -3314,9 +3296,6 @@ function ticket(x, v, side, c, i, X, Y, tw, th, isTarget) {
     x.font = `900 ${Math.round(sh * 0.62)}px ${DISP}`;
     x.fillText('✓ قدّم', 0, 1);
     x.restore();
-  } else if (isTarget) {
-    x.setLineDash([5, 4]); x.lineWidth = 2.2; x.strokeStyle = myCol;
-    paper(); x.stroke(); x.setLineDash([]);
   }
 
   /* the clip that holds it to the rail */
@@ -3337,67 +3316,27 @@ function overlay(x, v, side) {
   CAM.targets = [];
   const slots = v.slots || [];
   const live = v.phase === 'live';
-  const tgt = live ? targetOf(v, side) : -1;
-  const tc = tgt >= 0 ? slots[tgt] : null;
-  const plate = me ? me.plate : 0, gAge = grillAge(me, clk);
+  const gAge = grillAge(me, clk);
 
-  /* what the target still needs, to light up the right trays */
-  const need = new Set();
-  let wantGrill = false, wantTrash = false;
-  if (tc) {
-    for (const g of [BUN, CHEESE, TOMATO, LETTUCE]) if ((tc.o & BIT(g)) && !(plate & BIT(g))) need.add(g);
-    if ((tc.o & BIT(MEAT)) && !(plate & BIT(MEAT))) {
-      if (gAge < 0) need.add(MEAT);
-      else if (gAge >= COOK) wantGrill = true;
-    }
-    wantTrash = !!(plate & ~tc.o);
-  }
-  if (gAge >= BURN) wantGrill = true;
-  const glowA = 0.55 + 0.45 * Math.sin(CLOCK * 7);
-
-  /* the trays: a label with the same picture as the tickets, and its name */
-  const ls = Math.round(clamp(W * 0.058, 20, 32));
+  /* the trays: a small round label with the same picture as the tickets.
+     No hint about which tray to tap next — reading the order is the game. */
+  const ls = Math.round(clamp(W * 0.06, 20, 30));
   for (let b = 0; b < T_BIN.length; b++) {
     const ing = T_BIN[b];
     const [wx, wz] = world(side, BIN_X[b], ROW_F);
     const p = project(wx, 1.15, wz);
     CAM.targets.push({ k: b, x: p.x, y: p.y, r: Math.max(28, pxAt(wx, 1.15, wz, 0.95)) });
     const [fx, fz] = world(side, BIN_X[b], ROW_F + 0.62);
-    const q = project(fx, 0.62, fz);
-    const lit = live && need.has(ing);
-    const name = ING_NAME[ing];
-    x.font = `800 ${Math.round(ls * 0.46)}px ${BODY}`;
-    const tw = x.measureText(name).width, pw = ls + tw + 10, ph = ls + 4;
-    const px = q.x - pw / 2, py = q.y - ph / 2;
-    if (lit) {
-      x.save(); x.shadowColor = myCol; x.shadowBlur = 14 * glowA;
-      x.fillStyle = myCol; rr(x, px - 3, py - 3, pw + 6, ph + 6, ph); x.fill(); x.restore();
-    }
-    x.fillStyle = 'rgba(255,249,236,.96)'; rr(x, px, py, pw, ph, ph / 2); x.fill();
-    x.strokeStyle = lit ? myCol : 'rgba(43,29,22,.25)'; x.lineWidth = lit ? 2.5 : 1; x.stroke();
+    const q = project(fx, 0.62, fz), R = ls / 2 + 3;
+    x.fillStyle = 'rgba(255,249,236,.96)'; x.beginPath(); x.arc(q.x, q.y, R, 0, TAU); x.fill();
+    x.strokeStyle = 'rgba(43,29,22,.25)'; x.lineWidth = 1; x.stroke();
     const sp = ingSprite(ing, ls);
-    x.drawImage(sp, px + pw - ls - 3, py + 2, sp.w, sp.h);
-    x.fillStyle = ESPRESSO; x.textAlign = 'right'; x.textBaseline = 'middle';
-    x.fillText(name, px + pw - ls - 7, py + ph / 2 + 1);
-    if (lit) {                                        // a bouncing arrow over the tray
-      const t = project(wx, 1.9, wz), bob = Math.abs(Math.sin(CLOCK * 6)) * 8;
-      x.fillStyle = myCol; x.strokeStyle = '#fff'; x.lineWidth = 2;
-      x.beginPath(); x.moveTo(t.x - 9, t.y - 12 - bob); x.lineTo(t.x + 9, t.y - 12 - bob); x.lineTo(t.x, t.y - bob); x.closePath();
-      x.fill(); x.stroke();
-    }
+    x.drawImage(sp, q.x - sp.w / 2, q.y - sp.h / 2, sp.w, sp.h);
   }
   for (const [k, lx] of [[T_GRILL, GRILL_X], [T_TRASH, TRASH_X]]) {
     const [wx, wz] = world(side, lx, ROW_B);
     const p = project(wx, 1.2, wz);
     CAM.targets.push({ k, x: p.x, y: p.y, r: Math.max(26, pxAt(wx, 1.2, wz, k === T_GRILL ? 1.0 : 0.7)) });
-    if (k === T_TRASH && live && wantTrash) {
-      const R = Math.max(22, pxAt(wx, 1.2, wz, 0.7));
-      x.strokeStyle = KETCHUP; x.lineWidth = 3; x.globalAlpha = glowA;
-      x.beginPath(); x.arc(p.x, p.y, R, 0, TAU); x.stroke(); x.globalAlpha = 1;
-      x.font = `800 ${Math.round(ls * 0.42)}px ${BODY}`; x.textAlign = 'center';
-      x.lineWidth = 3; x.strokeStyle = ESPRESSO; x.strokeText('فرّغ الصحن', p.x, p.y - R - 8);
-      x.fillStyle = '#FFD7CF'; x.fillText('فرّغ الصحن', p.x, p.y - R - 8);
-    }
   }
 
   /* your grill: a ring that fills while it cooks */
@@ -3405,10 +3344,6 @@ function overlay(x, v, side) {
     const [wx, wz] = world(side, GRILL_X, ROW_B);
     const p = project(wx, 1.6, wz), R = clamp(pxAt(wx, 1.6, wz, 0.42), 14, 26);
     const ready = gAge >= COOK && gAge < BURN, burnt = gAge >= BURN;
-    if (wantGrill && live) {
-      x.save(); x.shadowColor = burnt ? KETCHUP : '#7BD35A'; x.shadowBlur = 16 * glowA;
-      x.fillStyle = burnt ? KETCHUP : '#4FAE4A'; x.beginPath(); x.arc(p.x, p.y, R + 5, 0, TAU); x.fill(); x.restore();
-    }
     x.lineWidth = 4; x.lineCap = 'round';
     x.strokeStyle = 'rgba(0,0,0,.35)'; x.beginPath(); x.arc(p.x, p.y, R, 0, TAU); x.stroke();
     x.fillStyle = burnt ? '#211714' : ready ? '#4E9E5A' : 'rgba(43,29,22,.8)';
@@ -3515,7 +3450,7 @@ function overlay(x, v, side) {
     x.strokeStyle = rgb(SHIRT[c.look % 8]); x.globalAlpha = 0.55; x.lineWidth = 2; x.setLineDash([3, 4]);
     x.beginPath(); x.moveTo(X + tw / 2, Y + th - 3); x.lineTo(head.x, head.y); x.stroke();
     x.setLineDash([]); x.globalAlpha = 1;
-    ticket(x, v, side, c, i, X, Y, tw, th, i === tgt);
+    ticket(x, v, side, c, i, X, Y, tw, th);
     CAM.targets.push({ k: T_SLOT0 + i, rect: [X - 3, Y - 6, X + tw + 3, Y + th + 4] });
   });
 
@@ -3751,7 +3686,7 @@ const META = {
   againHost: 'وردية جديدة', againGuest: 'اطلب وردية أخرى',
   steps: [
     ['اقرأ الطلب', 'تذكرة كل زبون معلّقة في الأعلى بلون قميصه: صورة البرغر، مكوّناته، والثواني الباقية.'],
-    ['ابنِ البرغر', 'المس الصواني: خبز، جبن، طماطم، خس. الصينية المضيئة هي ما ينقص طلبك التالي، والسلة تفرّغ الصحن.'],
+    ['ابنِ البرغر', 'المس الصواني لتضيف الخبز والجبن والطماطم والخس إلى صحنك. سلة القمامة تفرّغ الصحن.'],
     ['اشوِ اللحم', 'المس صندوق اللحم ليوضع على الشواية، والمسها حين تخضرّ الدائرة. إن احترق فالمسها لترميه.'],
     ['قدّم', 'كل مكوّن على صحنك يأخذ ✓ في التذكرة. حين يكتمل يظهر ختم «قدّم»: المس التذكرة أو الزبون.'],
   ],
