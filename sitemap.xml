@@ -25,6 +25,12 @@
     <image:image><image:loc>https://funhub.super-dar.com/dawnpatrol/og.png</image:loc></image:image>
   </url>
   <url>
+    <loc>https://funhub.super-dar.com/farm/</loc>
+    <lastmod>2026-10-13</lastmod>
+    <priority>0.8</priority>
+    <image:image><image:loc>https://funhub.super-dar.com/farm/og.png</image:loc></image:image>
+  </url>
+  <url>
     <loc>https://funhub.super-dar.com/hairpin/</loc>
     <lastmod>2026-10-13</lastmod>
     <priority>0.8</priority>

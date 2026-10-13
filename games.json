@@ -130,6 +130,19 @@
       "added": "2026-10-13",
       "title_en": "Street Kitchen",
       "short": "برغر وبطاطس وعصير وكولا لزبائن جائعين"
+    },
+    {
+      "id": "farm",
+      "title": "مزرعة الجيران",
+      "blurb": "مزرعتان متقابلتان على طريق واحد في عالم ثلاثي الأبعاد. المس الأرض لترمي البذور واحصد القمح قبل أن ييبس، وأطعم البقرة والدجاج لتجمع الحليب والبيض، ثم بِعها في العربة؛ عند الغروب بعد دقيقتين يفوز صاحب العملات الأكثر.",
+      "players": 2,
+      "minutes": "2 min",
+      "mode": "realtime",
+      "accent": "#8CC63F",
+      "art": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\">\n  <path d=\"M2.4 21V11.2l5.2-4.4 5.2 4.4V21z\" fill=\"#C2402F\"/>\n  <path d=\"M1.6 11.8 7.6 6.6l6 5.2\" stroke=\"#6B3A2A\" stroke-width=\"1.5\"/>\n  <rect x=\"5.3\" y=\"14.6\" width=\"4.6\" height=\"6.4\" fill=\"#F6EBD8\"/>\n  <path d=\"M5.3 14.6l4.6 6.4M9.9 14.6l-4.6 6.4\" stroke=\"#C2402F\" stroke-width=\"1\"/>\n  <path d=\"M18.4 21V8.8\" stroke=\"#C9952F\" stroke-width=\"1.3\"/>\n  <g fill=\"#E9B23A\">\n    <ellipse cx=\"17.1\" cy=\"10.6\" rx=\".95\" ry=\"1.6\" transform=\"rotate(-30 17.1 10.6)\"/>\n    <ellipse cx=\"19.7\" cy=\"10.6\" rx=\".95\" ry=\"1.6\" transform=\"rotate(30 19.7 10.6)\"/>\n    <ellipse cx=\"17.1\" cy=\"13.3\" rx=\".95\" ry=\"1.6\" transform=\"rotate(-30 17.1 13.3)\"/>\n    <ellipse cx=\"19.7\" cy=\"13.3\" rx=\".95\" ry=\"1.6\" transform=\"rotate(30 19.7 13.3)\"/>\n    <ellipse cx=\"17.2\" cy=\"16\" rx=\".9\" ry=\"1.5\" transform=\"rotate(-30 17.2 16)\"/>\n    <ellipse cx=\"19.6\" cy=\"16\" rx=\".9\" ry=\"1.5\" transform=\"rotate(30 19.6 16)\"/>\n    <ellipse cx=\"18.4\" cy=\"7.9\" rx=\".85\" ry=\"1.5\"/>\n  </g>\n  <path d=\"M1.4 21.2h21.2\" stroke=\"#5DAE38\" stroke-width=\"1.6\"/>\n</svg>",
+      "added": "2026-10-13",
+      "title_en": "Neighbour Farms",
+      "short": "ازرع واحصد وبِع قبل جارك"
     }
   ]
 }
