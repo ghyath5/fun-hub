@@ -193,6 +193,14 @@ footer a{text-decoration:underline;text-underline-offset:3px}
     {
      "@type": "ListItem",
      "position": 1,
+     "url": "https://funhub.super-dar.com/kitchen/",
+     "item": {
+      "@id": "https://funhub.super-dar.com/kitchen/#game"
+     }
+    },
+    {
+     "@type": "ListItem",
+     "position": 2,
      "name": "ملعب",
      "item": "https://funhub.super-dar.com/"
     }
@@ -202,7 +210,7 @@ footer a{text-decoration:underline;text-underline-offset:3px}
    "@type": "ItemList",
    "@id": "https://funhub.super-dar.com/#games",
    "name": "ألعاب ملعب",
-   "numberOfItems": 9,
+   "numberOfItems": 10,
    "itemListOrder": "https://schema.org/ItemListUnordered",
    "itemListElement": [
     {
@@ -278,6 +286,41 @@ footer a{text-decoration:underline;text-underline-offset:3px}
      }
     }
    ]
+  },
+  {
+   "@type": "VideoGame",
+   "@id": "https://funhub.super-dar.com/kitchen/#game",
+   "name": "مطبخ الحارة",
+   "alternateName": "Street Kitchen",
+   "url": "https://funhub.super-dar.com/kitchen/",
+   "description": "طاهيان أمام طابور واحد من الزبائن في مطعم ثلاثي الأبعاد. المس الخبز والجبن والطماطم والخس لتبني البرغر الظاهر في بطاقة الزبون، واشوِ اللحم قبل أن يحترق، ثم المس الزبون لتقدّمه قبل خصمك؛ بعد تسعين ثانية يفوز صاحب العملات الأكثر.",
+   "genre": [
+    "طبخ",
+    "مطاعم"
+   ],
+   "playMode": "MultiPlayer",
+   "numberOfPlayers": {
+    "@type": "QuantitativeValue",
+    "minValue": 2,
+    "maxValue": 2
+   },
+   "gamePlatform": "Web browser",
+   "applicationCategory": "GameApplication",
+   "operatingSystem": "Any",
+   "browserRequirements": "متصفح جوال حديث يدعم WebRTC",
+   "inLanguage": "ar",
+   "image": "https://funhub.super-dar.com/kitchen/og.png",
+   "isFamilyFriendly": true,
+   "isAccessibleForFree": true,
+   "publisher": {
+    "@id": "https://funhub.super-dar.com/#org"
+   },
+   "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD",
+    "availability": "https://schema.org/InStock"
+   }
   },
   {
    "@type": "VideoGame",
@@ -706,6 +749,12 @@ footer a{text-decoration:underline;text-underline-offset:3px}
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="i-kitchen" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M3.6 10.4C3.6 6.2 7.4 3.8 12 3.8s8.4 2.4 8.4 6.6z" fill="#C97F35"/>
+  <path d="M8.4 6.6l.9-.3M12 5.6l.9.2M15.2 6.8l.8.4" stroke="#FFF4D6" stroke-width="1.1"/>
+  <path d="M3 12.2l2.25-1.4 2.25 1.4 2.25-1.4 2.25 1.4 2.25-1.4 2.25 1.4 2.25-1.4 2.25 1.4" stroke="#69B83E" stroke-width="1.7"/>
+  <path d="M4.2 14.3h15.6" stroke="#F5C02E" stroke-width="1.6"/>
+  <rect x="3.6" y="15.2" width="16.8" height="2.6" rx="1.3" fill="#6E3B22"/>
+  <path d="M4.2 19h15.6a0 0 0 0 1 0 0 2 2 0 0 1-2 2H6.2a2 2 0 0 1-2-2z" fill="#D9984C"/></symbol>
 <symbol id="i-pylon" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="18.2" y="3" width="2.6" height="18" rx=".6" fill="#F2EDE2"/>
   <path d="M18.2 6.6h2.6M18.2 10.2h2.6M18.2 13.8h2.6M18.2 17.4h2.6" stroke="#D33A2C" stroke-width="1.8"/>
   <path d="M2.4 12.4 15 11.2" stroke="#C8372D" stroke-width="2.4"/>
@@ -785,8 +834,16 @@ footer a{text-decoration:underline;text-underline-offset:3px}
   </section>
 
   <section class="wrap" aria-labelledby="games-title">
-    <div class="head"><h2 id="games-title">الألعاب</h2><span class="count">9 ألعاب · كلها مجانية</span></div>
+    <div class="head"><h2 id="games-title">الألعاب</h2><span class="count">10 ألعاب · كلها مجانية</span></div>
     <ul class="grid">
+      <li>
+        <a class="card" href="/kitchen/" style="--c:#E8A33D">
+          <span class="tile"><svg aria-hidden="true"><use href="#i-kitchen"/></svg></span>
+          <h3>مطبخ الحارة</h3>
+          <p>برغر سريع لطابور واحد من الجائعين</p>
+          <span class="tags"><span>لاعبان</span><span>دقيقتان</span></span>
+        </a>
+      </li>
       <li>
         <a class="card" href="/pylon/" style="--c:#E8B122">
           <span class="tile"><svg aria-hidden="true"><use href="#i-pylon"/></svg></span>

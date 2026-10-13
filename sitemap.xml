@@ -31,6 +31,12 @@
     <image:image><image:loc>https://funhub.super-dar.com/hairpin/og.png</image:loc></image:image>
   </url>
   <url>
+    <loc>https://funhub.super-dar.com/kitchen/</loc>
+    <lastmod>2026-10-13</lastmod>
+    <priority>0.8</priority>
+    <image:image><image:loc>https://funhub.super-dar.com/kitchen/og.png</image:loc></image:image>
+  </url>
+  <url>
     <loc>https://funhub.super-dar.com/moonbloom/</loc>
     <lastmod>2026-10-13</lastmod>
     <priority>0.8</priority>
