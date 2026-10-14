@@ -2074,9 +2074,11 @@ const game = {
     }
     if (!STICK.on) return null;
     if (phase === 'up') { STICK.on = 0; STICK.dx = 0; STICK.dy = 0; return { p: 0 }; }
-    /* world direction: screen-up is away from you, whichever end you sit at */
-    const s = -sgn(api.side);
-    const wx = p.dx * s, wy = -p.dy * s;
+    /* world direction: screen-up is away from you, whichever end you sit at.
+       The camera at your end faces the other end, so its right vector is
+       world -x for the host and +x for the guest: both axes carry sgn(side). */
+    const s = sgn(api.side);
+    const wx = p.dx * s, wy = p.dy * s;
     const len = Math.hypot(wx, wy);
     STICK.dx = p.dx; STICK.dy = p.dy;
     const dead = Math.min(CAM.w, CAM.h) * 0.03;
