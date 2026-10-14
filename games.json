@@ -143,6 +143,19 @@
       "added": "2026-10-13",
       "title_en": "Neighbour Farms",
       "short": "ازرع واحصد وبِع قبل جارك"
+    },
+    {
+      "id": "echo",
+      "title": "صدى الزمن",
+      "blurb": "ساحة عائمة وأربع حلقات من أربع عشرة ثانية في عالم ثلاثي الأبعاد. اسحب لتجري وتجمع الشظايا، وبعد كل حلقة يعود الزمن إلى بدايته ويعود صدى منك يكرّر ما فعلته بالضبط فيجمع لك ويسدّ الطريق على خصمك. لمس أي جسد من اللون الآخر يجمّدك ثانية، والأكثر شظايا بعد أربع حلقات يفوز.",
+      "players": 2,
+      "minutes": "2 min",
+      "mode": "realtime",
+      "accent": "#8E7CFF",
+      "art": "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\">\n  <path d=\"M4 7.5 12 3l8 4.5v9L12 21l-8-4.5z\" stroke=\"#8E7CFF\" stroke-width=\"1.5\"/>\n  <path d=\"M8.5 10 12 8l3.5 2v4L12 16l-3.5-2z\" stroke=\"#C9BFFF\" stroke-width=\"1.3\"/>\n  <path d=\"M4 7.5l4.5 2.5M20 7.5 15.5 10M4 16.5l4.5-2.5M20 16.5 15.5 14M12 3v5M12 16v5\" stroke=\"#8E7CFF\" stroke-width=\"1.1\" stroke-opacity=\".7\"/>\n  <circle cx=\"12\" cy=\"12\" r=\"1.6\" fill=\"#FFD166\"/>\n</svg>",
+      "added": "2026-10-14",
+      "title_en": "Echo of Time",
+      "short": "اجمع الشظايا وصداك يعود معك كل حلقة"
     }
   ]
 }
