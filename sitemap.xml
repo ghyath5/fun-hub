@@ -2,7 +2,7 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
   <url>
     <loc>https://funhub.super-dar.com/</loc>
-    <lastmod>2026-10-13</lastmod>
+    <lastmod>2026-10-17</lastmod>
     <priority>1.0</priority>
     <image:image><image:loc>https://funhub.super-dar.com/og.png</image:loc></image:image>
   </url>
@@ -77,5 +77,11 @@
     <lastmod>2026-10-13</lastmod>
     <priority>0.8</priority>
     <image:image><image:loc>https://funhub.super-dar.com/scrapwar/og.png</image:loc></image:image>
+  </url>
+  <url>
+    <loc>https://funhub.super-dar.com/vault/</loc>
+    <lastmod>2026-10-17</lastmod>
+    <priority>0.8</priority>
+    <image:image><image:loc>https://funhub.super-dar.com/vault/og.png</image:loc></image:image>
   </url>
 </urlset>
