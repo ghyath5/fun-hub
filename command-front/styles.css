@@ -99,9 +99,9 @@ body.ready .boot { opacity: 0; pointer-events: none; }
 @media (orientation: portrait) and (pointer: coarse) and (max-width: 600px) {
   .card.rotate { display: grid; }
 }
-@media (orientation: landscape) and ((max-width: 567px) or (max-height: 319px)) {
-  .card.too-small { display: grid; }
-}
+/* Short landscape screens: the DOM interface is zoomed to fit (src/ui/fit.js); the canvas is not. */
+.hud, .screens { zoom: var(--ui-zoom, 1); }
+html.too-small .card.too-small { display: grid; }
 @media (max-width: 639px) { :root { --hud-scale: .9; } }
 @media (prefers-reduced-motion: reduce) { .phone-icon, .toast { animation: none; } }
 

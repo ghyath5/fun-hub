@@ -7,6 +7,7 @@ import { html } from 'htm/preact';
 import { PressButton } from './press.js';
 import { healthBand } from '../sim/formulas/combat.js';
 import { GESTURE } from '../data/ui.js';
+import { toUi } from './fit.js';
 
 const STANCE_LABEL = { guard: 'Guard', hold: 'Hold', holdFire: 'No fire' };
 
@@ -89,10 +90,10 @@ export function RadialMenu({ menu, pick, close }) {
   if (!menu) return null;
   const R = GESTURE.radialRadiusPx;
   const S = GESTURE.radialOptionPx;
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
-  const cx = Math.min(vw - R - S / 2 - 4, Math.max(R + S / 2 + 4, menu.x));
-  const cy = Math.min(vh - R - S / 2 - 4, Math.max(R + S / 2 + 4, menu.y));
+  const vw = toUi(window.innerWidth);
+  const vh = toUi(window.innerHeight);
+  const cx = Math.min(vw - R - S / 2 - 4, Math.max(R + S / 2 + 4, toUi(menu.x)));
+  const cy = Math.min(vh - R - S / 2 - 4, Math.max(R + S / 2 + 4, toUi(menu.y)));
   const n = menu.options.length;
   return html`<div class="radial-backdrop" onPointerDown=${close}>
     <div class="radial-hub" style=${`left:${cx}px;top:${cy}px`}></div>
@@ -160,7 +161,7 @@ export function StructureBar({ s, onTop, sellArmed, rallyMode, act }) {
  */
 export function PlaceControls({ at, place, cancel }) {
   if (!at) return null;
-  return html`<div class="placectl" style=${`left:${Math.round(at.x)}px;top:${Math.round(at.y)}px`}>
+  return html`<div class="placectl" style=${`left:${Math.round(toUi(at.x))}px;top:${Math.round(toUi(at.y))}px`}>
     <button class="cmd place-ok" disabled=${!at.ok} onClick=${place} aria-label="Place">✓</button>
     <button class="cmd" onClick=${cancel} aria-label="Cancel placement">✕</button>
     ${!at.ok && at.reason ? html`<span class="place-why">${at.reason}</span>` : null}

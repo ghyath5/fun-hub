@@ -5,6 +5,7 @@
  */
 import { startApp } from './game/app.js';
 import { showBlocking } from './ui/menus.js';
+import { watchFit } from './ui/fit.js';
 
 const debug = new URLSearchParams(location.search).has('debug');
 const $ = (/** @type {string} */ id) => /** @type {HTMLElement} */ (document.getElementById(id));
@@ -52,6 +53,7 @@ async function boot() {
 if (location.protocol === 'file:') {
   // index.html already shows the "serve this folder" card; nothing to start.
 } else {
+  watchFit();
   registerServiceWorker();
   boot().catch((err) => {
     console.error(err);
