@@ -67,33 +67,53 @@ function leaveDock(w, u) {
 /** @param {World} w @param {number} i @param {number} id */
 const free = (w, i, id) => w.map.bales[i] > 0 && (!w.oreReserved.has(i) || w.oreReserved.get(i) === id);
 
+/** Is there free ore within `r` cells (Chebyshev) of a cell? @param {World} w @param {any} u @param {number} cx @param {number} cy @param {number} r */
+function oreWithin(w, u, cx, cy, r) {
+  const W = w.map.width;
+  for (let y = Math.max(0, cy - r); y <= Math.min(w.map.height - 1, cy + r); y++) {
+    for (let x = Math.max(0, cx - r); x <= Math.min(W - 1, cx + r); x++) if (free(w, y * W + x, u.id)) return true;
+  }
+  return false;
+}
+
 /**
  * Best ore or gem cell: lowest path cost − 4 for gems, skipping cells
  * reserved by other harvesters; cells within 6 of the last field first, then
  * within 20, then anywhere reachable.
+ *
+ * The search spreads out from the harvester cheapest-first and stops as soon
+ * as no unseen cell could still win, so on a big map a harvester going back
+ * to its own field never pays for a search of the whole map.
  * @param {World} w @param {any} u
  * @returns {number} cell index or -1
  */
 export function findOre(w, u) {
   const W = w.map.width;
-  const field = computeField(w.nav.grids.track, u.cx, u.cy);
   const h = u.harv;
   const lastX = h.last >= 0 ? h.last % W : -1;
   const lastY = h.last >= 0 ? (h.last / W) | 0 : -1;
+  // A tier with no free ore in its window can never win; one that has some can.
+  const nearPossible = h.last >= 0 && oreWithin(w, u, lastX, lastY, ECONOMY.preferNearLast);
+  const localPossible = oreWithin(w, u, u.cx, u.cy, ECONOMY.seekLocalRadius);
   let near = -1; let nearScore = Infinity;
   let local = -1; let localScore = Infinity;
   let any = -1; let anyScore = Infinity;
-  for (let i = 0; i < w.map.bales.length; i++) {
-    if (!free(w, i, u.id)) continue;
-    const d = field.dist[i];
-    if (!Number.isFinite(d)) continue;
+  computeField(w.nav.grids.track, u.cx, u.cy, (i, d) => {
+    // Every cell still to come costs at least d, so scores below d − bonus are final.
+    const floor = d - GEM_BONUS;
+    if (near >= 0 && floor > nearScore) return true;
+    if (!nearPossible && local >= 0 && floor > localScore) return true;
+    if (!nearPossible && !localPossible && any >= 0 && floor > anyScore) return true;
+    if (!free(w, i, u.id)) return false;
     const x = i % W;
     const y = (i / W) | 0;
     const score = d - (w.map.gem[i] ? GEM_BONUS : 0);
-    if (h.last >= 0 && chebyshev(x, y, lastX, lastY) <= ECONOMY.preferNearLast && score < nearScore) { nearScore = score; near = i; }
-    if (chebyshev(x, y, u.cx, u.cy) <= ECONOMY.seekLocalRadius && score < localScore) { localScore = score; local = i; }
-    if (score < anyScore) { anyScore = score; any = i; }
-  }
+    const better = (/** @type {number} */ best, /** @type {number} */ bestCell) => score < best || (score === best && i < bestCell);
+    if (h.last >= 0 && chebyshev(x, y, lastX, lastY) <= ECONOMY.preferNearLast && better(nearScore, near)) { nearScore = score; near = i; }
+    if (chebyshev(x, y, u.cx, u.cy) <= ECONOMY.seekLocalRadius && better(localScore, local)) { localScore = score; local = i; }
+    if (better(anyScore, any)) { anyScore = score; any = i; }
+    return false;
+  });
   return near >= 0 ? near : local >= 0 ? local : any;
 }
 
@@ -196,8 +216,15 @@ const fsm = createFsm({
   seekRefinery(w, u, h) {
     const refineries = structuresWithRole(w, u.owner, 'refinery');
     if (!refineries.length) return 'waitRefinery';
-    const field = computeField(w.nav.grids.track, u.cx, u.cy);
     const W = w.map.width;
+    // Search outward until every dock is reached or the rest are too far to beat the nearest.
+    const docks = new Set(refineries.map((r) => { const d = dockOf(r); return d.y * W + d.x; }));
+    let first = -1;
+    const field = computeField(w.nav.grids.track, u.cx, u.cy, (i, d) => {
+      if (first >= 0 && d > first + ECONOMY.refineryDetourCells * CELL_COST) return true;
+      if (docks.delete(i) && first < 0) first = d;
+      return docks.size === 0 && d > first;
+    });
     const cost = (/** @type {any} */ r) => {
       const d = dockOf(r);
       return d.x >= 0 && d.y >= 0 && d.x < W && d.y < w.map.height ? field.dist[d.y * W + d.x] : Infinity;

@@ -8,6 +8,7 @@ import { SETUP_DEFAULTS, GAME_SPEEDS } from '../data/rules.js';
 import { PLAYER_COLORS } from '../data/factions.js';
 import { createRng } from '../lib/rng.js';
 import { createMatch } from '../sim/setup.js';
+import { playersForSize } from '../map/generator.js';
 
 /** @typedef {'easy' | 'normal' | 'hard'} Difficulty */
 /**
@@ -20,7 +21,8 @@ import { createMatch } from '../sim/setup.js';
  * @typedef {object} SetupForm
  * @property {string} map               A bundled map id, or 'generated'
  * @property {number} genSeed
- * @property {number} genSize           48 / 64 / 96
+ * @property {number} genSize           one of GENERATOR.sizes
+ * @property {2 | 4} genPlayers         start positions on a generated map (4 needs a Medium map or larger)
  * @property {'coalition' | 'union'} faction
  * @property {string} color
  * @property {OpponentForm[]} opponents 1–3
@@ -44,7 +46,8 @@ export function defaultForm() {
   return {
     map: SETUP_DEFAULTS.map,
     genSeed: 1 + (Date.now() % 99999),
-    genSize: 64,
+    genSize: 96,
+    genPlayers: 2,
     faction: 'coalition',
     color: 'blue',
     opponents: [{ faction: 'union', color: 'red', difficulty: /** @type {Difficulty} */ (SETUP_DEFAULTS.difficulty) }],
@@ -61,9 +64,20 @@ export function defaultForm() {
   };
 }
 
+/**
+ * How many players the form's map holds: a bundled map's own count, or the
+ * generated map's chosen start positions.
+ * @param {SetupForm} f @param {{ id: string, maxPlayers: number }[]} maps
+ */
+export function maxPlayersOf(f, maps) {
+  if (f.map === 'generated') return playersForSize(f.genSize, f.genPlayers ?? (f.genSize >= 96 ? 4 : 2));
+  return maps.find((m) => m.id === f.map)?.maxPlayers ?? 2;
+}
+
 /** Keep the form consistent: opponents fit the map, colours are unique, 2v2 needs four players. @param {SetupForm} f @param {number} maxPlayers */
 export function normaliseForm(f, maxPlayers) {
   const out = { ...f, opponents: f.opponents.slice(0, Math.max(1, maxPlayers - 1)).map((o) => ({ ...o })) };
+  if (out.genPlayers !== 2 && out.genPlayers !== 4) out.genPlayers = maxPlayers === 4 ? 4 : 2; // forms saved before the choice existed
   const ais = out.opponents.filter((o) => !o.remote).length;
   if (out.teams === '2v2' && out.opponents.length + 1 < 4) out.teams = 'ffa';
   if (out.teams === 'coop' && (!ais || ais === out.opponents.length)) out.teams = 'ffa';

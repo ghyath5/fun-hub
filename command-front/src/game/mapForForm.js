@@ -8,6 +8,7 @@
 import { loadMap } from '../map/loader.js';
 import { validateMap, describe } from '../map/validator.js';
 import { generateMap } from '../map/generator.js';
+import { maxPlayersOf } from './matchSetup.js';
 
 export const FALLBACK_MAP = 'duel-canyon';
 
@@ -17,7 +18,7 @@ export const FALLBACK_MAP = 'duel-canyon';
  */
 export async function mapForForm(form) {
   if (form.map === 'generated') {
-    const gen = generateMap({ seed: form.genSeed, size: form.genSize, players: form.genSize >= 96 ? 4 : 2 });
+    const gen = generateMap({ seed: form.genSeed, size: form.genSize, players: /** @type {2 | 4} */ (maxPlayersOf(form, [])) });
     if (gen) return { map: gen.map, seed: gen.seed, error: '' };
     return { map: await loadMap(FALLBACK_MAP), seed: null, error: 'No valid map came out of 20 seeds; playing Duel Canyon instead.' };
   }

@@ -377,3 +377,14 @@ html.too-small .card.too-small { display: grid; }
 .end-note { margin-top: 10px; }
 .menu-tip { max-width: 320px; margin: 6px auto 0; font-size: 12px; line-height: 1.45; color: var(--muted); }
 .menu-tip b { color: var(--ink); }
+
+/* Settings → Custom sounds */
+.custom-sounds code { font-size: 12px; background: rgba(255,255,255,.07); padding: 1px 4px; border-radius: 3px; }
+.custom-sounds .row-buttons { display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0; }
+.custom-sounds details { margin-top: 6px; }
+.custom-sounds summary { cursor: pointer; color: var(--muted); padding: 6px 0; }
+.sound-names { display: flex; flex-wrap: wrap; gap: 4px; max-height: 40vh; overflow: auto; }
+.sound-names code.mine { background: var(--accent); color: #111; }
+/* A file input inside its label: invisible but still clickable on every browser (iOS ignores display:none ones). */
+.file-pick { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; pointer-events: none; }
+.custom-sounds label.btn { display: inline-flex; align-items: center; justify-content: center; position: relative; }

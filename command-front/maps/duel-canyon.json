@@ -7,7 +7,7 @@
   "maxPlayers": 2,
   "theme": "temperate",
   "schematicScale": 2,
-  "schematicBales": { "ore": 8, "gem": 4 },
+  "schematicBales": { "ore": 12, "gem": 4 },
   "schematic": [
     "......................^^",
     "........ooo..........^^^",
@@ -38,5 +38,12 @@
   "gems": [],
   "starts": [{ "x": 8, "y": 8 }, { "x": 39, "y": 39 }],
   "bridges": [],
-  "neutral": []
+  "neutral": [
+    {"type": "oreMine", "x": 18, "y": 4},
+    {"type": "oreMine", "x": 29, "y": 43},
+    {"type": "oreMine", "x": 5, "y": 15},
+    {"type": "oreMine", "x": 42, "y": 32},
+    {"type": "gemMine", "x": 23, "y": 23},
+    {"type": "gemMine", "x": 24, "y": 24}
+  ]
 }

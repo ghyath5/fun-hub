@@ -8,7 +8,7 @@
  "theme": "temperate",
  "schematicScale": 2,
  "schematicBales": {
-  "ore": 8,
+  "ore": 12,
   "gem": 4
  },
  "schematic": [
@@ -140,7 +140,7 @@
   }
  ],
  "neutral": [
-  {
+{
    "type": "civilian-house",
    "x": 20,
    "y": 4
@@ -149,6 +149,12 @@
    "type": "civilian-house",
    "x": 43,
    "y": 4
-  }
+  },
+  {"type": "oreMine", "x": 23, "y": 11},
+  {"type": "oreMine", "x": 40, "y": 11},
+  {"type": "oreMine", "x": 15, "y": 32},
+  {"type": "oreMine", "x": 48, "y": 32},
+  {"type": "oreMine", "x": 23, "y": 49},
+  {"type": "oreMine", "x": 40, "y": 49}
  ]
 }

@@ -7,10 +7,11 @@
 import { loadMap, BUNDLED_MAPS } from '../map/loader.js';
 import { mapForForm } from './mapForForm.js';
 import { createSession } from './session.js';
-import { defaultForm, normaliseForm, startMatch } from './matchSetup.js';
+import { defaultForm, normaliseForm, startMatch, maxPlayersOf } from './matchSetup.js';
 import { snapshot, restore } from '../save/serialize.js';
 import { saveGame, loadGame, listSaves, deleteGame, saveSettings, loadSettings } from '../lib/storage.js';
 import { createAudio } from '../lib/audio.js';
+import { createCustomSounds } from './customSounds.js';
 import { setHaptics } from '../lib/haptics.js';
 import { showScreen, MainMenu, SetupScreen, SlotsScreen, SettingsScreen, EndScreen } from '../ui/screens.js';
 import { html } from 'htm/preact';
@@ -35,6 +36,10 @@ const defaultSettings = () => ({ leftHanded: false, haptics: true, effects: 1, v
  */
 export async function startApp({ hudEl, worldEl, screensEl, debug }) {
   const audio = createAudio();
+  const customSounds = createCustomSounds(audio);
+  customSounds.load().catch((e) => console.warn('[audio] custom sounds', e));
+  /** What the last custom-sound import did, for the settings screen. */
+  let soundsNote = '';
   /** @type {AppSettings & { form?: SetupForm, played?: boolean, mpForm?: SetupForm, mpMe?: { faction: 'coalition' | 'union', color: string } }} */
   let settings = { ...defaultSettings(), ...(await loadSettings().catch(() => ({}))) };
   let form = normaliseForm({ ...defaultForm(), ...(settings.form ?? {}) }, 4);
@@ -71,18 +76,36 @@ export async function startApp({ hudEl, worldEl, screensEl, debug }) {
   const setup = () => {
     showScreen(screensEl, html`<${SetupScreen} form=${form} maps=${maps} error=${setupError}
       onChange=${(/** @type {SetupForm} */ f) => {
-        const mp = f.map === 'generated' ? (f.genSize >= 96 ? 4 : 2) : maps.find((m) => m.id === f.map)?.maxPlayers ?? 2;
-        form = normaliseForm(f, mp);
+        form = normaliseForm(f, maxPlayersOf(f, maps));
         setup();
       }}
       onStart=${startFromForm} onBack=${() => { setupError = ''; menu(); }} />`);
   };
 
   /** @param {() => void} back */
-  const settingsScreen = (back) => {
-    showScreen(screensEl, html`<${SettingsScreen} settings=${settings}
+  const settingsScreen = async (back) => {
+    /** @type {import('../ui/screens.js').SoundsPanel} */
+    const sounds = {
+      names: await customSounds.names(),
+      replaced: customSounds.replaced,
+      count: customSounds.count,
+      note: soundsNote,
+      add: async (files) => {
+        const r = await customSounds.add(files).catch((e) => ({ added: 0, unknown: [], tooBig: [], full: false, error: String(e) }));
+        soundsNote = [
+          `${r.added} file${r.added === 1 ? '' : 's'} added.`,
+          r.unknown.length ? `Not a sound name: ${r.unknown.join(', ')}.` : '',
+          r.tooBig.length ? `Too large (over 5 MB): ${r.tooBig.join(', ')}.` : '',
+          r.full ? 'Storage for custom sounds is full; remove some first.' : '',
+          /** @type {any} */ (r).error ? `Could not save: ${/** @type {any} */ (r).error}` : '',
+        ].filter(Boolean).join(' ');
+        settingsScreen(back);
+      },
+      clear: async () => { await customSounds.clear(); soundsNote = 'Custom sounds removed: the built-in sounds play again.'; settingsScreen(back); },
+    };
+    showScreen(screensEl, html`<${SettingsScreen} settings=${settings} sounds=${sounds}
       onChange=${(/** @type {AppSettings} */ s) => { settings = { ...settings, ...s }; applySettings(); persist(); settingsScreen(back); }}
-      onBack=${back} />`);
+      onBack=${() => { soundsNote = ''; back(); }} />`);
   };
 
   /** Save or load slots. @param {'save' | 'load'} mode @param {() => void} back */

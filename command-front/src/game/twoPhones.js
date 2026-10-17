@@ -22,7 +22,7 @@ import { html } from 'htm/preact';
 import { openRoom } from '../net/room.js';
 import { createNetMatch } from '../net/netMatch.js';
 import { diagnostics } from '../net/link.js';
-import { defaultForm, normaliseForm, startMatch } from './matchSetup.js';
+import { defaultForm, normaliseForm, startMatch, maxPlayersOf } from './matchSetup.js';
 import { mapForForm } from './mapForForm.js';
 import { snapshot, restore } from '../save/serialize.js';
 import { pack, unpack } from '../lib/storage.js';
@@ -75,7 +75,6 @@ export function createTwoPhones(app) {
   let roomOffs = [];
 
   // ---- Helpers.
-  const maxPlayersOf = (/** @type {SetupForm} */ f) => (f.map === 'generated' ? (f.genSize >= 96 ? 4 : 2) : maps.find((m) => m.id === f.map)?.maxPlayers ?? 2);
   const withDiag = (/** @type {any} */ vnode) => html`${vnode}${diagOpen ? html`<${DiagPanel} text=${diagText} stun=${stun} act=${diagActs} />` : null}`;
   const show = (/** @type {any} */ vnode) => showScreen(screensEl, withDiag(vnode));
   const diagActs = {
@@ -215,7 +214,7 @@ export function createTwoPhones(app) {
     const ais = saved.opponents.filter((o) => !o.remote);
     const remote = saved.opponents.find((o) => o.remote) ?? { faction: me.faction, color: 'red', difficulty: /** @type {'normal'} */ ('normal') };
     const f = { ...saved, opponents: [{ ...remote, remote: true }, ...ais] };
-    return normaliseForm(f, maxPlayersOf(f));
+    return normaliseForm(f, maxPlayersOf(f, maps));
   }
 
   function hostLobby() {
@@ -228,7 +227,7 @@ export function createTwoPhones(app) {
     r.listen((msg) => {
       if (msg?.k === 'me' && form) {
         const [remote, ...rest] = form.opponents;
-        form = normaliseForm({ ...form, opponents: [{ ...remote, faction: msg.faction, color: msg.color, remote: true }, ...rest] }, maxPlayersOf(form));
+        form = normaliseForm({ ...form, opponents: [{ ...remote, faction: msg.faction, color: msg.color, remote: true }, ...rest] }, maxPlayersOf(form, maps));
         publish();
         redraw();
       } else if (msg?.k === 'bye') notice('The other phone left', 'Host again when you are both ready.');
@@ -236,7 +235,7 @@ export function createTwoPhones(app) {
     redraw = () => {
       if (!form) return;
       show(html`<${SetupScreen} online=${true} form=${form} maps=${maps} error=${error || (r.state === 'down' ? 'Reconnecting to the other phone…' : '')}
-        onChange=${(/** @type {SetupForm} */ f) => { form = normaliseForm(f, maxPlayersOf(f)); publish(); redraw(); }}
+        onChange=${(/** @type {SetupForm} */ f) => { form = normaliseForm(f, maxPlayersOf(f, maps)); publish(); redraw(); }}
         onStart=${async () => {
           if (!form || r.state !== 'open') return;
           const chosen = await mapForForm(form);

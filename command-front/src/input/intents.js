@@ -30,7 +30,9 @@ const NON_COMBAT_BOX = new Set(['harvester', 'mcv']);
  * @property {() => number} scale               Screen px per world px
  * @property {() => { w: number, h: number }} screen
  * @property {(type: string) => number} radiusOf World px
- * @property {{ pulse: (cell: {x: number, y: number}, kind: 'move' | 'attackMove' | 'attack' | 'reject') => void, ack: () => void, info: (e: any) => void, tap: () => void }} feedback
+ * @property {{ pulse: (cell: {x: number, y: number}, kind: 'move' | 'attackMove' | 'attack' | 'reject') => void,
+ *   ack: (kind?: 'move' | 'attack') => void, picked: () => void, info: (e: any) => void, tap: () => void }} feedback
+ *   ack: the selection was given an order; picked: own units were just selected
  * @property {{ addMode: () => boolean, smartBox: () => boolean, targetMode?: () => string | null, setTargetMode?: (m: string | null) => void }} modes
  * @property {(menu: RadialMenu | null) => void} [radial]  Show or hide the radial menu
  * @property {(id: number) => void} [selectStructure]   Select an own structure (0 clears it)
@@ -57,11 +59,20 @@ export function createIntents(ctx) {
   let lastMove = /** @type {{ cell: {x: number, y: number}, ids: number[] } | null} */ (null);
   let lastAck = 0;
 
-  const ackOnce = () => {
+  /** Orders that send units at something rather than somewhere: they answer with an attack line. */
+  const ATTACKING = new Set(['attack', 'attackMove', 'forceFire', 'c4', 'enter']);
+  /** Units answer an order, at most twice a second. @param {string} type  the command */
+  const ackOnce = (type) => {
     const now = performance.now();
     if (now - lastAck < AUDIO.ackThrottleSeconds * 1000) return;
     lastAck = now;
-    ctx.feedback.ack();
+    ctx.feedback.ack(ATTACKING.has(type) ? 'attack' : 'move');
+  };
+  /** Own units were selected: the picked group answers (unless an order just spoke). */
+  const pickedOnce = () => {
+    if (!selectedUnits().length) return;
+    lastAck = performance.now();
+    ctx.feedback.picked();
   };
 
   /** Own mobile units currently selected. */
@@ -115,7 +126,7 @@ export function createIntents(ctx) {
     }
     ctx.issue({ tick: ctx.world.tick, playerId: ctx.human, type, entityIds: ids, target: { x: cell.x, y: cell.y } });
     ctx.feedback.pulse(cell, type === 'attackMove' ? 'attackMove' : 'move');
-    ackOnce();
+    ackOnce(type);
   }
 
   /** Move the selection to a screen point. @param {number} x @param {number} y */
@@ -142,7 +153,7 @@ export function createIntents(ctx) {
   /** Issue a command that targets an entity or cell. @param {string} type @param {number[]} ids @param {any} target */
   function issueAt(type, ids, target) {
     ctx.issue({ tick: ctx.world.tick, playerId: ctx.human, type, entityIds: ids, target });
-    ackOnce();
+    ackOnce(type);
   }
 
   /** Units in the selection able to hurt an enemy; tapping it attacks with those only. @param {any} e */
@@ -207,6 +218,7 @@ export function createIntents(ctx) {
       else ctx.selection.set([hit.id]);
       lastTapUnit = hit.id;
       ctx.feedback.tap();
+      pickedOnce();
       return;
     }
     if (hit && hit.cls === 'enemy') {
@@ -250,6 +262,7 @@ export function createIntents(ctx) {
         if (p.x >= 0 && p.y >= 0 && p.x <= w && p.y <= h) same.push(e.id);
       }
       ctx.selection.set(same);
+      pickedOnce();
       return;
     }
     if (lastMove) {
@@ -277,6 +290,7 @@ export function createIntents(ctx) {
     const ids = picked.map((e) => e.id);
     if (ctx.modes.addMode()) ctx.selection.set([...ctx.selection.ids, ...ids]);
     else ctx.selection.set(ids);
+    if (ids.length) pickedOnce();
   }
 
   return {
@@ -338,7 +352,7 @@ export function createIntents(ctx) {
       const ids = selectedUnits().filter(only).map((e) => e.id);
       if (ids.length === 0) return;
       ctx.issue({ tick: ctx.world.tick, playerId: ctx.human, type, entityIds: ids, target: null });
-      ackOnce();
+      ackOnce(type);
     },
     /** The best visible entity under a screen point (any owner), or null. @param {number} x @param {number} y */
     entityAt(x, y) {

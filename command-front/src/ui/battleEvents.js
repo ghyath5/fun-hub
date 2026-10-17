@@ -5,19 +5,14 @@
  */
 import { UNITS } from '../data/units.js';
 import { WEAPONS } from '../data/weapons.js';
+import { shotSound } from '../data/sounds.js';
+import { structureDef } from '../sim/entities/structures.js';
 import { RENDER, SIM } from '../data/rules.js';
 import { AUDIO } from '../data/ui.js';
 import { lookOf } from '../render/combatFx.js';
 import { createBattleSounds } from './alerts.js';
 
 const PX = RENDER.cellPx / SIM.leptonsPerCell;
-
-/** Sound for a weapon being fired. @param {string} weapon */
-function shotSound(weapon) {
-  const look = lookOf(weapon);
-  if (look === 'tracer') return WEAPONS[weapon].cooldown < 1 ? 'mg' : 'rifle';
-  return { snipe: 'snipe', shell: 'cannon', arc: 'thump', missile: 'missile', flame: 'flame', beam: 'zap', heal: 'heal', bite: 'bite' }[look] ?? 'rifle';
-}
 
 /**
  * @param {{
@@ -39,7 +34,7 @@ export function wireBattleEvents(ctx) {
   };
   const ev = ctx.world.events;
   const offs = [
-    ev.on('shot', (e) => { ctx.fx.onEvent(e, entity); at(shotSound(e.data.weapon), e.data.x, e.data.y); }),
+    ev.on('shot', (e) => { ctx.fx.onEvent(e, entity); at(shotSound(e.data.weapon, lookOf(e.data.weapon)), e.data.x, e.data.y); }),
     ev.on('impact', (e) => {
       ctx.fx.onEvent(e, entity);
       const w = WEAPONS[e.data.weapon];
@@ -49,12 +44,13 @@ export function wireBattleEvents(ctx) {
     ev.on('charge', (e) => ctx.fx.onEvent(e, entity)),
     ev.on('unitDied', (e) => {
       ctx.fx.onEvent(e, entity);
-      if (UNITS[e.data.type].loco !== 'foot') at('boom', e.data.x, e.data.y, false);
+      at(UNITS[e.data.type].loco === 'foot' ? 'die' : 'boom', e.data.x, e.data.y, UNITS[e.data.type].loco === 'foot');
       if (e.data.owner === ctx.human) {
         const L = SIM.leptonsPerCell;
         ctx.alerts.raise('unitLost', { x: Math.floor(e.data.x / L), y: Math.floor(e.data.y / L) });
       }
     }),
+    ev.on('structureDestroyed', (e) => at(structureDef(e.data.type)?.wall ? 'small' : 'bigBoom', e.data.x, e.data.y, false)),
   ];
   return {
     /** Play this frame's sounds. */

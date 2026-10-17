@@ -7,7 +7,8 @@
 import { html, render } from 'htm/preact';
 import { FACTIONS, PLAYER_COLORS } from '../data/factions.js';
 import { GAME_SPEEDS, SETUP_DEFAULTS, SIM } from '../data/rules.js';
-import { COLORS, ORE_GROWTH_OPTIONS } from '../game/matchSetup.js';
+import { COLORS, ORE_GROWTH_OPTIONS, maxPlayersOf } from '../game/matchSetup.js';
+import { GENERATOR } from '../map/generator.js';
 
 /** @typedef {import('../game/matchSetup.js').SetupForm} SetupForm */
 
@@ -80,7 +81,7 @@ const RemoteSlot = ({ o }) => html`<div class="opp remote">${colorDot(o.color)}<
 export function SetupScreen({ form, maps, error, onChange, onStart, onBack, online = false }) {
   const set = (/** @type {Partial<SetupForm>} */ patch) => onChange({ ...form, ...patch });
   const generated = form.map === 'generated';
-  const maxPlayers = generated ? (form.genSize >= 96 ? 4 : 2) : maps.find((m) => m.id === form.map)?.maxPlayers ?? 2;
+  const maxPlayers = maxPlayersOf(form, maps);
   const opp = (/** @type {number} */ k, /** @type {any} */ patch) => set({ opponents: form.opponents.map((o, i) => (i === k ? { ...o, ...patch } : o)) });
   return html`<div class="screen setup">
     <header class="screen-head">
@@ -98,7 +99,9 @@ export function SetupScreen({ form, maps, error, onChange, onStart, onBack, onli
           <${Row} label="Seed"><input type="number" inputmode="numeric" value=${form.genSeed} min="1"
             onChange=${(/** @type {any} */ e) => set({ genSeed: Math.max(1, e.target.value | 0) })} /></${Row}>
           <${Row} label="Size"><${Select} label="Size" value=${form.genSize} onChange=${(v) => set({ genSize: v })}
-            options=${SETUP_DEFAULTS.generatedSizes.map((s) => ({ value: s, label: `${s} × ${s}${s >= 96 ? ' (4 players)' : ''}` }))} /></${Row}>` : null}
+            options=${GENERATOR.sizes.map((s) => ({ value: s.size, label: `${s.name} ${s.size} × ${s.size}` }))} /></${Row}>
+          <${Row} label="Bases"><${Select} label="Bases" value=${maxPlayers} onChange=${(v) => set({ genPlayers: v })}
+            options=${[{ value: 2, label: '2 players' }, ...(form.genSize >= GENERATOR.minSizeFor4 ? [{ value: 4, label: '4 players' }] : [])]} /></${Row}>` : null}
         <${Row} label="Start positions"><${Select} label="Start positions" value=${form.startPositions} onChange=${(v) => set({ startPositions: v })}
           options=${[{ value: 'random', label: 'Random' }, { value: 'fixed', label: 'Fixed' }]} /></${Row}>
         <h3>You</h3>
@@ -167,8 +170,38 @@ export function SlotsScreen({ title, slots, mode, onPick, onDelete, onBack }) {
  * @property {boolean} [edgePan]         Mouse at the screen edge scrolls the map
  */
 
-/** @param {{ settings: AppSettings, onChange: (s: AppSettings) => void, onBack: () => void }} p */
-export function SettingsScreen({ settings, onChange, onBack }) {
+/**
+ * @typedef {object} SoundsPanel  Settings → Custom sounds
+ * @property {string[]} names      every name a file can take
+ * @property {string[]} replaced   names that have a file of the player's
+ * @property {number} count        files kept
+ * @property {string} note         what the last import did
+ * @property {(files: File[]) => void} add
+ * @property {() => void} clear
+ */
+
+/** @param {{ sounds: SoundsPanel }} p */
+function CustomSounds({ sounds }) {
+  const replaced = new Set(sounds.replaced);
+  return html`<section class="setup-col custom-sounds">
+    <h3>Custom sounds</h3>
+    <p class="muted">Play your own sound files instead of the built-in ones. Name each file after the sound it replaces,
+      for example <code>constructionComplete.mp3</code>, <code>infantry.select.mp3</code> or <code>sfx.cannon.wav</code>;
+      add <code>-2</code>, <code>-3</code>… for more versions of one sound. The files stay on this device.</p>
+    <div class="row-buttons">
+      <label class="btn">Add sound files…<input type="file" accept="audio/*" multiple class="file-pick"
+        onChange=${(/** @type {any} */ e) => { sounds.add([...e.target.files]); e.target.value = ''; }} /></label>
+      ${sounds.count ? html`<button class="btn" onClick=${sounds.clear}>Remove all (${sounds.count})</button>` : null}
+    </div>
+    ${sounds.note ? html`<p class="muted" role="status">${sounds.note}</p>` : null}
+    <details><summary>Sound names (${sounds.names.length})</summary>
+      <div class="sound-names">${sounds.names.map((n) => html`<code class=${replaced.has(n) ? 'mine' : ''}>${n}</code>`)}</div>
+    </details>
+  </section>`;
+}
+
+/** @param {{ settings: AppSettings, onChange: (s: AppSettings) => void, onBack: () => void, sounds?: SoundsPanel }} p */
+export function SettingsScreen({ settings, onChange, onBack, sounds }) {
   const set = (/** @type {Partial<AppSettings>} */ patch) => onChange({ ...settings, ...patch });
   const slider = (/** @type {'effects' | 'voice' | 'ui'} */ k, /** @type {string} */ label) => html`<${Row} label=${label}>
     <input type="range" min="0" max="100" value=${Math.round(settings[k] * 100)} aria-label=${label}
@@ -183,7 +216,8 @@ export function SettingsScreen({ settings, onChange, onBack }) {
       ${slider('effects', 'Effects volume')}
       ${slider('voice', 'Voice volume')}
       ${slider('ui', 'Interface volume')}
-    </section></div>
+    </section>
+    ${sounds ? html`<${CustomSounds} sounds=${sounds} />` : null}</div>
   </div>`;
 }
 

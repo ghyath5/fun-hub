@@ -23,3 +23,5 @@ Every file here is a prebuilt distribution file copied byte-for-byte from the np
 | jsqr.min.js | jsQR | as bundled with duel-net | assets/vendor/jsqr.min.js | creategame skill | Apache-2.0 | `fc6a9b5b0735aaf4af4748e0433d7351d4b725cfb02b032c502a5b699f3e4b9d` |
 
 `stats.min.js` and `tweakpane.min.mjs` load only with `?debug`. `mocha.*` and `chai.mjs` load only in `tests/index.html`. `duel-net.js`, `qrcode.min.js` and `jsqr.min.js` load only when two phones pair (src/net/link.js); the game uses `Duel.Peer`, `Duel.Qr` and `Duel.Diag` from it and never calls `Duel.start`.
+
+**Build-time tools, not shipped:** the voice lines in `assets/sound/v/` were spoken by Kokoro v1.0 (`kokoro-onnx` 0.4+, model `kokoro-v1.0.onnx` and `voices-v1.0.bin` from github.com/thewh1teagle/kokoro-onnx, Apache-2.0) and processed by `tools/audio`; the effects in `assets/sound/s/` are synthesised there with numpy/scipy. Only the rendered MP3s and `sounds.json` are part of the game.

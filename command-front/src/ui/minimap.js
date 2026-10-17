@@ -3,7 +3,8 @@
  * Radar minimap (section 12): bottom-left, 112 px (96–160). Works only while
  * the player owns a powered Radar Dome; otherwise a static "No radar" panel
  * that cannot be tapped. Shows explored terrain and ore, own and allied
- * units and structures as team-coloured dots, enemies the player can see,
+ * units and structures as team-coloured dots, ore and gem mines once seen,
+ * enemies the player can see,
  * the camera rectangle and 2 s alert pings. Tap centres the camera there;
  * drag scrolls continuously. Drawn into a 2D canvas a few times a second.
  */
@@ -56,8 +57,17 @@ export function drawMinimap(canvas, w, viewer, cam, pings) {
   tmp.getContext('2d').putImageData(img, 0, 0);
   g.imageSmoothingEnabled = false;
   g.drawImage(tmp, 0, 0, canvas.width, canvas.height);
+  const explored = (/** @type {number} */ i) => teams.some((/** @type {any} */ v) => v.explored[i]);
   for (const e of w.entities.all()) {
-    if (e.dead || e.inside || e.owner < 0) continue;
+    if (e.dead || e.inside) continue;
+    if (e.owner < 0) {
+      // Mines once seen, as bright marks: where the money comes back.
+      const mine = structureDef(e.type).mine;
+      if (!mine || !explored(e.cy * m.width + e.cx)) continue;
+      g.fillStyle = mine === 'gem' ? '#bff4ff' : '#ffe08a';
+      g.fillRect((e.cx - 0.5) * k, (e.cy - 0.5) * k, 2 * k, 2 * k);
+      continue;
+    }
     if (!w.visibleTo(viewer, e)) continue;
     g.fillStyle = PLAYER_COLORS[/** @type {keyof typeof PLAYER_COLORS} */ (w.players[e.owner].color)].dot;
     if (e.kind === 'structure') g.fillRect(e.cx * k, e.cy * k, e.w * k, e.h * k);

@@ -6,7 +6,8 @@
 import { ALERTS, CAMERA } from '../data/ui.js';
 
 /**
- * @param {{ show: (text: string, at?: {x: number, y: number}) => void }} toaster
+ * @param {{ show: (text: string, at?: {x: number, y: number}) => void, said?: (key: string) => void }} toaster
+ *   said: told each alert that is shown (the announcer speaks it)
  * @param {() => number} nowMs
  */
 export function createAlerts(toaster, nowMs = () => performance.now()) {
@@ -31,6 +32,7 @@ export function createAlerts(toaster, nowMs = () => performance.now()) {
       if (def.throttle > 0 && now - (last.get(k) ?? -Infinity) < def.throttle * 1000) return false;
       last.set(k, now);
       toaster.show(text || def.text, at);
+      toaster.said?.(key);
       if (at) {
         places.unshift(at);
         if (places.length > CAMERA.alertHistory) places.pop();

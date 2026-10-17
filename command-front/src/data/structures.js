@@ -73,9 +73,12 @@ export const STRUCTURES = Object.freeze({
 /** Neutral structures that may appear on maps (capturable by Engineers unless noted). */
 const neutral = (/** @type {any} */ p) => Object.freeze({
   line: 'structures', role: 'neutral', faction: 'both', cost: 0, power: 0, storage: 0, sight: 0, requires: [], water: false,
-  exit: null, dock: null, pad: null, weapon: null, powers: [], wall: false, capturable: true, armor: 'wood', ...p, tags: ['neutral', ...(p.tags ?? [])],
+  exit: null, dock: null, pad: null, weapon: null, powers: [], wall: false, capturable: true, armor: 'wood', mine: null, ...p, tags: ['neutral', ...(p.tags ?? [])],
 });
 export const NEUTRAL = Object.freeze({
   'civilian-house': neutral({ id: 'civilian-house', name: 'Civilian House', hp: 400, w: 1, h: 1 }),
   bridgeHut: neutral({ id: 'bridgeHut', name: 'Bridge Repair Hut', hp: 500, w: 1, h: 1, armor: 'concrete', capturable: false, tags: ['hut', 'invulnerable'] }),
+  // Mines sit in the middle of resource fields and regrow them for the whole match (sim/systems/ore.js).
+  oreMine: neutral({ id: 'oreMine', name: 'Ore Mine', hp: 1000, w: 1, h: 1, armor: 'concrete', capturable: false, mine: 'ore', tags: ['mine', 'invulnerable'] }),
+  gemMine: neutral({ id: 'gemMine', name: 'Gem Mine', hp: 1000, w: 1, h: 1, armor: 'concrete', capturable: false, mine: 'gem', tags: ['mine', 'invulnerable'] }),
 });

@@ -8,7 +8,7 @@
  "theme": "temperate",
  "schematicScale": 3,
  "schematicBales": {
-  "ore": 8,
+  "ore": 12,
   "gem": 4
  },
  "schematic": [
@@ -66,5 +66,18 @@
   }
  ],
  "bridges": [],
- "neutral": []
+ "neutral": [
+  {"type": "oreMine", "x": 19, "y": 9},
+  {"type": "oreMine", "x": 76, "y": 9},
+  {"type": "oreMine", "x": 19, "y": 86},
+  {"type": "oreMine", "x": 76, "y": 86},
+  {"type": "oreMine", "x": 11, "y": 38},
+  {"type": "oreMine", "x": 84, "y": 38},
+  {"type": "oreMine", "x": 11, "y": 57},
+  {"type": "oreMine", "x": 84, "y": 57},
+  {"type": "gemMine", "x": 41, "y": 41},
+  {"type": "gemMine", "x": 54, "y": 41},
+  {"type": "gemMine", "x": 41, "y": 54},
+  {"type": "gemMine", "x": 54, "y": 54}
+ ]
 }

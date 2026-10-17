@@ -1,16 +1,27 @@
 // @ts-check
 /**
  * Audio adapter: Howler.js owns the one AudioContext (classic script →
- * globals Howl, Howler); ZzFX only builds sample arrays. ZzFX's module makes
- * its own context at import, so it is imported lazily after unlock and that
- * spare context is closed straight away — playback always goes through Howler.ctx.
+ * globals Howl, Howler); everything plays through three buses (effects,
+ * voice, ui) whose levels come from Settings.
+ *
+ * Sounds come from three places, first match wins:
+ *   1. the player's own files (Settings → Custom sounds), kept on the device;
+ *   2. the rendered sound set in assets/sound (index: sounds.json), decoded
+ *      on first use — effects right after unlock, voices as they are needed;
+ *   3. small ZzFX blips generated in code, for interface clicks and as a
+ *      stand-in while a sample is still loading or when it cannot load.
+ *
+ * Voices have two channels: the announcer speaks one line at a time from a
+ * short queue; a unit's reply cuts off the previous reply.
  */
 import { AUDIO } from '../data/ui.js';
+import { SOUND_INDEX, customNameOf } from '../data/sounds.js';
 
 /** @typedef {'effects' | 'voice' | 'ui'} Bus */
+/** @typedef {{ bus?: Bus, volume?: number, pan?: number, weapon?: boolean }} PlayOpts */
 
 /**
- * Original sound effects as ZzFX parameter lists, generated in code.
+ * Generated stand-ins, as ZzFX parameter lists.
  * @type {Record<string, number[]>}
  */
 export const SOUNDS = {
@@ -31,66 +42,256 @@ export const SOUNDS = {
   small:    [0.5, 0.1, 140, 0, 0.04, 0.18, 4, 2, -2, 0, 0, 0, 0, 1],
   ready:    [0.5, 0, 660, 0.01, 0.08, 0.2, 0, 1.3, 0, 0, 220, 0.08],
 };
+/** Stand-ins for rendered effects that have no blip of their own. */
+const STAND_IN = /** @type {Record<string, string>} */ ({ heavy: 'cannon', bigBoom: 'boom', die: 'small', place: 'thump', deploy: 'thump', growl: 'bite' });
 
-export function createAudio() {
+/** How many announcer lines may wait their turn; older ones are dropped. */
+const QUEUE_MAX = 2;
+/** A queued line older than this is no longer news. */
+const STALE_MS = 3500;
+
+/**
+ * @param {{ index?: string, load?: (url: string) => Promise<ArrayBuffer> }} [opts]
+ */
+export function createAudio(opts = {}) {
   const H = /** @type {any} */ (globalThis).Howler;
+  const indexUrl = opts.index ?? SOUND_INDEX;
+  const base = indexUrl.slice(0, indexUrl.lastIndexOf('/') + 1);
+  const load = opts.load ?? (async (/** @type {string} */ url) => {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(`${url}: ${r.status}`);
+    return r.arrayBuffer();
+  });
+
   /** @type {Record<Bus, GainNode> | null} */
   let buses = null;
-  /** @type {Map<string, AudioBuffer>} */
-  const buffers = new Map();
+  /** @type {AudioContext | null} */
+  let ctx = null;
+  /** ZzFX stand-ins. @type {Map<string, AudioBuffer>} */
+  const blips = new Map();
+  /** Rendered sounds by name → file URLs, from sounds.json. @type {Map<string, string[]>} */
+  const files = new Map();
+  /** Decoded rendered sounds. @type {Map<string, AudioBuffer[]>} */
+  const samples = new Map();
+  /** Decodes in flight. @type {Map<string, Promise<AudioBuffer[] | null>>} */
+  const loading = new Map();
+  /** The player's own files, by custom name (see customNameOf). @type {Map<string, AudioBuffer[]>} */
+  const custom = new Map();
+  /** Raw custom files waiting for the context to exist. @type {Map<string, ArrayBuffer[]> | null} */
+  let customRaw = null;
   let active = 0;
   let unlocked = false;
+  /** @type {Promise<void> | null} */
+  let indexReady = null;
   /** Bus levels chosen in Settings (applied when the buses exist). @type {Record<Bus, number>} */
   const levels = { effects: 1, voice: 1, ui: 1 };
+
+  /** Fetch the index of rendered sounds. */
+  function readIndex() {
+    indexReady ??= (async () => {
+      try {
+        const doc = JSON.parse(new TextDecoder().decode(await load(indexUrl)));
+        for (const [name, list] of Object.entries(doc.sfx ?? {})) files.set(name, /** @type {string[]} */ (list).map((f) => base + f));
+        for (const [set, keys] of Object.entries(doc.voice ?? {})) {
+          for (const [key, list] of Object.entries(/** @type {Record<string, string[]>} */ (keys))) files.set(`voice:${set}:${key}`, list.map((f) => base + f));
+        }
+      } catch (e) {
+        console.warn('[audio] sound set unavailable, using generated blips', e);
+      }
+    })();
+    return indexReady;
+  }
+
+  /** @param {ArrayBuffer} bytes */
+  const decode = (bytes) => /** @type {AudioContext} */ (ctx).decodeAudioData(bytes.slice(0));
+
+  /** Decode a rendered sound's variants (once). @param {string} name */
+  function fetchSample(name) {
+    if (samples.has(name)) return Promise.resolve(samples.get(name) ?? null);
+    const urls = files.get(name);
+    if (!urls || !ctx) return Promise.resolve(null);
+    let p = loading.get(name);
+    if (!p) {
+      p = Promise.all(urls.map(async (u) => decode(await load(u))))
+        .then((bufs) => { samples.set(name, bufs); return bufs; })
+        .catch((e) => { console.warn('[audio]', name, e); samples.set(name, []); return null; })
+        .finally(() => loading.delete(name));
+      loading.set(name, p);
+    }
+    return p;
+  }
+
+  async function decodeCustom() {
+    if (!ctx || !customRaw) return;
+    const raw = customRaw;
+    customRaw = null;
+    custom.clear();
+    for (const [name, list] of raw) {
+      const bufs = [];
+      for (const bytes of list) {
+        try { bufs.push(await decode(bytes)); } catch (e) { console.warn('[audio] custom sound could not be read:', name, e); }
+      }
+      if (bufs.length) custom.set(name, bufs);
+    }
+  }
+
+  /** Resolves once the buses exist (after the first successful unlock). */
+  /** @type {(v?: any) => void} */
+  let markReady = () => {};
+  const readyPromise = new Promise((r) => { markReady = r; });
+
+  /** Resume a context the browser suspended (tab hidden, phone call): call on any gesture. */
+  function wake() {
+    if (ctx && ctx.state !== 'running') ctx.resume().catch(() => {});
+  }
 
   async function unlock() {
     if (unlocked || !H) return;
     unlocked = true;
     H.volume(1); // creates Howler.ctx if it does not exist yet
-    const ctx = /** @type {AudioContext} */ (H.ctx);
+    ctx = /** @type {AudioContext} */ (H.ctx);
     if (!ctx) return;
     if (ctx.state === 'suspended') await ctx.resume().catch(() => {});
-    buses = {
-      effects: ctx.createGain(),
-      voice: ctx.createGain(),
-      ui: ctx.createGain(),
-    };
+    buses = { effects: ctx.createGain(), voice: ctx.createGain(), ui: ctx.createGain() };
     for (const [bus, g] of Object.entries(buses)) {
       g.gain.value = levels[/** @type {Bus} */ (bus)];
       g.connect(H.masterGain ?? ctx.destination);
     }
+    // ZzFX's module makes its own context at import: close it and lend it ours.
     const { ZZFX } = await import('zzfx');
     ZZFX.audioContext?.close?.().catch(() => {});
     ZZFX.audioContext = ctx;
     for (const [name, params] of Object.entries(SOUNDS)) {
-      const samples = ZZFX.buildSamples(...params);
-      const buf = ctx.createBuffer(1, samples.length, ZZFX.sampleRate);
-      buf.getChannelData(0).set(samples);
-      buffers.set(name, buf);
+      const data = ZZFX.buildSamples(...params);
+      const buf = ctx.createBuffer(1, data.length, ZZFX.sampleRate);
+      buf.getChannelData(0).set(data);
+      blips.set(name, buf);
     }
+    await decodeCustom();
+    await readIndex();
+    markReady();
+    // Effects are short and used constantly: have them all ready.
+    for (const name of files.keys()) if (!name.startsWith('voice:')) fetchSample(name);
   }
 
-  /**
-   * @param {string} name
-   * @param {{ bus?: Bus, volume?: number, pan?: number, weapon?: boolean }} [opts]
-   */
-  function play(name, opts = {}) {
-    const buf = buffers.get(name);
-    if (!buf || !buses) return;
-    if (opts.weapon && active >= AUDIO.maxWeaponSounds) return;
-    const ctx = /** @type {AudioContext} */ (H.ctx);
-    const src = ctx.createBufferSource();
+  /** Every recording of a sound that is ready to play now. @param {string} name */
+  function ready(name) {
+    const own = custom.get(customNameOf(name));
+    if (own?.length) return own;
+    const got = samples.get(name);
+    if (got?.length) return got;
+    if (!got) fetchSample(name); // for next time
+    return null;
+  }
+
+  /** Start one buffer on a bus. @param {AudioBuffer} buf @param {PlayOpts} o */
+  function start(buf, o) {
+    const c = /** @type {AudioContext} */ (ctx);
+    const src = c.createBufferSource();
     src.buffer = buf;
-    const gain = ctx.createGain();
-    gain.gain.value = opts.volume ?? 1;
-    const pan = ctx.createStereoPanner();
-    pan.pan.value = Math.max(-1, Math.min(1, opts.pan ?? 0));
-    src.connect(pan).connect(gain).connect(buses[opts.bus ?? 'effects']);
-    if (opts.weapon) {
+    const gain = c.createGain();
+    gain.gain.value = o.volume ?? 1;
+    const pan = c.createStereoPanner();
+    pan.pan.value = Math.max(-1, Math.min(1, o.pan ?? 0));
+    src.connect(pan).connect(gain).connect(/** @type {Record<Bus, GainNode>} */ (buses)[o.bus ?? 'effects']);
+    src.start();
+    return src;
+  }
+
+  /** @template T @param {T[]} list */
+  const any = (list) => list[Math.floor(Math.random() * list.length)];
+
+  /**
+   * Play an effect or interface sound.
+   * @param {string} name @param {PlayOpts} [o]
+   */
+  function play(name, o = {}) {
+    if (!buses) return;
+    if (o.weapon && active >= AUDIO.maxWeaponSounds) return;
+    const list = ready(name);
+    const buf = list ? any(list) : blips.get(name) ?? blips.get(STAND_IN[name]);
+    if (!buf) return;
+    const src = start(buf, o);
+    if (o.weapon) {
       active++;
       src.onended = () => { active--; };
     }
-    src.start();
+  }
+
+  // ---- Voices.
+  /** @type {{ name: string, at: number, volume: number }[]} */
+  const queue = [];
+  /** @type {AudioBufferSourceNode | null} */
+  let speaking = null;
+  /** @type {AudioBufferSourceNode | null} */
+  let replying = null;
+
+  function nextLine() {
+    if (speaking || !buses) return;
+    const now = performance.now();
+    while (queue.length && now - queue[0].at > STALE_MS) queue.shift();
+    const line = queue.shift();
+    if (!line) return;
+    const list = ready(line.name);
+    if (!list) {
+      // Not decoded yet: wait for it (it is news for a few seconds), then try again.
+      fetchSample(line.name).then((bufs) => {
+        if (bufs?.length) queue.unshift(line); // a line that cannot load is dropped
+        nextLine();
+      });
+      return;
+    }
+    speaking = start(any(list), { bus: 'voice', volume: line.volume });
+    speaking.onended = () => { speaking = null; nextLine(); };
+  }
+
+  /**
+   * The announcer: lines wait their turn; a line already waiting is not queued twice.
+   * @param {string} name @param {number} [volume]
+   */
+  function announce(name, volume = 1) {
+    if (!buses) return;
+    if (!files.has(name) && !custom.has(customNameOf(name))) return;
+    if (queue.some((l) => l.name === name)) return;
+    queue.push({ name, at: performance.now(), volume });
+    while (queue.length > QUEUE_MAX) queue.shift();
+    nextLine();
+  }
+
+  /**
+   * A unit's reply: cuts off the previous reply. Falls back to a blip while the line loads.
+   * @param {string} name @param {number} [volume]
+   */
+  function reply(name, volume = 0.9) {
+    if (!buses) return;
+    const list = ready(name);
+    if (!list) { play('ack', { bus: 'voice', volume: 0.5 }); return; }
+    try { replying?.stop(); } catch { /* already ended */ }
+    replying = start(any(list), { bus: 'voice', volume });
+    const mine = replying;
+    replying.onended = () => { if (replying === mine) replying = null; };
+  }
+
+  /** Decode lines ahead of need (a faction's voices at match start). @param {string[]} names */
+  async function preload(names) {
+    await readIndex();
+    for (const n of names) if (files.has(n)) await fetchSample(n);
+  }
+
+  /**
+   * Replace sounds with the player's own files (custom name → file contents).
+   * @param {Map<string, ArrayBuffer[]>} raw
+   */
+  async function setCustom(raw) {
+    customRaw = raw;
+    if (ctx) await decodeCustom();
+    else custom.clear();
+  }
+
+  /** Every sound name the game can play (rendered set and blips), once the index is read. */
+  async function names() {
+    await readIndex();
+    return [...new Set([...files.keys(), ...Object.keys(SOUNDS)])];
   }
 
   /** @param {Bus} bus @param {number} v */
@@ -99,5 +300,5 @@ export function createAudio() {
     if (buses) buses[bus].gain.value = v;
   }
 
-  return { unlock, play, setBusVolume, get unlocked() { return unlocked; } };
+  return { unlock, wake, whenReady: () => readyPromise, play, announce, reply, preload, setCustom, names, setBusVolume, get unlocked() { return unlocked; } };
 }

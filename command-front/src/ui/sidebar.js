@@ -18,6 +18,7 @@ import { PRODUCTION } from '../data/rules.js';
  * @property {(line: LineId, paused: boolean) => void} setPaused
  * @property {(line: LineId, opts: { type?: string, all?: boolean, active?: boolean }) => void} cancel
  * @property {(line: LineId) => void} cancelReady
+ * @property {(max: number) => void} queueFull   a unit line is at its queue limit
  * @property {(type: string) => void} place
  * @property {(text: string) => void} toast
  * @property {(tab: LineId) => void} tab
@@ -57,7 +58,7 @@ function menuFor(it, line) {
 function tapItem(it, line, act, lineQueued) {
   if (UNIT_LINES.has(line) && ['available', 'building', 'paused'].includes(it.state)) {
     if (it.state === 'paused') act.setPaused(line, false);
-    if (lineQueued >= PRODUCTION.queueMax) act.toast(`Queue full (${PRODUCTION.queueMax})`);
+    if (lineQueued >= PRODUCTION.queueMax) act.queueFull(PRODUCTION.queueMax);
     else act.build(it.type, 1);
     return;
   }

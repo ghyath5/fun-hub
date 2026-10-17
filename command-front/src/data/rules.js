@@ -40,6 +40,13 @@ export const ECONOMY = Object.freeze({
   spreadMinBales: 9,
   spreadCapAbsolute: 30,
   spreadCapFraction: 0.02,
+  // Ore and gem mines: every mineSeconds each mine adds bales to random cells
+  // within mineRadius (Chebyshev), so a field never runs dry for good.
+  // Off when ore regrowth is off.
+  mineSeconds: 10,
+  mineRadius: 3,
+  minePulseBales: { ore: 6, gem: 2 },
+  mineClump: { ore: 3, gem: 2 },       // most bales one cell gets per pulse
   silosNeededFraction: 0.9,
   // Harvester search (section 5)
   seekLocalRadius: 20,
@@ -272,5 +279,4 @@ export const SETUP_DEFAULTS = Object.freeze({
   shortGame: false,
   speed: 'normal',
   startPositions: 'random',
-  generatedSizes: [48, 64, 96],
 });

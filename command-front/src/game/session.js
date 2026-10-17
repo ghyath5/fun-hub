@@ -20,6 +20,7 @@ import { createStore } from '../ui/store.js';
 import { mountHud } from '../ui/hud.js';
 import { createToaster } from '../ui/toasts.js';
 import { createAlerts } from '../ui/alerts.js';
+import { createVoices } from '../ui/voices.js';
 import { wireBattleEvents } from '../ui/battleEvents.js';
 import { wireGameEvents } from '../ui/gameEvents.js';
 import { sidebarModel, economyModel, structureCard, sameShape, powersModel, intelLine } from '../ui/model.js';
@@ -116,13 +117,17 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
     linkDismissed: false,
   });
   const toaster = createToaster((toasts) => store.set({ toasts }));
+  const voices = createVoices({ audio, world, human });
   const alerts = createAlerts({
     show: (text, at) => {
       toaster.show(text, at);
       if (at) { pings.push({ ...at, at: performance.now() }); if (pings.length > 8) pings.shift(); }
       store.set({ alertCount: alerts.count });
     },
+    said: (key) => voices.alert(key),
   });
+  /** The human's own units in the selection (they are the ones who answer). */
+  const ownSelected = () => selection.list().map((id) => world.entities.get(id)).filter((e) => e && e.owner === human && e.kind === 'unit');
   let userPaused = false;
   /** A defeated player watching the rest of the match with the map revealed. */
   let watching = false;
@@ -180,7 +185,7 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
   const showCard = (/** @type {any} */ e) => {
     if (!e) return;
     const owner = e.owner >= 0 ? FACTIONS[world.players[e.owner].faction].name : 'Neutral';
-    store.set({ card: { name: itemDef(e.type)?.name ?? e.type, hp: e.hp, maxHp: e.maxHp, owner } });
+    store.set({ card: { name: itemDef(e.type)?.name ?? structureDef(e.type)?.name ?? e.type, hp: e.hp, maxHp: e.maxHp, owner } });
     clearTimeout(cardTimer);
     cardTimer = /** @type {any} */ (setTimeout(() => store.set({ card: null }), 2000));
   };
@@ -205,7 +210,8 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
         view.pulse(cell, kind);
         if (kind === 'reject') { audio.play('reject', { bus: 'ui', volume: 0.5 }); buzz(GESTURE.hapticTickMs); }
       },
-      ack: () => audio.play('ack', { bus: 'voice', volume: 0.6 }),
+      ack: (kind = 'move') => voices.reply(kind, ownSelected()),
+      picked: () => voices.reply('select', ownSelected()),
       tap: () => audio.play('tap', { bus: 'ui', volume: 0.4 }),
       info: showCard,
     },
@@ -229,7 +235,7 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
     jump({ x: Math.floor(x), y: Math.floor(y) });
   };
   const groupActs = {
-    recall: (/** @type {number} */ n) => { selectStructure(0); selection.recall(n); },
+    recall: (/** @type {number} */ n) => { selectStructure(0); selection.recall(n); voices.reply('select', ownSelected()); },
     centre: (/** @type {number} */ n) => { selectStructure(0); selection.recall(n); centreOnGroup(n); },
     assign: (/** @type {number} */ n) => {
       if (!selection.size) return;
@@ -282,17 +288,26 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
       clearTimeout(sellTimer);
       sellTimer = /** @type {any} */ (setTimeout(() => store.set({ sellArmed: false }), GESTURE.sellConfirmMs));
     },
-    repair: () => { if (selectedStructure) issue('repair', { id: selectedStructure }); },
+    repair: () => {
+      if (!selectedStructure) return;
+      if (!world.entities.get(selectedStructure)?.repairing) voices.announce('repairing');
+      issue('repair', { id: selectedStructure });
+    },
     rally: () => { if (selectedStructure) { enterTarget(null); modes.rally(selectedStructure); } },
     primary: () => { if (selectedStructure) issue('primary', { id: selectedStructure }); },
     deselect: () => selectStructure(0),
   };
   /** @type {import('../ui/sidebar.js').SidebarActions} */
   const buildActs = {
-    build: (type, count) => issue('build', { type, count }),
-    setPaused: (line, paused) => issue(paused ? 'pause' : 'resume', { line }),
-    cancel: (line, o) => issue('cancel', { line, ...o }),
-    cancelReady: (line) => issue('cancelReady', { line }),
+    build: (type, count) => {
+      const line = lineOf(type);
+      voices.announce(line === 'structures' || line === 'defenses' ? 'building' : 'training');
+      issue('build', { type, count });
+    },
+    setPaused: (line, paused) => { if (paused) voices.announce('onHold'); issue(paused ? 'pause' : 'resume', { line }); },
+    cancel: (line, o) => { voices.announce('cancelled'); issue('cancel', { line, ...o }); },
+    cancelReady: (line) => { voices.announce('cancelled'); issue('cancelReady', { line }); },
+    queueFull: (max) => { toaster.show(`Queue full (${max})`); voices.announce('queueFull'); },
     place: (type) => { enterTarget(null); selection.clear(); selectStructure(0); modes.startPlacing(type); },
     toast: (text) => toaster.show(text),
     tab: (tab) => store.set({ tab }),
@@ -344,6 +359,7 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
       enterTarget(null);
       selectStructure(0);
       modes.power(id);
+      voices.announce('selectTarget');
     },
     minimapCanvas: (c) => { minimapCanvas = c; },
     minimapJump: (fx, fy) => jump({ x: Math.floor(fx * map.width), y: Math.floor(fy * map.height) }),
@@ -364,7 +380,7 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
     screen: () => ({ w: view.app.screen.width, h: view.app.screen.height }),
   });
   const game = wireGameEvents({
-    world, human, alerts, audio,
+    world, human, alerts, audio, voices,
     terrain: view.terrain,
     flash: (cells) => view.flash(cells),
     onStructureGone: (id) => { if (id === selectedStructure) selectStructure(0); },
@@ -374,9 +390,10 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
   const offEnd = [
     ...(net ? [net.onCard((link) => store.set({ link }))] : []),
     world.events.on('playerEliminated', (e) => {
-      if (e.data.player === human && !world.result) store.set({ defeated: true, paused: false });
+      if (e.data.player === human && !world.result) { store.set({ defeated: true, paused: false }); voices.announce('defeat'); }
     }),
     world.events.on('matchEnded', (e) => {
+      if (!watching && !store.get().defeated) voices.announce(e.data.winners?.includes(human) ? 'victory' : 'defeat');
       store.set({ ended: true, defeated: false });
       setTimeout(() => hooks.ended?.(e.data), 2500);
     }),
@@ -419,6 +436,8 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
     });
   }
 
+  /** How many build items were unlocked at the last refresh (-1 until the first). */
+  let unlockedItems = -1;
   /** Keep the HUD snapshot in step with the world (several times a second). */
   function refreshHud() {
     syncInsets();
@@ -456,7 +475,15 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
     const intel = intelLine(world, human);
     if (intel !== cur.intel) patch.intel = intel;
     const radar = hasRadar(world, human);
-    if (radar !== cur.radar) patch.radar = radar;
+    if (radar !== cur.radar) {
+      patch.radar = radar;
+      voices.announce(radar ? 'radarOnline' : 'radarOffline');
+      audio.play(radar ? 'radar' : 'powerDown', { bus: 'ui', volume: 0.6 });
+    }
+    // More of the build menu unlocked than before: new construction options.
+    const open = Object.values(sb.items).flat().filter((it) => it.state !== 'locked').length;
+    if (open > unlockedItems && unlockedItems > 0) voices.announce('newOptions');
+    unlockedItems = open;
     if (m && m.kind === 'power' && !pw.some((p) => p.id === m.power && p.ready)) modes.cancel();
     let centre = intents.selectionCentre();
     if (!centre && selectedStructure) {
@@ -525,7 +552,7 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
   const gestures = attachGestures(view.app.canvas, (g) => {
     gestureLog.push(`${g.type}@${Math.round(g.x)},${Math.round(g.y)}`);
     if (gestureLog.length > 30) gestureLog.shift();
-    if (!audio.unlocked) audio.unlock();
+    if (!audio.unlocked) audio.unlock(); else audio.wake();
     // Two fingers always move the view, whatever mode is on; a one-finger
     // drag pans unless a mode (placing, walls, mines) wants it first.
     if (g.type.startsWith('pinch') && cameraInput.handle(g)) return;
@@ -577,8 +604,16 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
       .catch((e) => console.warn('icons', e));
   }, 50);
 
+  // The announcer opens the match as soon as sound is allowed (the Start tap allows it), then this side's lines load.
+  const fresh = world.tick === 0;
+  audio.unlock();
+  audio.whenReady().then(() => {
+    if (fresh) voices.announce('battleControlOnline');
+    return voices.preload();
+  }).catch(() => {});
+
   /** @type {any} */ (window).__cf = {
-    world, view, store, selection, intents, modes, enqueue: (/** @type {any} */ c) => enqueue(world, c),
+    world, view, store, selection, intents, modes, audio, voices, enqueue: (/** @type {any} */ c) => enqueue(world, c),
     /** Issue a command the way the player's input does (through the lockstep on two phones). */
     submit,
     alpha: () => lastAlpha, gestures: gestureLog, recognizer: gestures.recognizer,
@@ -586,6 +621,8 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
     /** Debug: put a unit or a finished structure on the map. */
     spawn: (/** @type {string} */ type, /** @type {number} */ owner, /** @type {number} */ x, /** @type {number} */ y) => spawnUnit(world, type, owner, x, y),
     build: (/** @type {string} */ type, /** @type {number} */ owner, /** @type {number} */ x, /** @type {number} */ y) => placeStructure(world, type, owner, x, y, { buildUp: false }),
+    /** Where an entity is on screen (scripted play-tests tap there). @param {any} e */
+    screenOf: (e) => cam.toScreen((e.x * C) / L, (e.y * C) / L),
     /** Run n ticks at once (debugging and scripted play-tests). @param {number} n */
     advance: (n) => { for (let k = 0; k < n; k++) step(world); },
   };

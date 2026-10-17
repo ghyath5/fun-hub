@@ -15,6 +15,7 @@ const L = SIM.leptonsPerCell;
  *   world: any, human: number,
  *   alerts: ReturnType<typeof import('./alerts.js').createAlerts>,
  *   audio: { play: (name: string, opts?: any) => void },
+ *   voices: { announce: (key: string) => void },
  *   terrain: { invalidate: (x: number, y: number) => void },
  *   flash: (cells: { x: number, y: number }[]) => void,
  *   onStructureGone: (id: number) => void,
@@ -34,13 +35,12 @@ export function wireGameEvents(ctx) {
     ev.on('readyToPlace', (e) => {
       if (!mine(e.data)) return;
       alerts.raise('structureReady');
-      ctx.audio.play('ready', { bus: 'voice', volume: 0.6 });
       buzz(AUDIO.hapticReadyMs);
     }),
     ev.on('unitReady', (e) => {
       if (!mine(e.data)) return;
       const u = w.entities.get(e.data.id);
-      if (alerts.raise('unitReady', u ? cellOf(u) : undefined, e.data.line)) ctx.audio.play('ready', { bus: 'voice', volume: 0.4 });
+      alerts.raise('unitReady', u ? cellOf(u) : undefined, e.data.line);
     }),
     ev.on('insufficientFunds', (e) => { if (mine(e.data)) alerts.raise('insufficientFunds'); }),
     ev.on('lowPower', (e) => { if (mine(e.data)) alerts.raise('lowPower'); }),
@@ -69,13 +69,20 @@ export function wireGameEvents(ctx) {
     }),
     ev.on('structureRemoved', (e) => ctx.onStructureGone(e.data.id)),
     ev.on('structureCaptured', (e) => {
-      if (e.data.from === human) alerts.raise('structureLost', { x: e.data.cx, y: e.data.cy }, '', 'Structure captured');
+      if (e.data.from === human) alerts.raise('structureCaptured', { x: e.data.cx, y: e.data.cy });
+      else if (e.data.to === human) ctx.voices.announce('buildingCaptured');
       ctx.onStructureGone(e.data.id);
+    }),
+    ev.on('structurePlaced', (e) => { if (mine(e.data) && w.tick > 0) ctx.audio.play('place', { volume: 0.7 }); }),
+    ev.on('deployed', (e) => { if (mine(e.data)) ctx.audio.play('deploy', { volume: 0.8 }); }),
+    ev.on('sold', (e) => {
+      if (!mine(e.data)) return;
+      alerts.raise('structureSold');
+      ctx.audio.play('sell', { bus: 'ui', volume: 0.7 });
     }),
     ev.on('powerReady', (e) => {
       if (!mine(e.data)) return;
       alerts.raise('powerReady', undefined, e.data.power, `${SUPPORT_POWERS[/** @type {keyof typeof SUPPORT_POWERS} */ (e.data.power)].name} ready`);
-      ctx.audio.play('ready', { bus: 'voice', volume: 0.6 });
     }),
     ev.on('missileLaunch', (e) => { if (!mine(e.data)) alerts.raise('missileLaunch'); }),
     ev.on('mineExploded', (e) => { if (mine(e.data)) alerts.raise('mineExploded', { x: e.data.x, y: e.data.y }); }),
@@ -84,6 +91,7 @@ export function wireGameEvents(ctx) {
       const text = { cash: `Crate: $${e.data.detail}`, unit: 'Crate: reinforcements', heal: 'Crate: units healed', reveal: 'Crate: map revealed',
         armor: 'Crate: armour upgrade', speed: 'Crate: speed upgrade', explode: 'Crate: booby trap!' }[/** @type {string} */ (e.data.effect)] ?? 'Crate';
       ctx.toast(text, { x: e.data.x, y: e.data.y });
+      if (e.data.effect === 'unit') ctx.voices.announce('reinforcements');
     }),
     ev.on('oreChanged', (e) => ctx.terrain.invalidate(e.data.i % w.map.width, Math.floor(e.data.i / w.map.width))),
     ev.on('terrainChanged', (e) => redraw(e.data.cells ?? [])),

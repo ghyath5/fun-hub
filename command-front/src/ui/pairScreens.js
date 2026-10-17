@@ -9,7 +9,7 @@
  */
 import { html, useEffect, useRef, useState } from 'htm/preact';
 import { FACTIONS, PLAYER_COLORS } from '../data/factions.js';
-import { COLORS } from '../game/matchSetup.js';
+import { COLORS, maxPlayersOf } from '../game/matchSetup.js';
 import { drawQr, scanQr, extractCode } from '../net/link.js';
 
 /** @typedef {import('../game/matchSetup.js').SetupForm} SetupForm */
@@ -160,13 +160,13 @@ export function DiagPanel({ text, stun, act }) {
 /**
  * The guest's lobby: the host's choices, read-only, and this phone's own
  * faction and colour.
- * @param {{ form: SetupForm | null, maps: { id: string, name: string }[], me: { faction: 'coalition' | 'union', color: string },
+ * @param {{ form: SetupForm | null, maps: { id: string, name: string, maxPlayers: number }[], me: { faction: 'coalition' | 'union', color: string },
  *   onMe: (me: { faction: 'coalition' | 'union', color: string }) => void, onLeave: () => void }} p
  */
 export function GuestLobby({ form, maps, me, onMe, onLeave }) {
   const mine = form?.opponents.find((o) => o.remote);
   const color = mine?.color ?? me.color;
-  const mapName = !form ? '…' : form.map === 'generated' ? `Generated (${form.genSize} × ${form.genSize}, seed ${form.genSeed})` : maps.find((m) => m.id === form.map)?.name ?? form.map;
+  const mapName = !form ? '…' : form.map === 'generated' ? `Generated (${form.genSize} × ${form.genSize}, ${maxPlayersOf(form, maps)} players, seed ${form.genSeed})` : maps.find((m) => m.id === form.map)?.name ?? form.map;
   const teams = form?.teams === 'coop' ? 'Both phones vs the AI' : form?.teams === '2v2' ? '2 v 2' : 'Free-for-all';
   return html`<div class="screen setup guest-lobby">
     <header class="screen-head"><button class="btn" onClick=${onLeave}>‹ Leave</button><h2>Two phones</h2><span class="muted">Waiting for the host to start</span></header>

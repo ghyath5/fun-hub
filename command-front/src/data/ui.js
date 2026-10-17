@@ -72,7 +72,7 @@ export const ALERTS = Object.freeze({
   structureLost: { text: 'Structure lost', throttle: 0 },
   structureCaptured: { text: 'Structure captured', throttle: 0 },
   missileLaunch: { text: 'Missile launch detected', throttle: 0 },
-  oreDepleted: { text: 'Ore depleted', throttle: 0 },
+  oreDepleted: { text: 'Ore depleted: harvesters wait for the mines to regrow it', throttle: 0 },
   noRefinery: { text: 'No refinery', throttle: 0 },
   placementFailed: { text: 'Cannot build there', throttle: 1 },
   cannotDeploy: { text: 'Cannot deploy here', throttle: 1 },

@@ -50,3 +50,13 @@ export async function listSaves() {
 /** @param {object} settings */
 export const saveSettings = (settings) => set('settings', settings, store);
 export const loadSettings = async () => (await get('settings', store)) ?? {};
+
+/**
+ * The player's own sound files (Settings → Custom sounds), kept on this
+ * device only: [{ name, file, bytes }] where name is the sound it replaces.
+ * @typedef {{ name: string, file: string, bytes: ArrayBuffer }} CustomSound
+ */
+/** @param {CustomSound[]} list */
+export const saveCustomSounds = (list) => set('customSounds', list, store);
+/** @returns {Promise<CustomSound[]>} */
+export const loadCustomSounds = async () => (await get('customSounds', store)) ?? [];

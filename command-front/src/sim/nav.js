@@ -58,20 +58,26 @@ export function createNav(map, teams) {
   function buildStatic() {
     /** @type {Set<number>} */
     const changed = new Set();
+    let passChanged = false;
     for (const loco of GRID_LOCOS) {
+      if (!grids[loco]) passChanged = true;
       const fresh = !grids[loco];
       const g = grids[loco] ?? Array.from({ length: H }, () => new Array(W).fill(0));
       for (let y = 0; y < H; y++) {
         for (let x = 0; x < W; x++) {
           const t = tileOf(loco, x, y);
-          if (!fresh && g[y][x] !== t) changed.add(y * W + x);
+          if (!fresh && g[y][x] !== t) {
+            changed.add(y * W + x);
+            if ((g[y][x] === BLOCKED) !== (t === BLOCKED)) passChanged = true;
+          }
           g[y][x] = t;
           if (t !== BLOCKED && !costs.has(t)) costs.set(t, MOVEMENT.tileCostBase / t);
         }
       }
       grids[loco] = g;
     }
-    compDirty = true;
+    // Components only move when a cell turns passable or blocked; ore and speed changes leave them be.
+    if (passChanged) compDirty = true;
     return changed;
   }
 

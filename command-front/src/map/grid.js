@@ -49,26 +49,38 @@ export function steps(ok, x, y) {
 
 /**
  * Connected-component id per cell for a passability test (-1 = blocked).
- * Flood fill in cell-index order, so ids are deterministic.
+ * Flood fill in cell-index order, so ids are deterministic. Moves follow
+ * `steps`: 8 directions, no corner cutting. The test is sampled once into a
+ * byte grid, so big maps cost one pass plus a tight fill.
  * @param {number} w @param {number} h @param {(x: number, y: number) => boolean} ok
  * @returns {{ ids: Int32Array, sizes: number[] }}
  */
 export function components(w, h, ok) {
+  const open = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) open[y * w + x] = ok(x, y) ? 1 : 0;
+  const at = (/** @type {number} */ x, /** @type {number} */ y) => x >= 0 && y >= 0 && x < w && y < h && open[y * w + x] === 1;
   const ids = new Int32Array(w * h).fill(-1);
   const sizes = [];
-  const stack = [];
+  const stack = new Int32Array(w * h);
   for (let i = 0; i < w * h; i++) {
-    if (ids[i] !== -1 || !ok(i % w, (i / w) | 0)) continue;
+    if (ids[i] !== -1 || !open[i]) continue;
     const id = sizes.length;
     let size = 0;
+    let top = 0;
     ids[i] = id;
-    stack.push(i);
-    while (stack.length) {
-      const c = /** @type {number} */ (stack.pop());
+    stack[top++] = i;
+    while (top) {
+      const c = stack[--top];
       size++;
-      for (const [nx, ny] of steps(ok, c % w, (c / w) | 0)) {
+      const x = c % w;
+      const y = (c / w) | 0;
+      for (const [dx, dy] of N8) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (!at(nx, ny)) continue;
+        if (dx !== 0 && dy !== 0 && (!at(x + dx, y) || !at(x, y + dy))) continue;
         const n = ny * w + nx;
-        if (ids[n] === -1) { ids[n] = id; stack.push(n); }
+        if (ids[n] === -1) { ids[n] = id; stack[top++] = n; }
       }
     }
     sizes.push(size);
