@@ -1,13 +1,17 @@
 /* Command Front service worker: cache-first, versioned. Hand-maintained list —
    add every file the game loads; ?debug warns at startup about any that are missing.
    Bump CACHE whenever a listed file changes. */
-const CACHE = 'command-front-v17';
+const CACHE = 'command-front-v19';
 
 const PRECACHE = [
   './',
   './index.html',
   './styles.css',
   './manifest.webmanifest',
+  './assets/art/atlas-0.webp',
+  './assets/art/atlas-1.webp',
+  './assets/art/atlas.json',
+  './assets/art/ground-0.webp',
   './assets/icon-192.png',
   './assets/icon-512.png',
   './assets/icon.svg',
@@ -35,6 +39,7 @@ const PRECACHE = [
   './src/game/matchSetup.js',
   './src/game/session.js',
   './src/game/twoPhones.js',
+  './src/input/cameraInput.js',
   './src/input/context.js',
   './src/input/desktop.js',
   './src/input/gestures.js',
@@ -59,6 +64,7 @@ const PRECACHE = [
   './src/net/netMatch.js',
   './src/net/room.js',
   './src/render/app.js',
+  './src/render/art.js',
   './src/render/camera.js',
   './src/render/combatFx.js',
   './src/render/fx.js',
@@ -70,6 +76,7 @@ const PRECACHE = [
   './src/render/structureBaker.js',
   './src/render/structures.js',
   './src/render/terrainChunks.js',
+  './src/render/terrainTiles.js',
   './src/render/units.js',
   './src/save/serialize.js',
   './src/sim/air.js',
@@ -120,6 +127,7 @@ const PRECACHE = [
   './src/ui/battleEvents.js',
   './src/ui/commandBar.js',
   './src/ui/fit.js',
+  './src/ui/fullscreen.js',
   './src/ui/gameEvents.js',
   './src/ui/hud.js',
   './src/ui/linkCard.js',
@@ -139,7 +147,6 @@ const PRECACHE = [
   './vendor/htm-preact-standalone.mjs',
   './vendor/idb-keyval.mjs',
   './vendor/jsqr.min.js',
-  './vendor/pixi-viewport.mjs',
   './vendor/pixi.min.mjs',
   './vendor/qrcode.min.js',
   './vendor/seedrandom.min.js',

@@ -19,14 +19,23 @@ const SELL_TICKS = Math.round(SELL.seconds * SIM.ticksPerSecond);
 const BAND = { green: 0x7fd04a, amber: 0xe0a43a, red: 0xd0543a };
 const NEUTRAL_TINT = 0xb8b4a6;
 
-/** @param {import('pixi.js').Renderer} renderer */
-export function createStructureLayer(renderer) {
-  const textures = bakeStructures(renderer);
+/** Radar dishes and other `spin` parts, radians per ms. */
+const SPIN_SPEED = 0.0012;
+
+/**
+ * @param {import('pixi.js').Renderer} renderer
+ * @param {Map<string, import('./art.js').StructureArt> | null} [art]  pre-rendered art; code-drawn when absent
+ */
+export function createStructureLayer(renderer, art = null) {
+  /** @type {Map<string, any>} */
+  const textures = new Map(bakeStructures(renderer));
+  // Pre-rendered art replaces the code-drawn art type by type; anything not in the atlas keeps its drawing.
+  if (art) for (const [id, t] of art) textures.set(id, t);
   const layer = new Container();
   layer.sortableChildren = true;
   const marks = new Graphics();
   const smoke = new Graphics();
-  /** @type {Map<number, { root: Container, body: Container, turret: Container | null, paint: Sprite }>} */
+  /** @type {Map<number, { root: Container, body: Container, turret: Container | null, paint: Sprite, tinted: Sprite[], spinners: Container[] }>} */
   const views = new Map();
   /** @type {{ x: number, y: number, vx: number, vy: number, life: number, max: number, fire: boolean }[]} */
   let puffs = [];
@@ -42,9 +51,29 @@ export function createStructureLayer(renderer) {
     const paint = new Sprite(tex.paint);
     paint.tint = tint;
     const detail = new Sprite(tex.detail);
+    // Pre-rendered buildings rise above their footprint: the image starts at (ox, oy).
+    paint.position.set(tex.ox ?? 0, tex.oy ?? 0);
+    detail.position.set(tex.ox ?? 0, tex.oy ?? 0);
     body.addChild(paint, detail);
     root.addChild(body);
+    /** Every team-tinted sprite, so a capture recolours the whole building. */
+    const tinted = [paint];
+    /** @type {Container[]} */
+    const spinners = [];
     let turret = null;
+    for (const part of tex.parts ?? []) {
+      const c = new Container();
+      const pp = new Sprite(part.paint);
+      pp.anchor.set(0.5);
+      pp.tint = tint;
+      const pd = new Sprite(part.detail);
+      pd.anchor.set(0.5);
+      c.addChild(pp, pd);
+      c.position.set(part.x, part.y);
+      body.addChild(c);
+      tinted.push(pp);
+      if (part.role === 'turret') turret = c; else spinners.push(c);
+    }
     if (tex.turret) {
       turret = new Container();
       const tp = new Sprite(tex.turret.paint);
@@ -55,9 +84,10 @@ export function createStructureLayer(renderer) {
       turret.addChild(tp, td);
       turret.position.set(tex.w / 2, tex.h / 2);
       root.addChild(turret);
+      tinted.push(tp);
     }
     layer.addChild(root);
-    return { root, body, turret, paint };
+    return { root, body, turret, paint, tinted, spinners };
   }
 
   return {
@@ -100,7 +130,7 @@ export function createStructureLayer(renderer) {
         const tint = owner ? PLAYER_COLORS[/** @type {keyof typeof PLAYER_COLORS} */ (owner.color)].main : NEUTRAL_TINT;
         if (!v) { v = make(s, tint); views.set(s.id, v); }
         v.root.visible = true;
-        v.paint.tint = tint; // ownership changes on capture
+        for (const sp of v.tinted) sp.tint = tint; // ownership changes on capture
         const x0 = s.cx * C;
         const y0 = s.cy * C;
         const H = s.h * C;
@@ -117,6 +147,8 @@ export function createStructureLayer(renderer) {
         const dim = owner && owner.power.low && def && (def.tags.includes('radar') || def.tags.includes('powered'));
         v.body.tint = dim ? 0x9a9a9a : 0xffffff;
         if (v.turret) v.turret.rotation = (Math.round(s.turret / 8) * 8 * TAU) / 256;
+        // Dishes turn while the building works (powered, built, not being sold).
+        if (v.spinners.length && !dim && k === 1) for (const sp of v.spinners) sp.rotation += dt * SPIN_SPEED;
 
         const band = healthBand(s.hp, s.maxHp);
         if (band === 'red' && Math.random() < dt / 120) {

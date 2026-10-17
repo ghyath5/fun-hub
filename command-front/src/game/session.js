@@ -15,6 +15,7 @@ import { createSelection } from '../input/selection.js';
 import { createIntents } from '../input/intents.js';
 import { createModes } from '../input/modes.js';
 import { attachDesktop } from '../input/desktop.js';
+import { createCameraInput } from '../input/cameraInput.js';
 import { createStore } from '../ui/store.js';
 import { mountHud } from '../ui/hud.js';
 import { createToaster } from '../ui/toasts.js';
@@ -31,6 +32,7 @@ import { PLAYER_COLORS, FACTIONS } from '../data/factions.js';
 import { itemDef, lineOf } from '../sim/catalog.js';
 import { structureDef, isActive, placeStructure } from '../sim/entities/structures.js';
 import { spawnUnit } from '../sim/entities/units.js';
+import { enterFullscreen } from '../ui/fullscreen.js';
 
 /** Bottom band the command bar occupies; a selection centred there sends the bar to the top. */
 const BAR_ZONE_PX = LAYOUT.commandButtonPx * 2 + 24;
@@ -57,18 +59,18 @@ const portraitPhone = () => matchMedia('(orientation: portrait) and (pointer: co
  *   world: any, human: number, hudEl: HTMLElement, worldEl: HTMLElement,
  *   audio: ReturnType<typeof import('../lib/audio.js').createAudio>,
  *   speed?: keyof typeof GAME_SPEEDS, debug?: boolean, hooks?: SessionHooks, hint?: string | null, leftHanded?: boolean,
- *   net?: import('../net/netMatch.js').NetPlay | null,
+ *   net?: import('../net/netMatch.js').NetPlay | null, edgePan?: boolean,
  * }} opts  net: a two-phone match — commands go through the lockstep and the pause is shared
  */
-export async function createSession({ world, human, hudEl, worldEl, audio, speed = 'normal', debug = false, hooks = {}, hint = null, leftHanded = false, net = null }) {
+export async function createSession({ world, human, hudEl, worldEl, audio, speed = 'normal', debug = false, hooks = {}, hint = null, leftHanded = false, net = null, edgePan = true }) {
   const map = world.map;
   const view = await createRenderer(worldEl, map);
-  const vp = view.camera.viewport;
+  const cam = view.camera;
   const me = world.players[human];
   const tint = PLAYER_COLORS[/** @type {keyof typeof PLAYER_COLORS} */ (me.color)].main;
   const home = map.starts[me.start];
-  view.camera.home(home.x, home.y);
-  const onResize = (/** @type {number} */ w, /** @type {number} */ h) => view.camera.resize(w, h);
+  cam.home(home.x, home.y);
+  const onResize = (/** @type {number} */ w, /** @type {number} */ h) => cam.resize(w, h);
   view.app.renderer.on('resize', onResize);
 
   const selection = createSelection();
@@ -81,7 +83,7 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
     powerPreview: 0,
     paused: false,
     mapName: map.name,
-    cellsVisible: view.camera.cellsVisible,
+    cellsVisible: cam.cellsVisible,
     toasts: /** @type {import('../ui/toasts.js').Toast[]} */ ([]),
     hash: debug ? hashWorld(world) : null,
     sel: /** @type {import('../ui/commandBar.js').SelectionInfo} */ ({ count: 0, types: [] }),
@@ -134,7 +136,14 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
   const submit = (cmd) => (net ? net.submit(cmd) : enqueue(world, cmd));
   /** @param {string} type @param {any} target @param {number[]} [ids] */
   const issue = (type, target, ids = []) => submit({ tick: world.tick, playerId: human, type, entityIds: ids, target });
-  const jump = (/** @type {{x: number, y: number}} */ at) => vp.animate({ position: { x: (at.x + 0.5) * C, y: (at.y + 0.5) * C }, time: 300 });
+  const jump = (/** @type {{x: number, y: number}} */ at) => cam.flyTo((at.x + 0.5) * C, (at.y + 0.5) * C);
+  /** Back to base: the construction yard if there is one, else where we started. */
+  const goHome = () => {
+    const yard = world.entities.all().find((/** @type {any} */ e) => e.kind === 'structure' && e.owner === human && structureDef(e.type).role === 'yard');
+    jump(yard ? { x: yard.cx + 1, y: yard.cy + 1 } : home);
+  };
+  // ---- The view: every pan, pinch, wheel, key and edge goes through here.
+  const cameraInput = createCameraInput({ camera: cam, canvas: view.app.canvas, edgePan: () => edgePan, home: goHome });
 
   // ---- Modes: placement, walls, sell, repair, rally (they get gestures first).
   /** The intents' own target mode (attack-move); modes report theirs through `modes.mode`. */
@@ -144,10 +153,10 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
     world,
     human,
     issue: (type, target) => issue(type, target, target?.ids ?? []),
-    toWorld: (sx, sy) => vp.toWorld(sx, sy),
-    scale: () => vp.scale.x,
+    toWorld: (sx, sy) => cam.toWorld(sx, sy),
+    scale: () => cam.scale,
     entityAt: (sx, sy) => intents.entityAt(sx, sy),
-    centreCell: () => ({ x: Math.floor(vp.center.x / C), y: Math.floor(vp.center.y / C) }),
+    centreCell: () => ({ x: Math.floor(cam.centre.x / C), y: Math.floor(cam.centre.y / C) }),
     onScreen: (cell) => {
       const r = view.visibleCells();
       return cell.x > r.x0 + 1 && cell.x < r.x1 - 1 && cell.y > r.y0 + 1 && cell.y < r.y1 - 1;
@@ -158,7 +167,7 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
     },
     toast: (text) => toaster.show(text),
     changed: () => syncMode(),
-    setPan: (on) => view.camera.setPanEnabled(on && !store.get().selectMode),
+    setPan: (on) => cameraInput.setPanEnabled(on && !store.get().selectMode),
   });
   const enterTarget = (/** @type {string | null} */ m) => {
     if (m) modes.cancel();
@@ -186,9 +195,9 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
     human,
     selection,
     issue: submit,
-    toWorld: (sx, sy) => vp.toWorld(sx, sy),
-    toScreen: (wx, wy) => vp.toScreen(wx, wy),
-    scale: () => vp.scale.x,
+    toWorld: (sx, sy) => cam.toWorld(sx, sy),
+    toScreen: (wx, wy) => cam.toScreen(wx, wy),
+    scale: () => cam.scale,
     screen: () => ({ w: view.app.screen.width, h: view.app.screen.height }),
     radiusOf: (type) => view.units.radiusOf(type),
     feedback: {
@@ -239,7 +248,7 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
     toggleSelect: () => {
       const on = !store.get().selectMode;
       store.set({ selectMode: on });
-      view.camera.setPanEnabled(!on);
+      cameraInput.setPanEnabled(!on);
     },
     stance: () => { if (intents.cycleStance()) setTimeout(refreshSelection, 120); },
     attackMove: () => enterTarget(intentTarget === 'attackMove' ? null : 'attackMove'),
@@ -315,12 +324,7 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
     watch: () => { watching = true; store.set({ defeated: false, watching: true }); },
     dismissHint: () => store.set({ hint: null }),
     jump,
-    fullscreen: async () => {
-      try {
-        await document.documentElement.requestFullscreen();
-        await /** @type {any} */ (screen.orientation)?.lock?.('landscape');
-      } catch { /* iOS and some browsers refuse; ignore */ }
-    },
+    fullscreen: () => { enterFullscreen(); },
     cmd: cmdActs,
     groups: groupActs,
     radialPick: (id) => intents.radialPick(id),
@@ -346,6 +350,7 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
     minimapToggle: () => store.set({ mapCollapsed: !store.get().mapCollapsed }),
   });
   hudEl.classList.toggle('left', leftHanded);
+  syncInsets();
   store.subscribe((s) => {
     hudEl.classList.toggle('watching', s.watching);
     hudEl.classList.toggle('sb-collapsed', s.collapsed || ['place', 'walls', 'mines', 'power'].includes(s.targetMode ?? ''));
@@ -355,7 +360,7 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
   // ---- Sim events → effects, sounds, alerts.
   const battle = wireBattleEvents({
     world, human, fx: view.combat, audio, alerts,
-    toScreen: (wx, wy) => vp.toScreen(wx, wy),
+    toScreen: (wx, wy) => cam.toScreen(wx, wy),
     screen: () => ({ w: view.app.screen.width, h: view.app.screen.height }),
   });
   const game = wireGameEvents({
@@ -379,7 +384,7 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
   ];
 
   const desktop = attachDesktop({
-    canvas: view.app.canvas, viewport: vp, groups: groupActs,
+    canvas: view.app.canvas, groups: groupActs,
     commands: {
       ...cmdActs,
       escape: () => {
@@ -400,8 +405,23 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
   });
 
   // ---- Per-frame HUD upkeep.
+  /** Tell the camera which screen margins the top bar and sidebar cover, so every part of the map can be scrolled into view. */
+  function syncInsets() {
+    const canvasRect = view.app.canvas.getBoundingClientRect();
+    const bar = hudEl.querySelector('.topbar')?.getBoundingClientRect();
+    const side = hudEl.querySelector('.sidebar')?.getBoundingClientRect();
+    const onLeft = !!side && side.left - canvasRect.left < canvasRect.width / 2;
+    cam.setInsets({
+      top: bar ? Math.max(0, bar.bottom - canvasRect.top) : 0,
+      right: side && !onLeft ? Math.max(0, canvasRect.right - side.left) : 0,
+      left: side && onLeft ? Math.max(0, side.right - canvasRect.left) : 0,
+      bottom: 0,
+    });
+  }
+
   /** Keep the HUD snapshot in step with the world (several times a second). */
   function refreshHud() {
+    syncInsets();
     selection.prune((id) => {
       const e = world.entities.get(id);
       return !!e && e.owner === human && !e.inside;
@@ -441,7 +461,7 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
     let centre = intents.selectionCentre();
     if (!centre && selectedStructure) {
       const s = world.entities.get(selectedStructure);
-      if (s) centre = vp.toScreen((s.cx + s.w / 2) * C, (s.cy + s.h / 2) * C);
+      if (s) centre = cam.toScreen((s.cx + s.w / 2) * C, (s.cy + s.h / 2) * C);
     }
     const barTop = !!centre && centre.y > view.app.screen.height - BAR_ZONE_PX;
     if (barTop !== cur.barTop) patch.barTop = barTop;
@@ -483,7 +503,7 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
     render: (alpha, dtMs) => {
       lastAlpha = alpha;
       perf.frame(dtMs);
-      desktop.update(dtMs);
+      cameraInput.update(dtMs);
       const overlay = modes.overlay(tint, view.visibleCells());
       view.update(world, alpha, selection.ids, { selectedStructure, placement: overlay, viewer: watching ? -1 : human });
       placeControls(overlay);
@@ -501,15 +521,18 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
   // ---- Gestures: modes first, then intents.
   /** Last few gestures, for debugging input on real devices (window.__cf.gestures). */
   const gestureLog = /** @type {string[]} */ ([]);
-  const restorePan = () => view.camera.setPanEnabled(!store.get().selectMode && !(modes.mode && ['place', 'walls', 'mines'].includes(modes.mode.kind)));
+  const restorePan = () => cameraInput.setPanEnabled(!store.get().selectMode && !(modes.mode && ['place', 'walls', 'mines'].includes(modes.mode.kind)));
   const gestures = attachGestures(view.app.canvas, (g) => {
     gestureLog.push(`${g.type}@${Math.round(g.x)},${Math.round(g.y)}`);
     if (gestureLog.length > 30) gestureLog.shift();
     if (!audio.unlocked) audio.unlock();
+    // Two fingers always move the view, whatever mode is on; a one-finger
+    // drag pans unless a mode (placing, walls, mines) wants it first.
+    if (g.type.startsWith('pinch') && cameraInput.handle(g)) return;
     if (modes.mode && modes.handle(g)) return;
+    if (g.type.startsWith('pan') && cameraInput.handle(g)) return;
     switch (g.type) {
       case 'longPress':
-        view.camera.setPanEnabled(false);
         buzz(GESTURE.hapticTickMs);
         break;
       case 'boxStart':
@@ -537,8 +560,7 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
         break;
     }
   }, { dragIsBox: () => store.get().selectMode });
-  const onZoom = () => store.set({ cellsVisible: view.camera.cellsVisible });
-  vp.on('zoomed-end', onZoom);
+  const offZoom = cam.onZoom(() => store.set({ cellsVisible: cam.cellsVisible }));
 
   const onVisibility = () => {
     if (document.hidden) { view.app.ticker.stop(); hooks.autosave?.(); }
@@ -581,6 +603,8 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
       view.app.ticker.remove(onTick);
       gestures.detach();
       desktop.detach();
+      cameraInput.detach();
+      offZoom();
       battle.detach();
       game.detach();
       offEnd.forEach((off) => off());

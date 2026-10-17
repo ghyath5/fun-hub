@@ -65,7 +65,19 @@ export function createPlacementOverlay(textures) {
         if (tex) {
           const paint = new Sprite(tex.paint);
           paint.tint = p.tint;
-          ghost.addChild(paint, new Sprite(tex.detail));
+          const detail = new Sprite(tex.detail);
+          // Pre-rendered buildings start above and left of their footprint.
+          for (const s of [paint, detail]) s.position.set(tex.ox ?? 0, tex.oy ?? 0);
+          ghost.addChild(paint, detail);
+          for (const part of tex.parts ?? []) {
+            const pp = new Sprite(part.paint);
+            pp.anchor.set(0.5);
+            pp.tint = p.tint;
+            const pd = new Sprite(part.detail);
+            pd.anchor.set(0.5);
+            for (const s of [pp, pd]) s.position.set(part.x, part.y);
+            ghost.addChild(pp, pd);
+          }
         }
         ghostType = p.type;
       }

@@ -6,10 +6,12 @@
 import { Application, Container, Graphics } from 'pixi.js';
 import { createCamera } from './camera.js';
 import { createTerrain } from './terrainChunks.js';
+import { createTerrainTiles } from './terrainTiles.js';
 import { createUnitLayer } from './units.js';
 import { createFx } from './fx.js';
 import { createCombatFx } from './combatFx.js';
 import { createStructureLayer } from './structures.js';
+import { loadArt } from './art.js';
 import { createPlacementOverlay } from './placementOverlay.js';
 import { createShroudLayer } from './shroud.js';
 import { RENDER } from '../data/rules.js';
@@ -41,12 +43,14 @@ export async function createRenderer(host, map, opts = {}) {
   host.appendChild(app.canvas);
   app.canvas.setAttribute('aria-label', `Battlefield: ${map.name}`);
 
-  const camera = createCamera(app, map);
-  app.stage.addChild(camera.viewport);
+  const camera = createCamera(map, { width: app.screen.width, height: app.screen.height });
+  app.stage.addChild(camera.view);
 
-  const terrain = createTerrain(app.renderer, map);
-  const structures = createStructureLayer(app.renderer);
-  const units = createUnitLayer(app.renderer);
+  const art = await loadArt();
+  // visibleCells is hoisted below; the tile renderer only calls it once frames run.
+  const terrain = art?.terrain ? createTerrainTiles(map, art.terrain, () => visibleCells()) : createTerrain(app.renderer, map);
+  const structures = createStructureLayer(app.renderer, art?.structures);
+  const units = createUnitLayer(app.renderer, art?.units);
   const fx = createFx();
   const combat = createCombatFx();
   const placement = createPlacementOverlay(structures.textures);
@@ -59,14 +63,13 @@ export async function createRenderer(host, map, opts = {}) {
   const minesG = new Graphics();
   overlay.addChild(minesG, structures.smoke, combat.layer, structures.marks, units.marks, fx.layer);
   top.addChild(placement.layer, cursor, boxG);
-  camera.viewport.addChild(terrain.layer, combat.ground, structures.layer, units.layer, overlay, shroud.layer, top);
+  camera.view.addChild(terrain.layer, combat.ground, structures.layer, units.layer, overlay, shroud.layer, top);
   let frame = 0;
 
   /** Cells currently on screen (with a margin). */
   const visibleCells = () => {
-    const vp = camera.viewport;
-    const a = vp.toWorld(0, 0);
-    const b = vp.toWorld(app.screen.width, app.screen.height);
+    const a = camera.toWorld(0, 0);
+    const b = camera.toWorld(app.screen.width, app.screen.height);
     return {
       x0: Math.max(0, Math.floor(a.x / C) - 1), y0: Math.max(0, Math.floor(a.y / C) - 1),
       x1: Math.min(map.width - 1, Math.ceil(b.x / C) + 1), y1: Math.min(map.height - 1, Math.ceil(b.y / C) + 1),
@@ -87,10 +90,10 @@ export async function createRenderer(host, map, opts = {}) {
     box(box) {
       boxG.clear();
       if (!box) return;
-      const a = camera.viewport.toWorld(box.x0, box.y0);
-      const b = camera.viewport.toWorld(box.x, box.y);
+      const a = camera.toWorld(box.x0, box.y0);
+      const b = camera.toWorld(box.x, box.y);
       boxG.rect(Math.min(a.x, b.x), Math.min(a.y, b.y), Math.abs(b.x - a.x), Math.abs(b.y - a.y))
-        .fill({ color: 0x9fdc6a, alpha: 0.12 }).stroke({ width: 2 / camera.viewport.scale.x, color: 0x9fdc6a });
+        .fill({ color: 0x9fdc6a, alpha: 0.12 }).stroke({ width: 2 / camera.scale, color: 0x9fdc6a });
     },
     units,
     structures,
@@ -108,19 +111,17 @@ export async function createRenderer(host, map, opts = {}) {
     },
     /** Screen rect of a footprint (placement ✓ / ✕). @param {number} cx @param {number} cy @param {number} w @param {number} h */
     footprintOnScreen(cx, cy, w, h) {
-      const a = camera.viewport.toScreen(cx * C, cy * C);
-      const b = camera.viewport.toScreen((cx + w) * C, (cy + h) * C);
+      const a = camera.toScreen(cx * C, cy * C);
+      const b = camera.toScreen((cx + w) * C, (cy + h) * C);
       return { x0: a.x, y0: a.y, x1: b.x, y1: b.y };
     },
     /** Cells currently on screen (with a margin). */
     visibleCells,
-    /** Tear everything down (the viewport first, while the ticker it listens to still exists). */
+    /** Tear everything down (the world container first, then the renderer). */
     destroy() {
-      try {
-        camera.viewport.parent?.removeChild(camera.viewport);
-        camera.viewport.destroy({ children: true });
-      } catch (e) { console.warn('viewport teardown', e); }
+      try { camera.destroy(); } catch (e) { console.warn('camera teardown', e); }
       try { app.destroy(true, { children: true, texture: true }); } catch (e) { console.warn('renderer teardown', e); }
+      art?.destroy();
     },
     /**
      * Per-frame work before PixiJS draws.
@@ -129,7 +130,7 @@ export async function createRenderer(host, map, opts = {}) {
      */
     update(world, alpha, selected, opts = {}) {
       terrain.update();
-      const scale = camera.viewport.scale.x;
+      const scale = camera.scale;
       const viewer = opts.viewer ?? -1;
       if (viewer >= 0 && frame++ % 4 === 0) shroud.update(world, viewer);
       shroud.layer.visible = viewer >= 0 && shroud.anyIn(visibleCells());

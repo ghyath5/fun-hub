@@ -18,9 +18,20 @@ export const GESTURE = Object.freeze({
 
 export const CAMERA = Object.freeze({
   defaultCellsVisible: 15,
-  minCellsVisible: 8,          // zoomed in
-  maxCellsVisible: 25,         // zoomed out
+  minCellsVisible: 7,          // zoomed in
+  maxCellsVisible: 30,         // zoomed out
   alertHistory: 5,
+  glideMs: 320,                // minimap / alert / group jumps
+  flingMaxPxPerMs: 4,          // inertia after a flick: top speed,
+  flingDecayMs: 325,           //   how fast it eases out,
+  flingStopPxPerMs: 0.02,      //   and where it stops
+  flingMinPxPerMs: 0.15,       // slower releases do not fling
+  velocityWindowMs: 90,        // the last moments of a drag decide the flick
+  wheelZoomPerPx: 0.0016,      // mouse wheel / trackpad pinch
+  keyPanPxPerS: 1100,          // arrow keys
+  edgePx: 10,                  // mouse at the window edge…
+  edgePanPxPerS: 1000,         //   …pans this fast
+  mouseDragPx: 6,              // a right or middle drag past this pans instead of clicking
 });
 
 export const LAYOUT = Object.freeze({

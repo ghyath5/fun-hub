@@ -41,9 +41,10 @@ const Toggle = ({ checked, onChange, label }) => html`<input type="checkbox" cla
   onChange=${(/** @type {any} */ e) => onChange(e.target.checked)} />`;
 
 /**
- * @param {{ hasAutosave: boolean, act: { skirmish: () => void, twoPhones: () => void, resume: () => void, load: () => void, settings: () => void } }} p
+ * @param {{ hasAutosave: boolean, homeScreenHint?: boolean, act: { skirmish: () => void, twoPhones: () => void, resume: () => void, load: () => void, settings: () => void } }} p
+ *   homeScreenHint: iPhone Safari, where only Add to Home Screen removes the browser bars
  */
-export function MainMenu({ hasAutosave, act }) {
+export function MainMenu({ hasAutosave, homeScreenHint = false, act }) {
   return html`<div class="screen menu">
     <div class="menu-mark"><span>COMMAND</span><b>FRONT</b></div>
     <p class="menu-sub">Classic real-time strategy · skirmish</p>
@@ -54,6 +55,7 @@ export function MainMenu({ hasAutosave, act }) {
       <button class="btn" onClick=${act.twoPhones}>Two phones · WiFi</button>
       <button class="btn" onClick=${act.settings}>Settings</button>
     </div>
+    ${homeScreenHint ? html`<p class="menu-tip">For full screen on iPhone: tap Share <span aria-hidden="true">⎙</span> then <b>Add to Home Screen</b>, and open the game from there.</p>` : null}
   </div>`;
 }
 
@@ -161,6 +163,8 @@ export function SlotsScreen({ title, slots, mode, onPick, onDelete, onBack }) {
  * @property {number} effects   0–1
  * @property {number} voice     0–1
  * @property {number} ui        0–1
+ * @property {boolean} [autoFullscreen]  Ask for full screen on the first tap and at each match start
+ * @property {boolean} [edgePan]         Mouse at the screen edge scrolls the map
  */
 
 /** @param {{ settings: AppSettings, onChange: (s: AppSettings) => void, onBack: () => void }} p */
@@ -174,6 +178,8 @@ export function SettingsScreen({ settings, onChange, onBack }) {
     <div class="setup-body"><section class="setup-col">
       <${Row} label="Left-handed layout"><${Toggle} label="Left-handed layout" checked=${settings.leftHanded} onChange=${(v) => set({ leftHanded: v })} /></${Row}>
       <${Row} label="Haptics"><${Toggle} label="Haptics" checked=${settings.haptics} onChange=${(v) => set({ haptics: v })} /></${Row}>
+      <${Row} label="Scroll at screen edges (mouse)"><${Toggle} label="Scroll at screen edges" checked=${settings.edgePan !== false} onChange=${(v) => set({ edgePan: v })} /></${Row}>
+      <${Row} label="Full screen automatically"><${Toggle} label="Full screen automatically" checked=${settings.autoFullscreen !== false} onChange=${(v) => set({ autoFullscreen: v })} /></${Row}>
       ${slider('effects', 'Effects volume')}
       ${slider('voice', 'Voice volume')}
       ${slider('ui', 'Interface volume')}

@@ -375,3 +375,5 @@ html.too-small .card.too-small { display: grid; }
 .diag-log { flex: 1; overflow: auto; margin: 0; font: 11px/1.45 var(--mono); color: var(--muted); white-space: pre-wrap; word-break: break-all; }
 .opp.remote b { color: var(--ink); }
 .end-note { margin-top: 10px; }
+.menu-tip { max-width: 320px; margin: 6px auto 0; font-size: 12px; line-height: 1.45; color: var(--muted); }
+.menu-tip b { color: var(--ink); }

@@ -1,34 +1,27 @@
 // @ts-check
 /**
- * Desktop extras (section 14): hotkeys and edge panning. Mouse select, box
- * and right-click orders come through the gesture recognizer like touch.
+ * Desktop extras (section 14): hotkeys and hover. Mouse select, box and
+ * right-click orders come through the gesture recognizer like touch; moving
+ * the view (wheel, drags, arrows, screen edge) is src/input/cameraInput.js.
  */
-
-const EDGE_PX = 8;
-const EDGE_SPEED_PX_PER_S = 900;
 
 /**
  * @param {{
  *   canvas: HTMLElement,
- *   viewport: import('pixi-viewport').Viewport,
  *   groups: { recall: (n: number) => void, assign: (n: number) => void, centre: (n: number) => void },
  *   commands: { stop: () => void, scatter: () => void, deselect: () => void, escape?: () => boolean, hotkey?: (key: string) => boolean },
  *   hover?: (x: number, y: number) => void,
  * }} opts
  */
-export function attachDesktop({ canvas, viewport, groups, commands, hover }) {
-  /** @type {{ x: number, y: number } | null} */
-  let mouse = null;
+export function attachDesktop({ canvas, groups, commands, hover }) {
   /** @type {Record<number, number>} */
   const lastGroupKey = {};
 
   const onMove = (/** @type {PointerEvent} */ e) => {
-    if (e.pointerType !== 'mouse') return;
+    if (e.pointerType !== 'mouse' || e.buttons !== 0) return;
     const r = canvas.getBoundingClientRect();
-    mouse = { x: e.clientX - r.left, y: e.clientY - r.top };
-    if (e.buttons === 0) hover?.(mouse.x, mouse.y);
+    hover?.(e.clientX - r.left, e.clientY - r.top);
   };
-  const onLeave = () => { mouse = null; };
 
   const onKey = (/** @type {KeyboardEvent} */ e) => {
     if (e.target instanceof HTMLInputElement) return;
@@ -51,24 +44,11 @@ export function attachDesktop({ canvas, viewport, groups, commands, hover }) {
   };
 
   canvas.addEventListener('pointermove', onMove);
-  canvas.addEventListener('pointerleave', onLeave);
   window.addEventListener('keydown', onKey);
 
   return {
-    /** Pan when the mouse rests at a screen edge. Call once per frame. @param {number} dtMs */
-    update(dtMs) {
-      if (!mouse) return;
-      const r = canvas.getBoundingClientRect();
-      const dx = mouse.x < EDGE_PX ? -1 : mouse.x > r.width - EDGE_PX ? 1 : 0;
-      const dy = mouse.y < EDGE_PX ? -1 : mouse.y > r.height - EDGE_PX ? 1 : 0;
-      if (!dx && !dy) return;
-      const step = (EDGE_SPEED_PX_PER_S * dtMs) / 1000 / viewport.scale.x;
-      viewport.moveCenter(viewport.center.x + dx * step, viewport.center.y + dy * step);
-      viewport.plugins.get('clamp')?.update();
-    },
     detach() {
       canvas.removeEventListener('pointermove', onMove);
-      canvas.removeEventListener('pointerleave', onLeave);
       window.removeEventListener('keydown', onKey);
     },
   };

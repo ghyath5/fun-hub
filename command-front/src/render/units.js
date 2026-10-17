@@ -32,43 +32,66 @@ function framesFor(type) {
   return FACING_FRAMES.vehicle;
 }
 
+/** World-px offset of a unit's shadow (south-east, away from the sun), on the ground and in flight. */
+const SHADOW = { x: 2.2, y: 3, alpha: 0.32, flyingX: 5, flyingY: 6 };
+/** Rotor speed, radians per ms. */
+const ROTOR_SPEED = 0.045;
+
+/** Paint + detail sprites, centred; paint takes the team tint. @param {{ paint: any, detail: any }} t @param {number} tint */
+function layered(t, tint) {
+  const c = new Container();
+  const paint = new Sprite(t.paint);
+  paint.anchor.set(0.5);
+  paint.tint = tint;
+  const detail = new Sprite(t.detail);
+  detail.anchor.set(0.5);
+  c.addChild(paint, detail);
+  return c;
+}
+
 /**
  * @param {import('pixi.js').Renderer} renderer
+ * @param {Map<string, import('./art.js').UnitArt> | null} [art]  pre-rendered art; code-drawn when absent
  */
-export function createUnitLayer(renderer) {
-  const textures = bakeUnits(renderer);
+export function createUnitLayer(renderer, art = null) {
+  /** @type {Map<string, any>} */
+  const textures = art ?? bakeUnits(renderer);
   const layer = new Container();
   layer.sortableChildren = true;
   const marks = new Graphics();
-  /** @type {Map<number, { root: Container, body: Container, turret: Container | null, shadow: Graphics, look: string }>} */
+  /** @type {Map<number, { root: Container, body: Container, turret: Container | null, shadow: Container, rotors: Container[], look: string }>} */
   const views = new Map();
+  let lastFrame = performance.now();
 
   /** @param {string} type @param {number} tint @param {string} look */
   function make(type, tint, look) {
-    const tex = /** @type {import('./spriteBaker.js').UnitTextures} */ (textures.get(type));
+    const tex = textures.get(type);
     const root = new Container();
-    const shadow = new Graphics().ellipse(1.5, 2, tex.radius * 0.9, tex.radius * 0.7).fill({ color: 0x000000, alpha: 0.28 });
-    const body = new Container();
-    const paint = new Sprite(tex.paint);
-    paint.anchor.set(0.5);
-    paint.tint = tint;
-    const detail = new Sprite(tex.detail);
-    detail.anchor.set(0.5);
-    body.addChild(paint, detail);
+    /** @type {Container} */
+    let shadow;
+    if (tex.art) {
+      // The unit's own silhouette, darkened: the shadow has the right shape at every facing.
+      shadow = layered(tex, 0x000000);
+      for (const s of shadow.children) /** @type {Sprite} */ (s).tint = 0x000000;
+      shadow.alpha = SHADOW.alpha;
+    } else {
+      shadow = new Graphics().ellipse(1.5, 2, tex.radius * 0.9, tex.radius * 0.7).fill({ color: 0x000000, alpha: 0.28 });
+    }
+    const body = layered(tex, tint);
     root.addChild(shadow, body);
-    let turret = null;
-    if (tex.turret) {
-      turret = new Container();
-      const tp = new Sprite(tex.turret.paint);
-      tp.anchor.set(0.5);
-      tp.tint = tint;
-      const td = new Sprite(tex.turret.detail);
-      td.anchor.set(0.5);
-      turret.addChild(tp, td);
-      root.addChild(turret);
+    const turret = tex.turret ? layered(tex.turret, tint) : null;
+    if (turret) root.addChild(turret);
+    /** @type {Container[]} */
+    const rotors = [];
+    for (const r of tex.rotors ?? []) {
+      const c = layered(r, tint);
+      c.position.set(r.x, r.y);
+      c.alpha = 0.85;
+      body.addChild(c);
+      rotors.push(c);
     }
     layer.addChild(root);
-    return { root, body, turret, shadow, look };
+    return { root, body, turret, shadow, rotors, look };
   }
 
   /**
@@ -99,6 +122,9 @@ export function createUnitLayer(renderer) {
      */
     sync(world, alpha, selected, viewScale, visible = () => true, viewer = -1) {
       const seen = new Set();
+      const now = performance.now();
+      const dt = Math.min(100, now - lastFrame);
+      lastFrame = now;
       marks.clear();
       for (const e of world.entities.all()) {
         if (e.dead || e.kind !== 'unit') continue;
@@ -123,11 +149,18 @@ export function createUnitLayer(renderer) {
         const lift = flying ? ALTITUDE_PX : 0;
         v.body.position.y = -lift;
         if (v.turret) v.turret.position.y = -lift;
-        v.shadow.alpha = flying ? 0.6 : 1;
         v.root.zIndex = y + (flying ? 10000 : 0);
         const frames = framesFor(look.type);
         v.body.rotation = rotationOf(e.facing, frames);
         if (v.turret) v.turret.rotation = rotationOf(e.turret, FACING_FRAMES.turret);
+        if (v.shadow instanceof Graphics) v.shadow.alpha = flying ? 0.6 : 1;
+        else {
+          v.shadow.rotation = v.body.rotation;
+          v.shadow.position.set(flying ? SHADOW.flyingX : SHADOW.x, flying ? SHADOW.flyingY : SHADOW.y); // on the ground, below a lifted body
+          v.shadow.alpha = flying ? SHADOW.alpha * 0.7 : SHADOW.alpha;
+        }
+        // Rotors turn while flying and idle down once landed.
+        for (const r of v.rotors) r.rotation += dt * ROTOR_SPEED * (flying ? 1 : 0.15);
 
         const r = textures.get(look.type)?.radius ?? 8;
         const isSel = selected.has(e.id);

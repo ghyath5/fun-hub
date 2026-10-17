@@ -18,6 +18,26 @@ function art(t, tint, centred) {
   if (centred) { p.anchor.set(0.5); d.anchor.set(0.5); }
   p.tint = tint;
   c.addChild(p, d);
+  // Pre-rendered art: the building image is drawn from its own top-left, with parts on top.
+  if (!centred && t.art) {
+    for (const s of [p, d]) s.position.set(t.ox, t.oy);
+    for (const part of t.parts) {
+      const pp = new Sprite(part.paint);
+      const pd = new Sprite(part.detail);
+      pp.anchor.set(0.5); pd.anchor.set(0.5);
+      pp.tint = tint;
+      for (const s of [pp, pd]) s.position.set(part.x, part.y);
+      c.addChild(pp, pd);
+    }
+  }
+  for (const r of t.rotors ?? []) {
+    const rp = new Sprite(r.paint);
+    const rd = new Sprite(r.detail);
+    rp.anchor.set(0.5); rd.anchor.set(0.5);
+    rp.tint = tint;
+    for (const s of [rp, rd]) s.position.set(r.x, r.y);
+    c.addChild(rp, rd);
+  }
   if (t.turret) {
     const tc = new Container();
     const tp = new Sprite(t.turret.paint);
@@ -36,7 +56,8 @@ function art(t, tint, centred) {
 function tile(a, w, h, ox, oy) {
   const box = new Container();
   box.addChild(new Graphics().rect(0, 0, SIZE, SIZE).fill(0x23261c).rect(0, SIZE - 3, SIZE, 3).fill(0x3a3e2c));
-  const k = Math.min((SIZE - 8) / w, (SIZE - 8) / h, 2.4);
+  // Small things (infantry) may scale up a lot; the pre-rendered art stays sharp.
+  const k = Math.min((SIZE - 8) / w, (SIZE - 8) / h, 6);
   a.scale.set(k);
   a.position.set((SIZE - w * k) / 2 + ox * k, (SIZE - h * k) / 2 + oy * k);
   box.addChild(a);
@@ -53,7 +74,11 @@ function tile(a, w, h, ox, oy) {
 export async function makeIcons(renderer, unitTex, structTex, tint) {
   /** @type {[string, Container][]} */
   const tiles = [];
-  for (const [type, t] of structTex) tiles.push([type, tile(art(t, tint, false), t.w, t.h, 0, 0)]);
+  for (const [type, t] of structTex) {
+    // Pre-rendered buildings: frame the whole image minus the shadow margin to the south-east.
+    if (t.art) tiles.push([type, tile(art(t, tint, false), t.w - t.ox, t.h - t.oy, -t.ox, -t.oy)]);
+    else tiles.push([type, tile(art(t, tint, false), t.w, t.h, 0, 0)]);
+  }
   for (const [type, t] of unitTex) {
     const r = Math.max(8, t.radius * 1.4);
     tiles.push([type, tile(art(t, tint, true), r * 2, r * 2, r, r)]);

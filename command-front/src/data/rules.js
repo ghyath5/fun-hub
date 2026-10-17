@@ -64,7 +64,7 @@ export const PRODUCTION = Object.freeze({
   bonusPerExtraFactory: 0.4,
   bonusMaxFactories: 4,
   minBuildSeconds: 2,
-  queueMax: 5,
+  queueMax: 10,
   lineOrder: ['structures', 'defenses', 'infantry', 'vehicles', 'aircraft', 'naval'],
   cancelRefund: 1,
   exitBlockedSwitchSeconds: 3,

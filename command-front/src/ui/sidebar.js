@@ -6,6 +6,7 @@
  */
 import { html, useState } from 'htm/preact';
 import { PressButton } from './press.js';
+import { PRODUCTION } from '../data/rules.js';
 
 /** @typedef {import('./model.js').BuildItem} BuildItem */
 /** @typedef {import('./model.js').TabInfo} TabInfo */
@@ -34,17 +35,32 @@ function menuFor(it, line) {
   const opts = [];
   if (it.state === 'ready') opts.push({ id: 'cancelReady', label: 'Cancel (refund)' });
   else if (it.state === 'building') {
+    // A tap on a unit queues another, so pausing a unit lives here instead.
+    if (unitLine) opts.push({ id: 'pause', label: 'Pause' }, { id: 'queue5', label: 'Queue ×5' });
     opts.push({ id: 'cancelActive', label: 'Cancel' });
-    if (unitLine) opts.push({ id: 'queue5', label: 'Queue ×5' });
-  } else if (it.state === 'paused') opts.push({ id: 'cancelActive', label: 'Cancel' });
+  } else if (it.state === 'paused') {
+    if (unitLine) opts.push({ id: 'resume', label: 'Resume' });
+    opts.push({ id: 'cancelActive', label: 'Cancel' });
+  }
   else if (it.queued) opts.push({ id: 'removeOne', label: 'Remove one' }, { id: 'removeAll', label: 'Remove all' });
   else if (it.state === 'available' && unitLine) opts.push({ id: 'queue5', label: 'Queue ×5' });
   if (it.queued > 1 && it.state !== 'ready') opts.push({ id: 'removeAll', label: 'Cancel all' });
   return opts.filter((o, i) => opts.findIndex((x) => x.label === o.label) === i);
 }
 
-/** Tap on an icon, by state. @param {BuildItem} it @param {LineId} line @param {SidebarActions} act */
-function tapItem(it, line, act) {
+/**
+ * Tap on an icon, by state. On a unit line a tap always means "one more"
+ * (resuming a paused line first); on Base and Defenses, which build one
+ * thing at a time, a tap on the item in progress pauses or resumes it.
+ * @param {BuildItem} it @param {LineId} line @param {SidebarActions} act @param {number} lineQueued
+ */
+function tapItem(it, line, act, lineQueued) {
+  if (UNIT_LINES.has(line) && ['available', 'building', 'paused'].includes(it.state)) {
+    if (it.state === 'paused') act.setPaused(line, false);
+    if (lineQueued >= PRODUCTION.queueMax) act.toast(`Queue full (${PRODUCTION.queueMax})`);
+    else act.build(it.type, 1);
+    return;
+  }
   switch (it.state) {
     case 'available': if (it.wall) act.place(it.type); else act.build(it.type, 1); break;
     case 'building': act.setPaused(line, true); break;
@@ -64,11 +80,11 @@ const wipe = (progress, grey) => {
   return `background: conic-gradient(transparent 0deg ${deg}deg, ${shade} ${deg}deg 360deg)`;
 };
 
-/** @param {{ it: BuildItem, line: LineId, icon: string | undefined, act: SidebarActions, openMenu: (it: BuildItem) => void }} p */
-function BuildIcon({ it, line, icon, act, openMenu }) {
+/** @param {{ it: BuildItem, line: LineId, lineQueued: number, icon: string | undefined, act: SidebarActions, openMenu: (it: BuildItem) => void }} p */
+function BuildIcon({ it, line, lineQueued, icon, act, openMenu }) {
   const live = it.state === 'building' || it.state === 'paused';
   return html`<${PressButton} class=${`bicon ${it.state}`} aria-label=${`${it.name}, ${it.cost} credits${it.label ? `, ${it.label}` : ''}${it.state === 'ready' ? ', ready' : ''}`}
-      tap=${() => tapItem(it, line, act)} longPress=${() => openMenu(it)}>
+      tap=${() => tapItem(it, line, act, lineQueued)} longPress=${() => openMenu(it)}>
     ${icon ? html`<img src=${icon} alt="" draggable="false" />` : html`<span class="bicon-name">${it.name}</span>`}
     ${live ? html`<span class="bicon-wipe" style=${wipe(it.progress, it.state === 'paused')}></span>` : null}
     ${it.state === 'locked' ? html`<span class="bicon-lock" aria-hidden="true">🔒</span>` : null}
@@ -99,6 +115,8 @@ export function Sidebar({ model, icons, tab, collapsed, mode, act }) {
     if (!it) return;
     switch (id) {
       case 'queue5': act.build(it.type, 5); break;
+      case 'pause': act.setPaused(line, true); break;
+      case 'resume': act.setPaused(line, false); break;
       case 'cancelActive': act.cancel(line, { active: true }); break;
       case 'cancelReady': act.cancelReady(line); break;
       case 'removeOne': act.cancel(line, { type: it.type }); break;
@@ -128,7 +146,7 @@ export function Sidebar({ model, icons, tab, collapsed, mode, act }) {
         ${t.label}<${TabBadge} t=${t} /></button>`)}
     </div>
     <div class="bgrid" role="tabpanel">
-      ${items.length ? items.map((it) => html`<${BuildIcon} key=${it.type} it=${it} line=${line} icon=${icons[it.type]} act=${act}
+      ${items.length ? items.map((it) => html`<${BuildIcon} key=${it.type} it=${it} line=${line} lineQueued=${model.tabs.find((t) => t.id === line)?.queued ?? 0} icon=${icons[it.type]} act=${act}
         openMenu=${(/** @type {BuildItem} */ i) => { const opts = menuFor(i, line); if (opts.length) setMenu({ it: i, opts }); }} />`)
         : html`<p class="bgrid-empty">Nothing to build</p>`}
     </div>

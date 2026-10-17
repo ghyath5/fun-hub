@@ -18,6 +18,7 @@ import { VICTORY } from '../data/rules.js';
 import { FACTIONS } from '../data/factions.js';
 import { createTwoPhones } from './twoPhones.js';
 import { inviteInUrl } from '../net/link.js';
+import { autoFullscreen, enterFullscreen, needsHomeScreen } from '../ui/fullscreen.js';
 
 const HUMAN = 0;
 const AUTOSAVE_MS = VICTORY.autosaveSeconds * 1000;
@@ -27,7 +28,7 @@ const FIRST_HINT = 'Tap the truck, then Deploy';
 /** @typedef {import('../ui/screens.js').AppSettings} AppSettings */
 
 /** @returns {AppSettings} */
-const defaultSettings = () => ({ leftHanded: false, haptics: true, effects: 1, voice: 1, ui: 0.8 });
+const defaultSettings = () => ({ leftHanded: false, haptics: true, effects: 1, voice: 1, ui: 0.8, autoFullscreen: true });
 
 /**
  * @param {{ hudEl: HTMLElement, worldEl: HTMLElement, screensEl: HTMLElement, debug: boolean }} el
@@ -58,11 +59,12 @@ export async function startApp({ hudEl, worldEl, screensEl, debug }) {
   };
   applySettings();
   const persist = () => saveSettings({ ...settings, form }).catch(() => {});
+  const fullscreen = autoFullscreen(() => settings.autoFullscreen !== false);
 
   // ---- Screens.
   const menu = async () => {
     const saves = await listSaves().catch(() => []);
-    showScreen(screensEl, html`<${MainMenu} hasAutosave=${saves.some((s) => s.slot === 'auto')}
+    showScreen(screensEl, html`<${MainMenu} hasAutosave=${saves.some((s) => s.slot === 'auto')} homeScreenHint=${needsHomeScreen()}
       act=${{ skirmish: setup, twoPhones: () => twoPhones.open(), resume: () => loadSlot('auto'), load: () => slots('load', menu), settings: () => settingsScreen(menu) }} />`);
   };
 
@@ -157,12 +159,13 @@ export async function startApp({ hudEl, worldEl, screensEl, debug }) {
    */
   async function begin(world, m, hint, net = null, online = null) {
     stopSession();
+    fullscreen.request();
     showScreen(screensEl, null);
     document.documentElement.classList.add('in-match');
     meta = m;
     const human = m.me ?? HUMAN; // the player this phone controls
     session = await createSession({
-      world, human, hudEl, worldEl, audio, speed: m.speed ?? 'normal', debug, hint, leftHanded: settings.leftHanded, net,
+      world, human, hudEl, worldEl, audio, speed: m.speed ?? 'normal', debug, hint, leftHanded: settings.leftHanded, net, edgePan: settings.edgePan !== false,
       hooks: online ?? {
         save: () => slots('save', () => showScreen(screensEl, null)),
         load: () => slots('load', () => showScreen(screensEl, null)),

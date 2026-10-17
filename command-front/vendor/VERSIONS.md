@@ -5,7 +5,6 @@ Every file here is a prebuilt distribution file copied byte-for-byte from the np
 | File | Package | Version | Path in tarball | Source | Licence | sha256 |
 | --- | --- | --- | --- | --- | --- | --- |
 | pixi.min.mjs | pixi.js | 8.22.0 | dist/pixi.min.mjs | https://registry.npmjs.org/pixi.js/-/pixi.js-8.22.0.tgz | MIT | `66257bc46776898bf8c54daaed402ed8f9ac109379c47b2dfa8aa048544d2953` |
-| pixi-viewport.mjs | pixi-viewport | 6.0.3 | dist/pixi_viewport.js | https://registry.npmjs.org/pixi-viewport/-/pixi-viewport-6.0.3.tgz | MIT | `ea539841beab2785ff88e91e65c6e457255c00ce7479e43c92317be63736ce53` |
 | easystar.min.js | easystarjs | 0.4.4 | bin/easystar-0.4.4.min.js | https://registry.npmjs.org/easystarjs/-/easystarjs-0.4.4.tgz | MIT | `fd4a014a13e548acd02f61c71d4786bb92b629ba0995c6aac6b5fb3e0841b412` |
 | seedrandom.min.js | seedrandom | 3.0.5 | seedrandom.min.js | https://registry.npmjs.org/seedrandom/-/seedrandom-3.0.5.tgz | MIT | `d2eb17a05ada2abf19c8bcb1f0f1ae62bb6da5d59a69dc6414ced08704a88cd1` |
 | simplex-noise.mjs | simplex-noise | 4.0.3 | dist/esm/simplex-noise.js | https://registry.npmjs.org/simplex-noise/-/simplex-noise-4.0.3.tgz | MIT | `64e571e6d28da06fdd230110b8ce242285e76137e7258938f3b68a0fd6ff8146` |
