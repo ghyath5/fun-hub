@@ -1,7 +1,7 @@
 /* Command Front service worker: cache-first, versioned. Hand-maintained list —
    add every file the game loads; ?debug warns at startup about any that are missing.
    Bump CACHE whenever a listed file changes. */
-const CACHE = 'command-front-v16';
+const CACHE = 'command-front-v17';
 
 const PRECACHE = [
   './',
@@ -31,8 +31,10 @@ const PRECACHE = [
   './src/data/weapons.js',
   './src/game/app.js',
   './src/game/bench.js',
+  './src/game/mapForForm.js',
   './src/game/matchSetup.js',
   './src/game/session.js',
+  './src/game/twoPhones.js',
   './src/input/context.js',
   './src/input/desktop.js',
   './src/input/gestures.js',
@@ -52,6 +54,10 @@ const PRECACHE = [
   './src/map/grid.js',
   './src/map/loader.js',
   './src/map/validator.js',
+  './src/net/link.js',
+  './src/net/lockstep.js',
+  './src/net/netMatch.js',
+  './src/net/room.js',
   './src/render/app.js',
   './src/render/camera.js',
   './src/render/combatFx.js',
@@ -116,21 +122,26 @@ const PRECACHE = [
   './src/ui/fit.js',
   './src/ui/gameEvents.js',
   './src/ui/hud.js',
+  './src/ui/linkCard.js',
   './src/ui/menus.js',
   './src/ui/minimap.js',
   './src/ui/model.js',
+  './src/ui/pairScreens.js',
   './src/ui/press.js',
   './src/ui/screens.js',
   './src/ui/sidebar.js',
   './src/ui/store.js',
   './src/ui/toasts.js',
+  './vendor/duel-net.js',
   './vendor/easystar.min.js',
   './vendor/fflate.mjs',
   './vendor/howler.min.js',
   './vendor/htm-preact-standalone.mjs',
   './vendor/idb-keyval.mjs',
+  './vendor/jsqr.min.js',
   './vendor/pixi-viewport.mjs',
   './vendor/pixi.min.mjs',
+  './vendor/qrcode.min.js',
   './vendor/seedrandom.min.js',
   './vendor/simplex-noise.mjs',
   './vendor/stats.min.js',

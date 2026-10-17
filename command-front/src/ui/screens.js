@@ -41,7 +41,7 @@ const Toggle = ({ checked, onChange, label }) => html`<input type="checkbox" cla
   onChange=${(/** @type {any} */ e) => onChange(e.target.checked)} />`;
 
 /**
- * @param {{ hasAutosave: boolean, act: { skirmish: () => void, resume: () => void, load: () => void, settings: () => void } }} p
+ * @param {{ hasAutosave: boolean, act: { skirmish: () => void, twoPhones: () => void, resume: () => void, load: () => void, settings: () => void } }} p
  */
 export function MainMenu({ hasAutosave, act }) {
   return html`<div class="screen menu">
@@ -51,24 +51,39 @@ export function MainMenu({ hasAutosave, act }) {
       <button class="btn primary" onClick=${act.skirmish}>Skirmish</button>
       <button class="btn" disabled=${!hasAutosave} onClick=${act.resume}>Continue</button>
       <button class="btn" onClick=${act.load}>Load game</button>
+      <button class="btn" onClick=${act.twoPhones}>Two phones · WiFi</button>
       <button class="btn" onClick=${act.settings}>Settings</button>
     </div>
   </div>`;
 }
 
+/** Team options for a form: 2 v 2 needs four players; on two phones, "both phones against the AI". @param {SetupForm} form @param {boolean} online */
+export function teamOptions(form, online) {
+  const ais = form.opponents.filter((o) => !o.remote).length;
+  const out = [{ value: 'ffa', label: 'Free-for-all' }];
+  if (online && ais >= 1 && form.opponents.length >= 2) out.push({ value: 'coop', label: 'Both phones vs the AI' });
+  else if (!online && form.opponents.length === 3) out.push({ value: '2v2', label: '2 v 2 (you + first AI)' });
+  return out;
+}
+
+/** @param {{ o: import('../game/matchSetup.js').OpponentForm }} p */
+const RemoteSlot = ({ o }) => html`<div class="opp remote">${colorDot(o.color)}<b>Phone 2</b>
+  <span class="muted">${FACTIONS[o.faction].name} · ${cap(o.color)} · chosen on their phone</span></div>`;
+
 /**
  * @param {{ form: SetupForm, maps: { id: string, name: string, maxPlayers: number }[], error: string,
- *   onChange: (f: SetupForm) => void, onStart: () => void, onBack: () => void }} p
+ *   onChange: (f: SetupForm) => void, onStart: () => void, onBack: () => void, online?: boolean }} p
+ *   online: the host's lobby in a two-phone match (opponent 1 is the other phone)
  */
-export function SetupScreen({ form, maps, error, onChange, onStart, onBack }) {
+export function SetupScreen({ form, maps, error, onChange, onStart, onBack, online = false }) {
   const set = (/** @type {Partial<SetupForm>} */ patch) => onChange({ ...form, ...patch });
   const generated = form.map === 'generated';
   const maxPlayers = generated ? (form.genSize >= 96 ? 4 : 2) : maps.find((m) => m.id === form.map)?.maxPlayers ?? 2;
   const opp = (/** @type {number} */ k, /** @type {any} */ patch) => set({ opponents: form.opponents.map((o, i) => (i === k ? { ...o, ...patch } : o)) });
   return html`<div class="screen setup">
     <header class="screen-head">
-      <button class="btn" onClick=${onBack}>‹ Back</button>
-      <h2>Skirmish</h2>
+      <button class="btn" onClick=${onBack}>${online ? '‹ Leave' : '‹ Back'}</button>
+      <h2>${online ? 'Two phones' : 'Skirmish'}</h2>
       <button class="btn primary" onClick=${onStart}>Start</button>
     </header>
     ${error ? html`<p class="setup-error" role="alert">${error}</p>` : null}
@@ -90,17 +105,17 @@ export function SetupScreen({ form, maps, error, onChange, onStart, onBack }) {
         <${Row} label="Colour">${colorDot(form.color)}<${Select} label="Your colour" value=${form.color} onChange=${(v) => set({ color: v })}
           options=${COLORS.map((c) => ({ value: c, label: cap(c) }))} /></${Row}>
         <h3>Opponents</h3>
-        ${form.opponents.map((o, k) => html`<div class="opp" key=${k}>
+        ${form.opponents.map((o, k) => o.remote ? html`<${RemoteSlot} key=${k} o=${o} />` : html`<div class="opp" key=${k}>
           ${colorDot(o.color)}
           <${Select} label=${`Opponent ${k + 1} faction`} value=${o.faction} onChange=${(v) => opp(k, { faction: v })} options=${FACTION_IDS.map((f) => ({ value: f, label: FACTIONS[f].name }))} />
           <${Select} label=${`Opponent ${k + 1} colour`} value=${o.color} onChange=${(v) => opp(k, { color: v })} options=${COLORS.map((c) => ({ value: c, label: cap(c) }))} />
           <${Select} label=${`Opponent ${k + 1} difficulty`} value=${o.difficulty} onChange=${(v) => opp(k, { difficulty: v })} options=${DIFFICULTIES.map((d) => ({ value: d, label: cap(d) }))} />
-          ${form.opponents.length > 1 ? html`<button class="cmd" aria-label="Remove opponent" onClick=${() => set({ opponents: form.opponents.filter((_, i) => i !== k) })}>✕</button>` : null}
+          ${form.opponents.filter((x) => !x.remote).length > (online ? 0 : 1) ? html`<button class="cmd" aria-label="Remove opponent" onClick=${() => set({ opponents: form.opponents.filter((_, i) => i !== k) })}>✕</button>` : null}
         </div>`)}
         ${form.opponents.length + 1 < maxPlayers ? html`<button class="btn" onClick=${() => set({ opponents: [...form.opponents, {
           faction: form.opponents.length % 2 ? 'coalition' : 'union', color: COLORS.find((c) => c !== form.color && !form.opponents.some((o) => o.color === c)) ?? 'green', difficulty: 'normal' }] })}>+ Add AI opponent</button>` : null}
-        ${form.opponents.length === 3 ? html`<${Row} label="Teams"><${Select} label="Teams" value=${form.teams} onChange=${(v) => set({ teams: v })}
-          options=${[{ value: 'ffa', label: 'Free-for-all' }, { value: '2v2', label: '2 v 2 (you + first AI)' }]} /></${Row}>` : null}
+        ${teamOptions(form, online).length > 1 ? html`<${Row} label="Teams"><${Select} label="Teams" value=${form.teams} onChange=${(v) => set({ teams: v })}
+          options=${teamOptions(form, online)} /></${Row}>` : null}
       </section>
       <section class="setup-col">
         <h3>Rules</h3>
@@ -170,9 +185,10 @@ export function SettingsScreen({ settings, onChange, onBack }) {
  * End of the match (section 18): who won, the time, and each player's numbers.
  * @param {{ outcome: 'victory' | 'defeat' | 'draw', ticks: number,
  *   rows: { name: string, color: string, alive: boolean, stats: Record<string, number> }[],
- *   act: { rematch: () => void, menu: () => void } }} p
+ *   act: { rematch?: () => void, menu: () => void }, labels?: { rematch?: string, menu?: string, note?: string } }} p
+ *   No rematch action shows the note instead (a two-phone guest waits for the host).
  */
-export function EndScreen({ outcome, ticks, rows, act }) {
+export function EndScreen({ outcome, ticks, rows, act, labels = {} }) {
   const title = { victory: 'Victory', defeat: 'Defeat', draw: 'Draw' }[outcome];
   const cols = [
     ['unitsBuilt', 'Units built'], ['unitsLost', 'Units lost'], ['unitsKilled', 'Units killed'],
@@ -187,9 +203,10 @@ export function EndScreen({ outcome, ticks, rows, act }) {
         <td>${colorDot(r.color)} ${r.name}</td>${cols.map(([k]) => html`<td>${(r.stats[k] ?? 0).toLocaleString('en-US')}</td>`)}</tr>`)}</tbody>
     </table></div>
     <div class="menu-buttons row">
-      <button class="btn primary" onClick=${act.rematch}>Rematch</button>
-      <button class="btn" onClick=${act.menu}>Main menu</button>
+      ${act.rematch ? html`<button class="btn primary" onClick=${act.rematch}>${labels.rematch ?? 'Rematch'}</button>` : null}
+      <button class="btn" onClick=${act.menu}>${labels.menu ?? 'Main menu'}</button>
     </div>
+    ${labels.note ? html`<p class="muted end-note">${labels.note}</p>` : null}
   </div>`;
 }
 

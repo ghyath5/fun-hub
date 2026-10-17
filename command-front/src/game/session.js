@@ -49,6 +49,7 @@ const portraitPhone = () => matchMedia('(orientation: portrait) and (pointer: co
  * @property {() => void} [autosave]   Save to the autosave slot now
  * @property {() => void} [exit]       Leave the match for the main menu
  * @property {(result: any) => void} [ended]  The match is over
+ * @property {() => void} [retry]     Two phones: try the lost connection again
  */
 
 /**
@@ -56,9 +57,10 @@ const portraitPhone = () => matchMedia('(orientation: portrait) and (pointer: co
  *   world: any, human: number, hudEl: HTMLElement, worldEl: HTMLElement,
  *   audio: ReturnType<typeof import('../lib/audio.js').createAudio>,
  *   speed?: keyof typeof GAME_SPEEDS, debug?: boolean, hooks?: SessionHooks, hint?: string | null, leftHanded?: boolean,
- * }} opts
+ *   net?: import('../net/netMatch.js').NetPlay | null,
+ * }} opts  net: a two-phone match — commands go through the lockstep and the pause is shared
  */
-export async function createSession({ world, human, hudEl, worldEl, audio, speed = 'normal', debug = false, hooks = {}, hint = null, leftHanded = false }) {
+export async function createSession({ world, human, hudEl, worldEl, audio, speed = 'normal', debug = false, hooks = {}, hint = null, leftHanded = false, net = null }) {
   const map = world.map;
   const view = await createRenderer(worldEl, map);
   const vp = view.camera.viewport;
@@ -107,6 +109,9 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
     watching: false,
     hint: /** @type {string | null} */ (hint),
     ended: false,
+    online: !!net,
+    link: /** @type {import('../net/netMatch.js').LinkCard} */ (null),
+    linkDismissed: false,
   });
   const toaster = createToaster((toasts) => store.set({ toasts }));
   const alerts = createAlerts({
@@ -125,8 +130,10 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
   const pings = [];
   let lastAlpha = 0;
 
+  /** Every player command goes through here: straight into the sim, or into the lockstep on two phones. @param {any} cmd */
+  const submit = (cmd) => (net ? net.submit(cmd) : enqueue(world, cmd));
   /** @param {string} type @param {any} target @param {number[]} [ids] */
-  const issue = (type, target, ids = []) => enqueue(world, { tick: world.tick, playerId: human, type, entityIds: ids, target });
+  const issue = (type, target, ids = []) => submit({ tick: world.tick, playerId: human, type, entityIds: ids, target });
   const jump = (/** @type {{x: number, y: number}} */ at) => vp.animate({ position: { x: (at.x + 0.5) * C, y: (at.y + 0.5) * C }, time: 300 });
 
   // ---- Modes: placement, walls, sell, repair, rally (they get gestures first).
@@ -178,7 +185,7 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
     world,
     human,
     selection,
-    issue: (cmd) => enqueue(world, cmd),
+    issue: submit,
     toWorld: (sx, sy) => vp.toWorld(sx, sy),
     toScreen: (wx, wy) => vp.toScreen(wx, wy),
     scale: () => vp.scale.x,
@@ -286,16 +293,23 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
   };
 
   const hud = mountHud(hudEl, store, {
-    pause: () => { userPaused = true; store.set({ paused: true }); hooks.autosave?.(); },
-    resume: () => { userPaused = false; store.set({ paused: false, confirmSurrender: false }); loop.resetClock(); },
+    pause: () => { userPaused = true; store.set({ paused: true }); net?.hold(true); hooks.autosave?.(); },
+    resume: () => { userPaused = false; store.set({ paused: false, confirmSurrender: false }); net?.hold(false); loop.resetClock(); },
     save: () => hooks.save?.(),
     load: () => hooks.load?.(),
     exit: () => hooks.exit?.(),
+    link: net ? {
+      retry: () => hooks.retry?.(),
+      alone: () => { net.abandon(); store.set({ linkDismissed: true }); },
+      dismiss: () => store.set({ linkDismissed: true }),
+      exit: () => hooks.exit?.(),
+    } : undefined,
     surrender: () => {
       if (!store.get().confirmSurrender) { store.set({ confirmSurrender: true }); return; }
       issue('surrender', null);
       store.set({ confirmSurrender: false, paused: false });
       userPaused = false;
+      net?.hold(false);
       loop.resetClock();
     },
     watch: () => { watching = true; store.set({ defeated: false, watching: true }); },
@@ -353,6 +367,7 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
   });
 
   const offEnd = [
+    ...(net ? [net.onCard((link) => store.set({ link }))] : []),
     world.events.on('playerEliminated', (e) => {
       if (e.data.player === human && !world.result) store.set({ defeated: true, paused: false });
     }),
@@ -460,8 +475,9 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
   });
   let frameNo = 0;
   const loop = createLoop({
+    ready: () => !net || net.ready(world),
     tick: () => {
-      step(world);
+      if (net) net.step(world); else step(world);
       if (debug && world.tick % SIM.hashEveryTicks === 0) store.set({ hash: hashWorld(world) });
     },
     render: (alpha, dtMs) => {
@@ -476,8 +492,8 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
       if (++frameNo % HUD_EVERY_FRAMES === 0) refreshHud();
       if (frameNo % (HUD_EVERY_FRAMES * 2) === 0 && minimapCanvas && store.get().radar) drawMinimap(minimapCanvas, world, human, view.visibleCells(), pings);
     },
-    ticksPerSecond: () => GAME_SPEEDS[speed].ticksPerSecond,
-    paused: () => userPaused || portraitPhone() || document.hidden,
+    ticksPerSecond: () => GAME_SPEEDS[speed].ticksPerSecond * (net ? net.rate(world) : 1),
+    paused: () => userPaused || portraitPhone() || document.hidden || !!net?.held(),
   });
   const onTick = (/** @type {any} */ t) => loop.frame(t.deltaMS);
   view.app.ticker.add(onTick);
@@ -526,7 +542,7 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
 
   const onVisibility = () => {
     if (document.hidden) { view.app.ticker.stop(); hooks.autosave?.(); }
-    else { loop.resetClock(); view.app.ticker.start(); }
+    else { loop.resetClock(); view.app.ticker.start(); net?.wake(); }
   };
   document.addEventListener('visibilitychange', onVisibility);
   const onViewport = () => view.app.resize();
@@ -541,6 +557,8 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
 
   /** @type {any} */ (window).__cf = {
     world, view, store, selection, intents, modes, enqueue: (/** @type {any} */ c) => enqueue(world, c),
+    /** Issue a command the way the player's input does (through the lockstep on two phones). */
+    submit,
     alpha: () => lastAlpha, gestures: gestureLog, recognizer: gestures.recognizer,
     selectStructure, get selectedStructure() { return selectedStructure; },
     /** Debug: put a unit or a finished structure on the map. */

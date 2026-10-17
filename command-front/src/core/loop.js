@@ -11,6 +11,7 @@ import { SIM } from '../data/rules.js';
  * @property {(alpha: number, dtMs: number) => void} render
  * @property {() => number} ticksPerSecond     Current game speed
  * @property {() => boolean} [paused]
+ * @property {() => boolean} [ready]          False holds the sim without pausing (lockstep waiting for the other phone)
  */
 
 /**
@@ -44,13 +45,14 @@ export function createLoop(hooks, env = {}) {
       acc += dtMs;
       let n = 0;
       while (acc >= step && n < SIM.maxCatchUpTicks) {
+        if (hooks.ready && !hooks.ready()) { acc = Math.min(acc, step); break; } // waiting: no burst when it clears
         hooks.tick();
         acc -= step;
         n++;
       }
       if (n === SIM.maxCatchUpTicks && acc >= step) acc = 0; // drop backlog: no spiral of death
     }
-    hooks.render(acc / step, dtMs);
+    hooks.render(Math.min(1, acc / step), dtMs);
   }
 
   /** @param {number} t */

@@ -19,5 +19,8 @@ Every file here is a prebuilt distribution file copied byte-for-byte from the np
 | chai.mjs | chai | 5.3.3 | index.js | https://registry.npmjs.org/chai/-/chai-5.3.3.tgz | MIT | `a38c60a6984fc6342eeacbbd676fb66a8fe1b06d67a5bc60e3431a94c347223e` |
 | stats.min.js | stats.js | 0.17.0 | build/stats.min.js | https://registry.npmjs.org/stats.js/-/stats.js-0.17.0.tgz | MIT | `8a2c2b2d6e1250186bcd6adf5b65593fff66a301d7f8ab3510a39116fe041dd1` |
 | tweakpane.min.mjs | tweakpane | 4.0.5 | dist/tweakpane.min.js | https://registry.npmjs.org/tweakpane/-/tweakpane-4.0.5.tgz | MIT | `0cde7776e6d8a6cd32d128d21e3f203b7e152adc5a5ea8a9b86ff78c0276696c` |
+| duel-net.js | duel-net (Fun Hub creategame skill) | 1.2.0 | assets/duel-net.js | creategame skill, copied unmodified (never edit: its Sdp and Peer code is phone-tested) | — | `c1c1a9a8193d389f0fb091024fab8504c3cef56e5ea99ebb5d7a66016e40e555` |
+| qrcode.min.js | qrcode-generator | as bundled with duel-net | assets/vendor/qrcode.min.js | creategame skill | MIT | `f097ab3c8a350becad3844520eaaabd17b5fc17285acbe4f7e35762763dd0571` |
+| jsqr.min.js | jsQR | as bundled with duel-net | assets/vendor/jsqr.min.js | creategame skill | Apache-2.0 | `fc6a9b5b0735aaf4af4748e0433d7351d4b725cfb02b032c502a5b699f3e4b9d` |
 
-`stats.min.js` and `tweakpane.min.mjs` load only with `?debug`. `mocha.*` and `chai.mjs` load only in `tests/index.html`.
+`stats.min.js` and `tweakpane.min.mjs` load only with `?debug`. `mocha.*` and `chai.mjs` load only in `tests/index.html`. `duel-net.js`, `qrcode.min.js` and `jsqr.min.js` load only when two phones pair (src/net/link.js); the game uses `Duel.Peer`, `Duel.Qr` and `Duel.Diag` from it and never calls `Duel.start`.

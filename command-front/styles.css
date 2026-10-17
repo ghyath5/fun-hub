@@ -96,8 +96,9 @@ body.ready .boot { opacity: 0; pointer-events: none; }
 .phone-icon { width: 38px; height: 64px; margin: 0 auto 16px; border: 3px solid var(--ink); border-radius: 7px; animation: turn 1.8s ease-in-out infinite; }
 @keyframes turn { 0%, 30% { transform: rotate(0); } 60%, 100% { transform: rotate(-90deg); } }
 
+/* Only a match needs landscape; menus, pairing and lobbies work held upright. */
 @media (orientation: portrait) and (pointer: coarse) and (max-width: 600px) {
-  .card.rotate { display: grid; }
+  html.in-match .card.rotate { display: grid; }
 }
 /* Short landscape screens: the DOM interface is zoomed to fit (src/ui/fit.js); the canvas is not. */
 .hud, .screens { zoom: var(--ui-zoom, 1); }
@@ -327,3 +328,50 @@ html.too-small .card.too-small { display: grid; }
   .groups { gap: 4px; }
   .group { width: 38px; height: 36px; }
 }
+
+/* Two phones: link status (src/ui/linkCard.js) */
+.link-backdrop { z-index: 40; }
+.link-card { max-width: 340px; text-align: center; align-items: stretch; }
+.link-card .muted { line-height: 1.45; }
+.link-wait {
+  position: absolute; top: calc(38px + var(--sat)); left: 50%; transform: translateX(-50%); z-index: 35;
+  display: flex; align-items: center; gap: 8px; padding: 6px 12px; font: 600 12px var(--font); letter-spacing: .04em;
+  border-left: 3px solid var(--accent); pointer-events: none;
+}
+.spin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--rule); border-top-color: var(--accent); animation: spin .9s linear infinite; flex: none; }
+.spin.big { width: 28px; height: 28px; margin: 0 auto; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Two phones: pairing screens and lobby (src/ui/pairScreens.js). They work held upright. */
+.menu-mark.small { font-size: 26px; }
+.pair-lead { max-width: 440px; margin: 0 auto 6px; color: var(--muted); line-height: 1.45; }
+.pair-sub { margin: -6px 0 2px; font-size: 12px; color: var(--muted); }
+.pair-screen .pair-body { max-width: 440px; margin: 0 auto; display: flex; flex-direction: column; align-items: stretch; gap: 12px; text-align: center; }
+.pair-side { display: flex; flex-direction: column; gap: 10px; }
+@media (orientation: landscape) {
+  .pair-screen .pair-body { max-width: 760px; flex-direction: row; align-items: center; text-align: left; gap: 24px; }
+  .pair-code { flex: none; }
+  .pair-side { flex: 1; min-width: 0; }
+  .pair-side .pair-lead { margin: 0; }
+  .qr-box { width: min(42vw, 62vh, 290px); }
+  .cam { width: min(42vw, 62vh, 320px); }
+}
+.pair-steps { text-align: left; margin: 0; padding-left: 20px; color: var(--muted); line-height: 1.45; font-size: 13px; }
+.pair-steps b { color: var(--ink); }
+.pair-status { min-height: 1.3em; margin: 0; color: var(--accent); font-weight: 600; letter-spacing: .03em; }
+.qr-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.qr-box { display: grid; place-items: center; margin: 0 auto; background: #fff; padding: 10px; width: min(72vw, 52vh, 290px); aspect-ratio: 1; }
+.qr-box.waiting { background: var(--panel-solid); border: 1px solid var(--rule); }
+.qr-box img { width: 100%; height: 100%; image-rendering: pixelated; display: block; }
+.qr-text { width: 100%; height: 90px; font: 11px var(--mono); background: #0e0f0b; color: var(--ink); border: 1px solid var(--rule); }
+.cam { position: relative; margin: 0 auto; width: min(80vw, 52vh, 320px); aspect-ratio: 1; overflow: hidden; background: #000; border: 1px solid var(--rule); }
+.cam video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cam .frame { position: absolute; inset: 14%; border: 2px solid var(--accent); box-shadow: 0 0 0 999px rgba(0, 0, 0, .35); }
+.paste { display: flex; gap: 6px; }
+.paste input { flex: 1; min-width: 0; min-height: 44px; padding: 0 10px; background: #0e0f0b; color: var(--ink); border: 1px solid var(--rule); font: 13px var(--mono); }
+.diag-panel { position: fixed; inset: calc(10px + var(--sat)) calc(10px + var(--sar)) calc(10px + var(--sab)) calc(10px + var(--sal)); z-index: 60; display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; background: var(--panel-solid); }
+.diag-panel .screen-head { position: static; background: transparent; flex-wrap: wrap; }
+.diag-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+.diag-log { flex: 1; overflow: auto; margin: 0; font: 11px/1.45 var(--mono); color: var(--muted); white-space: pre-wrap; word-break: break-all; }
+.opp.remote b { color: var(--ink); }
+.end-note { margin-top: 10px; }

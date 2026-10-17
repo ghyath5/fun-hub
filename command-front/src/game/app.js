@@ -5,8 +5,7 @@
  * pause and when the app is hidden) and settings. Owns at most one session.
  */
 import { loadMap, BUNDLED_MAPS } from '../map/loader.js';
-import { validateMap, describe } from '../map/validator.js';
-import { generateMap } from '../map/generator.js';
+import { mapForForm } from './mapForForm.js';
 import { createSession } from './session.js';
 import { defaultForm, normaliseForm, startMatch } from './matchSetup.js';
 import { snapshot, restore } from '../save/serialize.js';
@@ -17,6 +16,8 @@ import { showScreen, MainMenu, SetupScreen, SlotsScreen, SettingsScreen, EndScre
 import { html } from 'htm/preact';
 import { VICTORY } from '../data/rules.js';
 import { FACTIONS } from '../data/factions.js';
+import { createTwoPhones } from './twoPhones.js';
+import { inviteInUrl } from '../net/link.js';
 
 const HUMAN = 0;
 const AUTOSAVE_MS = VICTORY.autosaveSeconds * 1000;
@@ -33,7 +34,7 @@ const defaultSettings = () => ({ leftHanded: false, haptics: true, effects: 1, v
  */
 export async function startApp({ hudEl, worldEl, screensEl, debug }) {
   const audio = createAudio();
-  /** @type {AppSettings & { form?: SetupForm, played?: boolean }} */
+  /** @type {AppSettings & { form?: SetupForm, played?: boolean, mpForm?: SetupForm, mpMe?: { faction: 'coalition' | 'union', color: string } }} */
   let settings = { ...defaultSettings(), ...(await loadSettings().catch(() => ({}))) };
   let form = normaliseForm({ ...defaultForm(), ...(settings.form ?? {}) }, 4);
   /** @type {Awaited<ReturnType<typeof createSession>> | null} */
@@ -62,7 +63,7 @@ export async function startApp({ hudEl, worldEl, screensEl, debug }) {
   const menu = async () => {
     const saves = await listSaves().catch(() => []);
     showScreen(screensEl, html`<${MainMenu} hasAutosave=${saves.some((s) => s.slot === 'auto')}
-      act=${{ skirmish: setup, resume: () => loadSlot('auto'), load: () => slots('load', menu), settings: () => settingsScreen(menu) }} />`);
+      act=${{ skirmish: setup, twoPhones: () => twoPhones.open(), resume: () => loadSlot('auto'), load: () => slots('load', menu), settings: () => settingsScreen(menu) }} />`);
   };
 
   const setup = () => {
@@ -106,6 +107,7 @@ export async function startApp({ hudEl, worldEl, screensEl, debug }) {
     session = null;
     hudEl.replaceChildren();
     hudEl.className = 'hud';
+    document.documentElement.classList.remove('in-match');
   };
 
   /** Write the running match to a slot. @param {string} slot */
@@ -133,19 +135,11 @@ export async function startApp({ hudEl, worldEl, screensEl, debug }) {
   };
 
   async function startFromForm() {
-    let map;
-    let seed = Date.now() % 1e9;
-    if (form.map === 'generated') {
-      const gen = generateMap({ seed: form.genSeed, size: form.genSize, players: form.genSize >= 96 ? 4 : 2 });
-      if (gen) { map = gen.map; seed = gen.seed; } else {
-        setupError = 'No valid map came out of 20 seeds; playing Duel Canyon instead.';
-        map = await loadMap('duel-canyon');
-      }
-    } else {
-      map = await loadMap(form.map);
-      const report = validateMap(map);
-      if (!report.ok) { setupError = `Map "${map.name}" cannot be played:\n${describe(report.errors)}`; setup(); return; }
-    }
+    const chosen = await mapForForm(form);
+    setupError = chosen.error;
+    if (!chosen.map) { setup(); return; }
+    const map = chosen.map;
+    const seed = chosen.seed ?? Date.now() % 1e9;
     form = normaliseForm(form, map.maxPlayers);
     persist();
     const world = startMatch(form, map, seed);
@@ -155,19 +149,26 @@ export async function startApp({ hudEl, worldEl, screensEl, debug }) {
     await begin(world, { speed: form.speed, form }, first ? FIRST_HINT : null);
   }
 
-  /** Put a world on screen. @param {any} world @param {any} m @param {string | null} hint */
-  async function begin(world, m, hint) {
+  /**
+   * Put a world on screen. A two-phone match passes its net play and its own
+   * hooks (no saves; leaving and the end screen are the two-phone flow's).
+   * @param {any} world @param {any} m @param {string | null} hint
+   * @param {import('../net/netMatch.js').NetPlay | null} [net] @param {any} [online] hooks for a two-phone match
+   */
+  async function begin(world, m, hint, net = null, online = null) {
     stopSession();
     showScreen(screensEl, null);
+    document.documentElement.classList.add('in-match');
     meta = m;
+    const human = m.me ?? HUMAN; // the player this phone controls
     session = await createSession({
-      world, human: HUMAN, hudEl, worldEl, audio, speed: m.speed ?? 'normal', debug, hint, leftHanded: settings.leftHanded,
-      hooks: {
+      world, human, hudEl, worldEl, audio, speed: m.speed ?? 'normal', debug, hint, leftHanded: settings.leftHanded, net,
+      hooks: online ?? {
         save: () => slots('save', () => showScreen(screensEl, null)),
         load: () => slots('load', () => showScreen(screensEl, null)),
         autosave: () => { saveTo('auto'); },
         exit: () => { saveTo('auto').finally(() => { stopSession(); menu(); }); },
-        ended: (result) => ended(result),
+        ended: (/** @type {any} */ result) => ended(result),
       },
     });
     if (hint) {
@@ -175,9 +176,27 @@ export async function startApp({ hudEl, worldEl, screensEl, debug }) {
       const mcv = world.entities.all().find((e) => e.owner === HUMAN && e.type === 'mcv');
       if (mcv) session.view.camera.home(mcv.cx, mcv.cy);
     }
-    autosaveTimer = /** @type {any} */ (setInterval(() => { if (session && !document.hidden) saveTo('auto'); }, AUTOSAVE_MS));
+    if (!net) autosaveTimer = /** @type {any} */ (setInterval(() => { if (session && !document.hidden) saveTo('auto'); }, AUTOSAVE_MS));
     document.body.classList.add('ready');
+    return session;
   }
+
+  const twoPhones = createTwoPhones({
+    screensEl,
+    maps,
+    prefs: {
+      get: () => ({ form: settings.mpForm, me: settings.mpMe }),
+      set: (p) => {
+        if (p.form) settings.mpForm = p.form;
+        if (p.me) settings.mpMe = p.me;
+        persist();
+      },
+    },
+    play: (world, m, net, hooks) => begin(world, m, null, net, hooks),
+    stop: stopSession,
+    session: () => session,
+    menu,
+  });
 
   /** @param {{ tick: number, draw: boolean, winners: number[] }} result */
   function ended(result) {
@@ -200,7 +219,14 @@ export async function startApp({ hudEl, worldEl, screensEl, debug }) {
     runBenchmark({ hudEl, worldEl, screensEl, audio, seconds: secs }).catch((e) => console.error(e));
     return { get session() { return session; }, startFromForm, menu };
   }
-  await menu();
+  // A phone that scanned the host's invite QR opens the game at …/#o=<code>.
+  const invite = inviteInUrl();
+  if (invite) {
+    history.replaceState(null, '', location.pathname);
+    twoPhones.joinWith(invite);
+  } else {
+    await menu();
+  }
   document.body.classList.add('ready');
   return {
     /** The running session (debugging). */

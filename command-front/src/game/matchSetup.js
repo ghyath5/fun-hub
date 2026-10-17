@@ -10,7 +10,11 @@ import { createRng } from '../lib/rng.js';
 import { createMatch } from '../sim/setup.js';
 
 /** @typedef {'easy' | 'normal' | 'hard'} Difficulty */
-/** @typedef {{ faction: 'coalition' | 'union', color: string, difficulty: Difficulty }} OpponentForm */
+/**
+ * An opponent slot: an AI, or (`remote`) the second phone in a two-phone match,
+ * whose player picks their own faction and colour.
+ * @typedef {{ faction: 'coalition' | 'union', color: string, difficulty: Difficulty, remote?: boolean }} OpponentForm
+ */
 
 /**
  * @typedef {object} SetupForm
@@ -20,7 +24,7 @@ import { createMatch } from '../sim/setup.js';
  * @property {'coalition' | 'union'} faction
  * @property {string} color
  * @property {OpponentForm[]} opponents 1–3
- * @property {'ffa' | '2v2'} teams
+ * @property {'ffa' | '2v2' | 'coop'} teams   coop: every human (both phones) against every AI
  * @property {number} startingCredits
  * @property {'mcv' | 'force'} startingUnits
  * @property {number} techLevel
@@ -60,7 +64,9 @@ export function defaultForm() {
 /** Keep the form consistent: opponents fit the map, colours are unique, 2v2 needs four players. @param {SetupForm} f @param {number} maxPlayers */
 export function normaliseForm(f, maxPlayers) {
   const out = { ...f, opponents: f.opponents.slice(0, Math.max(1, maxPlayers - 1)).map((o) => ({ ...o })) };
-  if (out.opponents.length + 1 < 4) out.teams = 'ffa';
+  const ais = out.opponents.filter((o) => !o.remote).length;
+  if (out.teams === '2v2' && out.opponents.length + 1 < 4) out.teams = 'ffa';
+  if (out.teams === 'coop' && (!ais || ais === out.opponents.length)) out.teams = 'ffa';
   const used = new Set([out.color]);
   for (const o of out.opponents) {
     if (used.has(o.color)) o.color = COLORS.find((c) => !used.has(c)) ?? o.color;
@@ -77,7 +83,7 @@ export function normaliseForm(f, maxPlayers) {
 export function matchOptions(f, map, seed) {
   const players = [
     { faction: f.faction, color: f.color, human: true, difficulty: 'normal' },
-    ...f.opponents.map((o) => ({ faction: o.faction, color: o.color, human: false, difficulty: o.difficulty })),
+    ...f.opponents.map((o) => ({ faction: o.faction, color: o.color, human: !!o.remote, difficulty: o.difficulty })),
   ];
   const order = map.starts.map((_, i) => i);
   if (f.startPositions === 'random') {
@@ -90,7 +96,7 @@ export function matchOptions(f, map, seed) {
   const specs = players.map((p, i) => ({
     ...p,
     start: order[i],
-    team: f.teams === '2v2' ? (i < 2 ? 0 : 1) : i,
+    team: f.teams === 'coop' ? (p.human ? 0 : 1) : f.teams === '2v2' ? (i < 2 ? 0 : 1) : i,
   }));
   return {
     seed,

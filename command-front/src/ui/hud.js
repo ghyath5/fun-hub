@@ -10,6 +10,7 @@ import { Toasts } from './toasts.js';
 import { CommandBar, ControlGroups, InfoCard, RadialMenu, TargetBanner, StructureBar, PlaceControls } from './commandBar.js';
 import { Sidebar } from './sidebar.js';
 import { Minimap } from './minimap.js';
+import { LinkCard } from './linkCard.js';
 
 /**
  * @typedef {object} HudState
@@ -47,6 +48,9 @@ import { Minimap } from './minimap.js';
  * @property {boolean} watching
  * @property {string | null} hint    First-match hint
  * @property {boolean} ended
+ * @property {boolean} online      Two-phone match: no saves, shared pause
+ * @property {import('../net/netMatch.js').LinkCard} link  The other phone's state
+ * @property {boolean} [linkDismissed]
  */
 
 /**
@@ -71,6 +75,7 @@ import { Minimap } from './minimap.js';
  * @property {() => void} save
  * @property {() => void} load
  * @property {() => void} exit
+ * @property {import('./linkCard.js').LinkActions} [link]
  * @property {() => void} surrender
  * @property {() => void} watch
  * @property {() => void} dismissHint
@@ -144,20 +149,21 @@ function Hud({ store, actions }) {
       <div class="sheet-backdrop">
         <div class="sheet panel" role="dialog" aria-label="Paused">
           <h2>Paused</h2>
-          <p class="muted">${s.mapName}</p>
+          <p class="muted">${s.online ? 'The other phone waits until you resume.' : s.mapName}</p>
           <button class="btn primary" onClick=${actions.resume}>Resume</button>
-          <div class="sheet-row">
+          ${s.online ? null : html`<div class="sheet-row">
             <button class="btn" disabled=${s.watching || s.ended} onClick=${actions.save}>Save</button>
             <button class="btn" onClick=${actions.load}>Load</button>
-          </div>
+          </div>`}
           <div class="sheet-row">
             <button class="btn" onClick=${actions.fullscreen}>Fullscreen</button>
             <button class=${`btn ${s.confirmSurrender ? 'danger' : ''}`} disabled=${s.watching || s.ended} onClick=${actions.surrender}>
               ${s.confirmSurrender ? 'Confirm surrender' : 'Surrender'}</button>
           </div>
-          <button class="btn" onClick=${actions.exit}>Exit to menu</button>
+          <button class="btn" onClick=${actions.exit}>${s.online ? 'Leave the match' : 'Exit to menu'}</button>
         </div>
       </div>` : null}
+    ${s.online && actions.link ? html`<${LinkCard} card=${s.link} dismissed=${!!s.linkDismissed} act=${actions.link} />` : null}
   `;
 }
 
