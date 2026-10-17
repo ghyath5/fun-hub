@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#15140f">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>جبهة القيادة (Command Front): لعبة استراتيجية مجانية ضد الكمبيوتر | ملعب</title>
+  <meta name="description" content="لعبة استراتيجية في الوقت الحقيقي في متصفح الهاتف ضد الكمبيوتر: ابنِ قاعدتك واحصد الخام ودرّب الجيوش ودمّر قواعد خصومك. تعمل بلا إنترنت بعد أول زيارة، مجانًا بلا تطبيق.">
+  <link rel="canonical" href="https://funhub.super-dar.com/command-front/">
+  <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="ملعب">
+  <meta property="og:locale" content="ar_AR">
+  <meta property="og:title" content="جبهة القيادة (Command Front): لعبة استراتيجية مجانية ضد الكمبيوتر | ملعب">
+  <meta property="og:description" content="لعبة استراتيجية في الوقت الحقيقي في متصفح الهاتف ضد الكمبيوتر: ابنِ قاعدتك واحصد الخام ودرّب الجيوش ودمّر قواعد خصومك. تعمل بلا إنترنت بعد أول زيارة، مجانًا بلا تطبيق.">
+  <meta property="og:url" content="https://funhub.super-dar.com/command-front/">
+  <meta property="og:image" content="https://funhub.super-dar.com/command-front/og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="جبهة القيادة — لعبة استراتيجية في الوقت الحقيقي">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="جبهة القيادة (Command Front): لعبة استراتيجية مجانية ضد الكمبيوتر | ملعب">
+  <meta name="twitter:image" content="https://funhub.super-dar.com/command-front/og.png">
+  <script type="application/ld+json">
+  {
+   "@context": "https://schema.org",
+   "@graph": [
+    {
+     "@type": "VideoGame",
+     "@id": "https://funhub.super-dar.com/command-front/#game",
+     "name": "جبهة القيادة",
+     "alternateName": "Command Front",
+     "url": "https://funhub.super-dar.com/command-front/",
+     "description": "لعبة استراتيجية في الوقت الحقيقي لشخص واحد ضد الكمبيوتر على الهاتف بالوضع الأفقي. انشر شاحنة القيادة لتبني قاعدتك، واحصد الخام لتموّل المصانع، ودرّب المشاة والدبابات والطائرات، وواجه حتى ثلاثة خصوم من الكمبيوتر؛ آخر من يبقى يفوز. الواجهة بالإنجليزية.",
+     "image": "https://funhub.super-dar.com/command-front/og.png",
+     "genre": ["استراتيجية في الوقت الحقيقي", "بناء القواعد"],
+     "inLanguage": "en",
+     "playMode": "SinglePlayer",
+     "numberOfPlayers": { "@type": "QuantitativeValue", "minValue": 1, "maxValue": 1 },
+     "gamePlatform": "Web browser",
+     "applicationCategory": "GameApplication",
+     "operatingSystem": "Any",
+     "browserRequirements": "متصفح حديث يدعم وحدات JavaScript وWebGL",
+     "isFamilyFriendly": true,
+     "isAccessibleForFree": true,
+     "publisher": { "@id": "https://funhub.super-dar.com/#org" },
+     "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD", "availability": "https://schema.org/InStock" }
+    },
+    {
+     "@type": "BreadcrumbList",
+     "itemListElement": [
+      { "@type": "ListItem", "position": 1, "name": "ملعب", "item": "https://funhub.super-dar.com/" },
+      { "@type": "ListItem", "position": 2, "name": "جبهة القيادة", "item": "https://funhub.super-dar.com/command-front/" }
+     ]
+    }
+   ]
+  }
+  </script>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./assets/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="./assets/icon-192.png">
+  <link rel="stylesheet" href="./styles.css">
+  <script type="importmap">
+  {
+    "imports": {
+      "pixi.js": "./vendor/pixi.min.mjs",
+      "pixi-viewport": "./vendor/pixi-viewport.mjs",
+      "htm/preact": "./vendor/htm-preact-standalone.mjs",
+      "simplex-noise": "./vendor/simplex-noise.mjs",
+      "idb-keyval": "./vendor/idb-keyval.mjs",
+      "fflate": "./vendor/fflate.mjs",
+      "zzfx": "./vendor/zzfx.mjs",
+      "tweakpane": "./vendor/tweakpane.min.mjs"
+    }
+  }
+  </script>
+  <script src="./vendor/easystar.min.js"></script>
+  <script src="./vendor/seedrandom.min.js"></script>
+  <script src="./vendor/howler.min.js"></script>
+  <script type="module" src="./src/main.js"></script>
+</head>
+<body>
+  <main id="game" class="game">
+    <div id="world" class="world"></div>
+    <div id="hud" class="hud"></div>
+    <div id="screens" class="screens"></div>
+    <div class="boot" aria-hidden="true"><span class="boot-mark">COMMAND<b>FRONT</b></span><span class="boot-sub">Deploying…</span></div>
+  </main>
+
+  <div class="card rotate" role="alert">
+    <div class="card-inner">
+      <div class="phone-icon" aria-hidden="true"></div>
+      <h1>Rotate your device</h1>
+      <p>Command Front plays in landscape.</p>
+    </div>
+  </div>
+  <div class="card too-small" role="alert">
+    <div class="card-inner"><h1>Screen too small</h1><p>Needs at least 568 × 320.</p></div>
+  </div>
+  <div class="card file-proto" id="file-proto" role="alert" hidden>
+    <div class="card-inner">
+      <h1>Serve this folder to play</h1>
+      <p>Browsers block game modules when a page is opened straight from disk. In this folder, run one of:</p>
+      <pre>python3 -m http.server 8000</pre>
+      <pre>npx serve .</pre>
+      <p>then open <b>http://localhost:8000</b>. No install or build is needed.</p>
+    </div>
+  </div>
+  <script>
+    if (location.protocol === 'file:') document.getElementById('file-proto').hidden = false;
+  </script>
+</body>
+</html>

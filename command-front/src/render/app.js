@@ -1,0 +1,167 @@
+// @ts-check
+/**
+ * Render layer root: the PixiJS application, the camera and the world layers.
+ * Reads map and sim data; never mutates them.
+ */
+import { Application, Container, Graphics } from 'pixi.js';
+import { createCamera } from './camera.js';
+import { createTerrain } from './terrainChunks.js';
+import { createUnitLayer } from './units.js';
+import { createFx } from './fx.js';
+import { createCombatFx } from './combatFx.js';
+import { createStructureLayer } from './structures.js';
+import { createPlacementOverlay } from './placementOverlay.js';
+import { createShroudLayer } from './shroud.js';
+import { RENDER } from '../data/rules.js';
+import { PERF } from '../data/ui.js';
+
+/** @typedef {import('../types.js').MapData} MapData */
+
+const C = RENDER.cellPx;
+
+/** Device pixel ratio, clamped (section 19). @param {boolean} lowEnd */
+export const renderResolution = (lowEnd) => Math.min(window.devicePixelRatio || 1, lowEnd ? PERF.dprCapLowEnd : PERF.dprCap);
+
+/**
+ * @param {HTMLElement} host
+ * @param {MapData} map
+ * @param {{ lowEnd?: boolean }} [opts]
+ */
+export async function createRenderer(host, map, opts = {}) {
+  const app = new Application();
+  await app.init({
+    resizeTo: host,
+    preference: 'webgl',
+    antialias: false,
+    background: 0x15140f,
+    resolution: renderResolution(!!opts.lowEnd),
+    autoDensity: true,
+    powerPreference: 'high-performance',
+  });
+  host.appendChild(app.canvas);
+  app.canvas.setAttribute('aria-label', `Battlefield: ${map.name}`);
+
+  const camera = createCamera(app, map);
+  app.stage.addChild(camera.viewport);
+
+  const terrain = createTerrain(app.renderer, map);
+  const structures = createStructureLayer(app.renderer);
+  const units = createUnitLayer(app.renderer);
+  const fx = createFx();
+  const combat = createCombatFx();
+  const placement = createPlacementOverlay(structures.textures);
+  const shroud = createShroudLayer(map);
+  const overlay = new Container();
+  const top = new Container();
+  const cursor = new Graphics();
+  const boxG = new Graphics();
+  /** Own and allied mines (enemies never see them), and crates. */
+  const minesG = new Graphics();
+  overlay.addChild(minesG, structures.smoke, combat.layer, structures.marks, units.marks, fx.layer);
+  top.addChild(placement.layer, cursor, boxG);
+  camera.viewport.addChild(terrain.layer, combat.ground, structures.layer, units.layer, overlay, shroud.layer, top);
+  let frame = 0;
+
+  /** Cells currently on screen (with a margin). */
+  const visibleCells = () => {
+    const vp = camera.viewport;
+    const a = vp.toWorld(0, 0);
+    const b = vp.toWorld(app.screen.width, app.screen.height);
+    return {
+      x0: Math.max(0, Math.floor(a.x / C) - 1), y0: Math.max(0, Math.floor(a.y / C) - 1),
+      x1: Math.min(map.width - 1, Math.ceil(b.x / C) + 1), y1: Math.min(map.height - 1, Math.ceil(b.y / C) + 1),
+    };
+  };
+
+  return {
+    app,
+    camera,
+    terrain,
+    /** Outline one cell (inspect feedback). @param {{x: number, y: number} | null} cell @param {number} [color] */
+    highlight(cell, color = 0xf0e6c8) {
+      cursor.clear();
+      if (!cell) return;
+      cursor.rect(cell.x * C + 1, cell.y * C + 1, C - 2, C - 2).stroke({ width: 2, color, alpha: 0.95 });
+    },
+    /** Draw a selection box in screen px (null hides it). @param {{x0: number, y0: number, x: number, y: number} | null} box */
+    box(box) {
+      boxG.clear();
+      if (!box) return;
+      const a = camera.viewport.toWorld(box.x0, box.y0);
+      const b = camera.viewport.toWorld(box.x, box.y);
+      boxG.rect(Math.min(a.x, b.x), Math.min(a.y, b.y), Math.abs(b.x - a.x), Math.abs(b.y - a.y))
+        .fill({ color: 0x9fdc6a, alpha: 0.12 }).stroke({ width: 2 / camera.viewport.scale.x, color: 0x9fdc6a });
+    },
+    units,
+    structures,
+    placement,
+    shroud,
+    fx,
+    combat,
+    /** Order feedback at a cell. @param {{x: number, y: number}} cell @param {'move' | 'attackMove' | 'attack' | 'reject'} kind */
+    pulse(cell, kind) {
+      fx.pulse((cell.x + 0.5) * C, (cell.y + 0.5) * C, kind);
+    },
+    /** Red flash on cells (deploy or placement refused). @param {{x: number, y: number}[]} cells */
+    flash(cells) {
+      for (const c of cells) fx.pulse((c.x + 0.5) * C, (c.y + 0.5) * C, 'reject');
+    },
+    /** Screen rect of a footprint (placement ✓ / ✕). @param {number} cx @param {number} cy @param {number} w @param {number} h */
+    footprintOnScreen(cx, cy, w, h) {
+      const a = camera.viewport.toScreen(cx * C, cy * C);
+      const b = camera.viewport.toScreen((cx + w) * C, (cy + h) * C);
+      return { x0: a.x, y0: a.y, x1: b.x, y1: b.y };
+    },
+    /** Cells currently on screen (with a margin). */
+    visibleCells,
+    /** Tear everything down (the viewport first, while the ticker it listens to still exists). */
+    destroy() {
+      try {
+        camera.viewport.parent?.removeChild(camera.viewport);
+        camera.viewport.destroy({ children: true });
+      } catch (e) { console.warn('viewport teardown', e); }
+      try { app.destroy(true, { children: true, texture: true }); } catch (e) { console.warn('renderer teardown', e); }
+    },
+    /**
+     * Per-frame work before PixiJS draws.
+     * @param {any} world @param {number} alpha @param {Set<number>} selected
+     * @param {{ selectedStructure?: number, placement?: any, viewer?: number }} [opts]  viewer: whose eyes the map is drawn through
+     */
+    update(world, alpha, selected, opts = {}) {
+      terrain.update();
+      const scale = camera.viewport.scale.x;
+      const viewer = opts.viewer ?? -1;
+      if (viewer >= 0 && frame++ % 4 === 0) shroud.update(world, viewer);
+      shroud.layer.visible = viewer >= 0 && shroud.anyIn(visibleCells());
+      const see = viewer >= 0 ? (/** @type {any} */ e) => world.visibleTo(viewer, e) : undefined;
+      structures.sync(world, selected, opts.selectedStructure ?? 0, scale, see, viewer >= 0 ? {
+        viewer, seen: (/** @type {number} */ x, /** @type {number} */ y) => world.cellVisible(viewer, x, y) && shroud.alphaAt(x, y) === 0,
+        explored: (/** @type {number} */ x, /** @type {number} */ y) => world.isExplored(viewer, x, y),
+      } : undefined);
+      placement.draw(opts.placement ?? null, scale);
+      units.sync(world, alpha, selected, scale, see, viewer);
+      minesG.clear();
+      for (const c of world.crates) {
+        if (viewer >= 0 && !world.isExplored(viewer, c.x, c.y)) continue;
+        const x = c.x * C + 5;
+        const y = c.y * C + 6;
+        minesG.rect(x, y, C - 10, C - 12).fill(0x8a6a3a).stroke({ width: 1, color: 0xe0a43a });
+        minesG.moveTo(x, y).lineTo(x + C - 10, y + C - 12).moveTo(x + C - 10, y).lineTo(x, y + C - 12).stroke({ width: 1, color: 0x3a2a14 });
+      }
+      if (world.mines.size) {
+        const r = visibleCells();
+        for (const [i, m] of world.mines) {
+          if (viewer >= 0 && !world.allied(m.owner, viewer)) continue;
+          const x = i % map.width;
+          const y = Math.floor(i / map.width);
+          if (x < r.x0 || x > r.x1 || y < r.y0 || y > r.y1) continue;
+          const cx = (x + 0.5) * C;
+          const cy = (y + 0.5) * C;
+          minesG.circle(cx, cy, 3.2).fill({ color: 0x1b1d16, alpha: 0.85 }).stroke({ width: 1, color: m.kind === 'antiTank' ? 0xe0a43a : 0xd0543a });
+        }
+      }
+      combat.update(world, scale);
+      fx.update(scale);
+    },
+  };
+}

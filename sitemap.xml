@@ -84,4 +84,10 @@
     <priority>0.8</priority>
     <image:image><image:loc>https://funhub.super-dar.com/vault/og.png</image:loc></image:image>
   </url>
+  <url>
+    <loc>https://funhub.super-dar.com/command-front/</loc>
+    <lastmod>2026-10-17</lastmod>
+    <priority>0.8</priority>
+    <image:image><image:loc>https://funhub.super-dar.com/command-front/og.png</image:loc></image:image>
+  </url>
 </urlset>
