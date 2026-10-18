@@ -68,7 +68,7 @@ export function shotSound(weapon, look) {
   const w = WEAPONS[weapon];
   if (w.projectile === 'dropped') return 'bomb';
   if (look === 'beam' && w.warhead !== 'Arc') return 'laser';
-  if (look === 'tracer' && w.warhead === 'HE') return 'flak';
+  if (look === 'tracer' && w.hits.length === 1 && w.hits[0] === 'A') return 'flak'; // anti-aircraft guns
   if (look === 'tracer') return w.cooldown < 1 ? 'mg' : 'rifle';
   if (look === 'shell') return w.damage >= 40 ? 'heavy' : 'cannon';
   if (look === 'arc') return w.damage >= 150 ? 'heavy' : 'thump';

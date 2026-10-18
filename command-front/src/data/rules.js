@@ -236,10 +236,21 @@ export const TECH_LEVEL_OF_ROLE = Object.freeze({
 });
 export const SUPPORT_POWER_TECH_LEVEL = 10;
 
+/**
+ * AI difficulty levels, easiest first. armyCap: most combat units it keeps
+ * (it stops training at the cap); maxDefenses: most defense towers (walls not
+ * counted); skipRoles: buildings it never builds; oreValueFactor: its income
+ * per bale relative to a human's.
+ */
 export const AI = Object.freeze({
-  easy:   { thinkSeconds: 2,   harvestersPerRefinery: 1, maxRefineries: 1, firstAttackSeconds: 600, waveSeconds: 300, supportPowers: 'no', engineerCapture: false, oreValueFactor: 1.0, micro: 'none' },
-  normal: { thinkSeconds: 1,   harvestersPerRefinery: 2, maxRefineries: 2, firstAttackSeconds: 360, waveSeconds: 210, supportPowers: 'yes', engineerCapture: false, oreValueFactor: 1.0, micro: 'retreat' },
-  hard:   { thinkSeconds: 0.5, harvestersPerRefinery: 3, maxRefineries: 3, firstAttackSeconds: 240, waveSeconds: 150, supportPowers: 'timed', engineerCapture: true, oreValueFactor: 1.25, micro: 'full' },
+  beginner: { thinkSeconds: 3,   harvestersPerRefinery: 1, maxRefineries: 1, firstAttackSeconds: 900, waveSeconds: 420, supportPowers: 'no', engineerCapture: false, oreValueFactor: 0.6, micro: 'none',
+    armyCap: 6, maxDefenses: 0, skipRoles: ['helipad', 'airfield', 'navalyard', 'tech', 'superA', 'superB', 'superC'] },
+  easy:   { thinkSeconds: 2,   harvestersPerRefinery: 1, maxRefineries: 1, firstAttackSeconds: 600, waveSeconds: 300, supportPowers: 'no', engineerCapture: false, oreValueFactor: 0.8, micro: 'none',
+    armyCap: 12, maxDefenses: 2, skipRoles: ['tech', 'superA', 'superB', 'superC'] },
+  normal: { thinkSeconds: 1,   harvestersPerRefinery: 2, maxRefineries: 2, firstAttackSeconds: 360, waveSeconds: 210, supportPowers: 'yes', engineerCapture: false, oreValueFactor: 1.0, micro: 'retreat',
+    armyCap: 40, maxDefenses: 8, skipRoles: [] },
+  hard:   { thinkSeconds: 0.5, harvestersPerRefinery: 3, maxRefineries: 3, firstAttackSeconds: 240, waveSeconds: 150, supportPowers: 'timed', engineerCapture: true, oreValueFactor: 1.25, micro: 'full',
+    armyCap: 80, maxDefenses: 12, skipRoles: [] },
   shared: {
     powerHeadroom: 1.1,
     siloAtFraction: 0.8,

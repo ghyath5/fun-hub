@@ -22,7 +22,7 @@ import { thinkArmy, issue, updateKnowledge, armyOf } from './army.js';
 
 /** @typedef {import('../sim/world.js').World} World */
 
-/** @param {number} pid @param {'easy' | 'normal' | 'hard'} difficulty */
+/** @param {number} pid @param {'beginner' | 'easy' | 'normal' | 'hard'} difficulty */
 export function createAiState(pid, difficulty) {
   const cfg = AI[difficulty] ?? AI.normal;
   return {
@@ -86,6 +86,8 @@ function nextBuildStep(w, ai, line) {
     if (step.minDifficulty && DIFFICULTY_RANK[ai.difficulty] < DIFFICULTY_RANK[step.minDifficulty]) continue;
     if (step.naval && !navalWorld(w, ai)) continue;
     if (structureDef(step.type)?.powers?.length && ai.cfg.supportPowers === 'no') continue;
+    if (ai.cfg.skipRoles.includes(structureDef(step.type)?.role)) continue;
+    if (lineOf(step.type) === 'defenses' && !structureDef(step.type)?.wall && countDefenses(w, ai.pid) >= ai.cfg.maxDefenses) continue;
     tally[step.type] = (tally[step.type] ?? 0) + 1;
     if (countOwned(w, ai.pid, step.type) >= tally[step.type]) continue;
     // The first step still to do: build it if it is ours; defenses wait for earlier buildings, buildings skip ahead of defenses.
@@ -94,6 +96,9 @@ function nextBuildStep(w, ai, line) {
   }
   return null;
 }
+
+/** Defense towers the player owns (walls not counted). @param {World} w @param {number} pid */
+const countDefenses = (w, pid) => ownStructures(w, pid).filter((s) => structureDef(s.type).line === 'defenses' && !structureDef(s.type).wall).length;
 
 /** Power plant to build when the next structure would leave less than 10% headroom, else null. @param {World} w @param {AiState} ai @param {string | null} next */
 function powerFirst(w, ai, next) {
@@ -195,6 +200,7 @@ function manageProduction(w, ai) {
   const types = Object.keys(mix);
   if (!types.length) return;
   const army = armyOf(w, ai.pid);
+  if (army.length >= ai.cfg.armyCap) return; // easier levels keep a small army
   /** @type {Record<string, number>} */
   const have = {};
   for (const u of army) have[u.type] = (have[u.type] ?? 0) + 1;

@@ -200,7 +200,7 @@ function lastStand(w, ai, army) {
 
 /** Normal and Hard: badly hurt vehicles go for repairs; Hard also focuses fire. @param {World} w @param {AiState} ai @param {any[]} army */
 function micro(w, ai, army) {
-  if (ai.difficulty === 'easy') return;
+  if (ai.cfg.micro === 'none') return;
   const depot = w.entities.all().find((e) => e.kind === 'structure' && e.owner === ai.pid && isActive(e) && e.type === 'serviceDepot');
   if (depot) {
     for (const u of army) {

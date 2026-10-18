@@ -10,7 +10,7 @@ import { createRng } from '../lib/rng.js';
 import { createMatch } from '../sim/setup.js';
 import { playersForSize } from '../map/generator.js';
 
-/** @typedef {'easy' | 'normal' | 'hard'} Difficulty */
+/** @typedef {'beginner' | 'easy' | 'normal' | 'hard'} Difficulty */
 /**
  * An opponent slot: an AI, or (`remote`) the second phone in a two-phone match,
  * whose player picks their own faction and colour.

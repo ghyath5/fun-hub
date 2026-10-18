@@ -36,7 +36,7 @@ export function createMatch(map, opts) {
   rebuildVision(world);
   for (const p of players) {
     // Hard AI earns ×1.25 ore value (section 16).
-    if (!p.human) p.oreValueK = Math.round((AI[/** @type {'easy' | 'normal' | 'hard'} */ (p.difficulty)]?.oreValueFactor ?? 1) * 1000);
+    if (!p.human) p.oreValueK = Math.round((AI[/** @type {keyof typeof AI} */ (p.difficulty)]?.oreValueFactor ?? 1) * 1000);
   }
   installAi(world);
   return world;

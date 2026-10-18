@@ -33,12 +33,14 @@ export const BUILD_ORDER = Object.freeze({
 /** Attack-wave compositions: unit type → count. */
 export const WAVES = Object.freeze({
   coalition: {
+    beginner: { rifleman: 3, lightTank: 1 },
     easy: { lightTank: 2, rifleman: 4 },
     normal: { mediumTank: 3, ifv: 2, lightTank: 1, artillery: 1, rifleman: 5, guardTrooper: 2 },
     hard: { mediumTank: 4, laserTank: 2, ifv: 2, salvoLauncher: 2, rifleman: 5, guardTrooper: 2, marksman: 1, attackHeli: 1 },
   },
   union: {
-    easy: { heavyTank: 2, rifleman: 4 },
+    beginner: { rifleman: 3, flakTrack: 1 },
+    easy: { heavyTank: 1, rifleman: 4, flameTrooper: 1 },
     normal: { heavyTank: 3, rotaryTank: 2, ballisticLauncher: 1, rifleman: 5, flakTrooper: 2 },
     hard: { heavyTank: 3, arcTank: 2, titanTank: 1, rotaryTank: 2, ballisticLauncher: 1, shockTrooper: 2, rifleman: 4, flameTrooper: 2, siegeAirship: 1 },
   },
@@ -57,4 +59,4 @@ export const UNIT_QUEUE_AHEAD = 2;
 export const STRUCTURE_RESERVE = 600;
 
 /** Rank of each difficulty, for `minDifficulty`. */
-export const DIFFICULTY_RANK = Object.freeze({ easy: 0, normal: 1, hard: 2 });
+export const DIFFICULTY_RANK = Object.freeze({ beginner: 0, easy: 1, normal: 2, hard: 3 });

@@ -20,7 +20,7 @@
  * @property {string} color      Key of PLAYER_COLORS
  * @property {number} team
  * @property {boolean} human
- * @property {string} difficulty easy | normal | hard (AI players)
+ * @property {string} difficulty beginner | easy | normal | hard (AI players)
  * @property {number} start      Index into map.starts
  * @property {boolean} alive
  * @property {number} cash       Unlimited: starting credits, refunds, stolen money, crates

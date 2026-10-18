@@ -7,7 +7,7 @@
 /** @typedef {'coalition' | 'union'} FactionId */
 /** @typedef {FactionId | 'both'} FactionScope */
 /** @typedef {'none' | 'wood' | 'light' | 'heavy' | 'concrete'} ArmorId */
-/** @typedef {'SA' | 'HE' | 'AP' | 'Fire' | 'HollowPoint' | 'Arc' | 'Bite'} WarheadId */
+/** @typedef {'SA' | 'HE' | 'AP' | 'Fire' | 'HollowPoint' | 'Arc' | 'Laser' | 'Bite'} WarheadId */
 /** @typedef {'foot' | 'wheel' | 'track' | 'float' | 'air'} LocomotorId */
 /** @typedef {'G' | 'A' | 'N' | 'S'} HitLayer */
 /** @typedef {'structures' | 'defenses' | 'infantry' | 'vehicles' | 'aircraft' | 'naval'} LineId */

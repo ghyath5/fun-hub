@@ -14,7 +14,7 @@ import { GENERATOR } from '../map/generator.js';
 /** @typedef {import('../game/matchSetup.js').SetupForm} SetupForm */
 
 const FACTION_IDS = /** @type {('coalition' | 'union')[]} */ (['coalition', 'union']);
-const DIFFICULTIES = ['easy', 'normal', 'hard'];
+const DIFFICULTIES = ['beginner', 'easy', 'normal', 'hard'];
 const cap = (/** @type {string} */ s) => s[0].toUpperCase() + s.slice(1);
 const colorDot = (/** @type {string} */ c) => html`<span class="dot" style=${`background:${PLAYER_COLORS[/** @type {keyof typeof PLAYER_COLORS} */ (c)].dot}`}></span>`;
 
