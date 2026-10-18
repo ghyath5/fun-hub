@@ -11,6 +11,7 @@ import { CommandBar, ControlGroups, InfoCard, RadialMenu, TargetBanner, Structur
 import { Sidebar } from './sidebar.js';
 import { Minimap } from './minimap.js';
 import { LinkCard } from './linkCard.js';
+import { t, int } from '../lib/i18n.js';
 
 /**
  * @typedef {object} HudState
@@ -85,8 +86,8 @@ import { LinkCard } from './linkCard.js';
 /** Support-power button with a charge ring (section 14). @param {{ p: { id: string, name: string, progress: number, ready: boolean }, fire: (id: string) => void }} props */
 function PowerButton({ p, fire }) {
   const deg = Math.round(p.progress * 360);
-  const short = p.name.split(' ').map((w) => w[0]).join('');
-  return html`<button class=${`pw-btn ${p.ready ? 'ready' : ''}`} aria-label=${`${p.name}${p.ready ? ', ready' : `, ${Math.round(p.progress * 100)}% charged`}`}
+  const short = p.short ?? p.name.split(' ').map((w) => w[0]).join('');
+  return html`<button class=${`pw-btn ${p.ready ? 'ready' : ''}`} aria-label=${p.ready ? t('{name}, ready', { name: p.name }) : t('{name}, {pct}% charged', { name: p.name, pct: Math.round(p.progress * 100) })}
     title=${p.name} onClick=${() => fire(p.id)} style=${`--deg:${deg}deg`}><span>${short}</span></button>`;
 }
 
@@ -97,8 +98,8 @@ function PowerBar({ produced, drain, preview }) {
   const ratio = nextDrain === 0 ? 1 : nextProduced / nextDrain;
   const fill = Math.max(0, Math.min(1, nextDrain === 0 ? 0 : nextDrain / Math.max(nextProduced, 1)));
   const tone = nextDrain === 0 ? 'ok' : ratio < 1 ? 'low' : ratio < 1.1 ? 'warn' : 'ok';
-  const label = preview ? `PWR ${nextProduced}/${nextDrain}*` : `PWR ${produced}/${drain}`;
-  return html`<div class=${`power ${tone} ${preview ? 'preview' : ''}`} role="meter" aria-label="Power" aria-valuenow=${produced} aria-valuemax=${Math.max(produced, drain)}>
+  const label = preview ? `${t('PWR')} ${nextProduced}/${nextDrain}*` : `${t('PWR')} ${produced}/${drain}`;
+  return html`<div class=${`power ${tone} ${preview ? 'preview' : ''}`} role="meter" aria-label=${t('Power')} aria-valuenow=${produced} aria-valuemax=${Math.max(produced, drain)}>
     <span class="power-fill" style=${`width:${Math.round(fill * 100)}%`}></span>
     <span class="power-label">${label}</span>
   </div>`;
@@ -112,15 +113,15 @@ function Hud({ store, actions }) {
   const placing = s.targetMode === 'place' || s.targetMode === 'walls' || s.targetMode === 'mines' || s.targetMode === 'power';
   return html`
     <header class="topbar panel">
-      <span class="credits" aria-label="Credits">$ ${s.credits.toLocaleString('en-US')}</span>
+      <span class="credits" aria-label=${t('Credits')}>$ ${int(s.credits)}</span>
       <${PowerBar} produced=${s.powerProduced} drain=${s.powerDrain} preview=${s.powerPreview} />
       ${s.powers.map((p) => html`<${PowerButton} key=${p.id} p=${p} fire=${actions.power} />`)}
-      ${s.intel ? html`<span class="intel" title="Spy intelligence">${s.intel}</span>` : null}
+      ${s.intel ? html`<span class="intel" title=${t('Spy intelligence')}>${s.intel}</span>` : null}
       <span class="spacer"></span>
-      <button class="icon-btn zoom-btn" aria-label="Zoom out" onClick=${() => actions.zoom(-1)}>−</button>
-      <button class="icon-btn zoom-btn" aria-label="Zoom in" onClick=${() => actions.zoom(1)}>+</button>
-      <button class="icon-btn" aria-label="Jump to recent alerts" disabled=${!s.alertCount} onClick=${actions.alertJump}>!</button>
-      <button class="icon-btn" aria-label="Pause" onClick=${actions.pause}>❚❚</button>
+      <button class="icon-btn zoom-btn" aria-label=${t('Zoom out')} onClick=${() => actions.zoom(-1)}>−</button>
+      <button class="icon-btn zoom-btn" aria-label=${t('Zoom in')} onClick=${() => actions.zoom(1)}>+</button>
+      <button class="icon-btn" aria-label=${t('Jump to recent alerts')} disabled=${!s.alertCount} onClick=${actions.alertJump}>!</button>
+      <button class="icon-btn" aria-label=${t('Pause')} onClick=${actions.pause}>❚❚</button>
     </header>
     <${Toasts} toasts=${s.toasts} onJump=${actions.jump} />
     <${ControlGroups} sizes=${s.groups} act=${actions.groups} />
@@ -136,34 +137,34 @@ function Hud({ store, actions }) {
     <${TargetBanner} mode=${s.targetMode} cancel=${actions.cancelTarget} />
     <${RadialMenu} menu=${s.radial} pick=${actions.radialPick} close=${actions.radialClose} />
     ${s.hash ? html`<div class="debug-hash">${s.hash} · ${s.cellsVisible.toFixed(1)} cells</div>` : null}
-    ${s.hint ? html`<button class="hint panel" onClick=${actions.dismissHint}>${s.hint}</button>` : null}
-    ${s.watching ? html`<div class="watch-tag panel">Watching · <button class="cmd" onClick=${actions.exit}>Exit</button></div>` : null}
-    ${s.ended ? html`<div class="ended-tag panel" role="status">Match over</div>` : null}
+    ${s.hint ? html`<button class="hint panel" onClick=${actions.dismissHint}>${t(s.hint)}</button>` : null}
+    ${s.watching ? html`<div class="watch-tag panel">${t('Watching')} · <button class="cmd" onClick=${actions.exit}>${t('Exit')}</button></div>` : null}
+    ${s.ended ? html`<div class="ended-tag panel" role="status">${t('Match over')}</div>` : null}
     ${s.defeated && !s.watching ? html`
       <div class="sheet-backdrop">
-        <div class="sheet panel" role="dialog" aria-label="Defeated">
-          <h2>Defeated</h2>
-          <p class="muted">The others fight on.</p>
-          <button class="btn primary" onClick=${actions.watch}>Watch</button>
-          <button class="btn" onClick=${actions.exit}>Exit to menu</button>
+        <div class="sheet panel" role="dialog" aria-label=${t('Defeated')}>
+          <h2>${t('Defeated')}</h2>
+          <p class="muted">${t('The others fight on.')}</p>
+          <button class="btn primary" onClick=${actions.watch}>${t('Watch')}</button>
+          <button class="btn" onClick=${actions.exit}>${t('Exit to menu')}</button>
         </div>
       </div>` : null}
     ${s.paused ? html`
       <div class="sheet-backdrop">
-        <div class="sheet panel" role="dialog" aria-label="Paused">
-          <h2>Paused</h2>
-          <p class="muted">${s.online ? 'The other phone waits until you resume.' : s.mapName}</p>
-          <button class="btn primary" onClick=${actions.resume}>Resume</button>
+        <div class="sheet panel" role="dialog" aria-label=${t('Paused')}>
+          <h2>${t('Paused')}</h2>
+          <p class="muted">${s.online ? t('The other phone waits until you resume.') : t(s.mapName)}</p>
+          <button class="btn primary" onClick=${actions.resume}>${t('Resume')}</button>
           ${s.online ? null : html`<div class="sheet-row">
-            <button class="btn" disabled=${s.watching || s.ended} onClick=${actions.save}>Save</button>
-            <button class="btn" onClick=${actions.load}>Load</button>
+            <button class="btn" disabled=${s.watching || s.ended} onClick=${actions.save}>${t('Save')}</button>
+            <button class="btn" onClick=${actions.load}>${t('Load')}</button>
           </div>`}
           <div class="sheet-row">
-            <button class="btn" onClick=${actions.fullscreen}>Fullscreen</button>
+            <button class="btn" onClick=${actions.fullscreen}>${t('Fullscreen')}</button>
             <button class=${`btn ${s.confirmSurrender ? 'danger' : ''}`} disabled=${s.watching || s.ended} onClick=${actions.surrender}>
-              ${s.confirmSurrender ? 'Confirm surrender' : 'Surrender'}</button>
+              ${s.confirmSurrender ? t('Confirm surrender') : t('Surrender')}</button>
           </div>
-          <button class="btn" onClick=${actions.exit}>${s.online ? 'Leave the match' : 'Exit to menu'}</button>
+          <button class="btn" onClick=${actions.exit}>${s.online ? t('Leave the match') : t('Exit to menu')}</button>
         </div>
       </div>` : null}
     ${s.online && actions.link ? html`<${LinkCard} card=${s.link} dismissed=${!!s.linkDismissed} act=${actions.link} />` : null}

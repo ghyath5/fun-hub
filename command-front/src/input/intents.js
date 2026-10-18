@@ -5,6 +5,7 @@
  */
 import { hitsAt, createCycler } from './hitTest.js';
 import { UNITS } from '../data/units.js';
+import { nameOf } from '../lib/i18n.js';
 import { RENDER, SIM } from '../data/rules.js';
 import { GESTURE, AUDIO } from '../data/ui.js';
 import { canAttack } from '../sim/targeting.js';
@@ -376,7 +377,7 @@ export function createIntents(ctx) {
       const counts = new Map();
       for (const e of units) counts.set(e.type, (counts.get(e.type) ?? 0) + 1);
       const types = [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 6)
-        .map(([type, count]) => ({ type, count, name: UNITS[type].name }));
+        .map(([type, count]) => ({ type, count, name: nameOf(type, UNITS[type].name) }));
       const stance = units.length ? units[0].stance : 'guard';
       const can = {
         deploy: units.some((u) => u.type === 'mcv'),

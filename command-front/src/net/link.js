@@ -41,10 +41,71 @@ export function loadEngine() {
  * engine's own private warmCamera().
  */
 export async function warmCamera() {
-  try {
-    const s = await navigator.mediaDevices.getUserMedia({ video: true });
-    s.getTracks().forEach((t) => t.stop());
-  } catch { /* no camera or refused: pairing still works with pasted codes */ }
+  // A scanner already holds the camera: that grant does the same job.
+  if (scanners > 0 || !navigator.mediaDevices?.getUserMedia) return;
+  await withCamera(async () => {
+    try {
+      const s = await navigator.mediaDevices.getUserMedia({ video: true });
+      s.getTracks().forEach((t) => t.stop());
+    } catch { /* no camera or refused: pairing still works with pasted codes */ }
+  });
+}
+
+/*
+ * Camera access, one request at a time. Phones refuse (or silently kill) a
+ * second camera request while another is opening or open — Android answers
+ * "NotReadableError", iOS ends the first stream — so the scanner and the
+ * warm-up above must never race. Every request waits for the previous one.
+ */
+let cameraQueue = Promise.resolve();
+/** Scanners currently holding the camera. */
+let scanners = 0;
+/** @template T @param {() => Promise<T>} fn @returns {Promise<T>} */
+function withCamera(fn) {
+  const run = cameraQueue.then(fn, fn);
+  cameraQueue = run.then(() => undefined, () => undefined);
+  return run;
+}
+
+/**
+ * Why the camera could not start, for the message the player sees:
+ * insecure (page not on https), unsupported (no camera API), denied
+ * (permission refused), missing (no camera), busy (held by another app).
+ */
+export class CameraError extends Error {
+  /** @param {'insecure' | 'unsupported' | 'denied' | 'missing' | 'busy'} kind @param {string} [detail] */
+  constructor(kind, detail = '') {
+    super(`camera ${kind}${detail ? `: ${detail}` : ''}`);
+    this.kind = kind;
+  }
+}
+
+const pause = (/** @type {number} */ ms) => new Promise((r) => setTimeout(r, ms));
+
+/** Open the back camera, falling back to any camera; retried while the device is busy. */
+async function openCamera() {
+  if (typeof isSecureContext !== 'undefined' && !isSecureContext) throw new CameraError('insecure');
+  if (!navigator.mediaDevices?.getUserMedia) throw new CameraError('unsupported');
+  const asks = [
+    { video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false },
+    { video: { facingMode: 'environment' }, audio: false },
+    { video: true, audio: false },
+    { video: true, audio: false },
+  ];
+  /** @type {any} */
+  let last = null;
+  for (const ask of asks) {
+    try {
+      return await navigator.mediaDevices.getUserMedia(ask);
+    } catch (e) {
+      last = e;
+      const name = /** @type {any} */ (e)?.name;
+      if (name === 'NotAllowedError' || name === 'SecurityError') throw new CameraError('denied', name);
+      if (name === 'NotFoundError' || name === 'DevicesNotFoundError') throw new CameraError('missing', name);
+      await pause(400); // busy or over-constrained: give the device a moment, then ask more simply
+    }
+  }
+  throw new CameraError('busy', String(last?.name ?? last));
 }
 
 /** The invite or reply code inside whatever was scanned or pasted. @param {string} raw */
@@ -138,7 +199,68 @@ export async function drawQr(el, text) {
  */
 export async function scanQr(video, found) {
   const Duel = await loadEngine();
-  return Duel.Qr.scan(video, found);
+  scanners++;
+  /** @type {MediaStream} */
+  let stream;
+  try {
+    stream = await withCamera(openCamera);
+  } catch (e) {
+    scanners--;
+    throw e;
+  }
+  video.setAttribute('playsinline', '');
+  video.muted = true;
+  video.srcObject = stream;
+  await video.play().catch(() => {});
+
+  // The browser's own QR reader where there is one (Chrome on Android): faster and better in poor light.
+  const W = /** @type {any} */ (window);
+  let native = null;
+  try {
+    if (W.BarcodeDetector && (await W.BarcodeDetector.getSupportedFormats()).includes('qr_code')) native = new W.BarcodeDetector({ formats: ['qr_code'] });
+  } catch { native = null; }
+  const buf = document.createElement('canvas');
+  const bx = /** @type {CanvasRenderingContext2D} */ (buf.getContext('2d', { willReadFrequently: true }));
+  let alive = true;
+  let frame = 0;
+  const stop = () => {
+    if (!alive) return;
+    alive = false;
+    scanners--;
+    stream.getTracks().forEach((t) => t.stop());
+    video.srcObject = null;
+  };
+  /** @param {string} raw */
+  const hit = (raw) => { if (!alive || !raw) return; stop(); found(Duel.Qr.extract(raw)); };
+  const tick = async () => {
+    if (!alive) return;
+    // A stream the system ended (another app took the camera) is reopened.
+    if (stream.getVideoTracks().every((t) => t.readyState === 'ended')) {
+      try { stream = await withCamera(openCamera); video.srcObject = stream; await video.play().catch(() => {}); } catch { /* keep trying */ }
+    }
+    const vw = video.videoWidth;
+    if (vw && video.readyState >= 2) {
+      try {
+        if (native) {
+          const codes = await native.detect(video);
+          if (codes[0]?.rawValue) { hit(codes[0].rawValue); return; }
+        } else {
+          const w = Math.min(720, vw);
+          const h = Math.round((video.videoHeight * w) / vw);
+          buf.width = w;
+          buf.height = h;
+          bx.drawImage(video, 0, 0, w, h);
+          const px = bx.getImageData(0, 0, w, h);
+          // Every few frames also look for light-on-dark codes (a screen in dark mode).
+          const code = W.jsQR(px.data, w, h, { inversionAttempts: frame++ % 4 === 3 ? 'attemptBoth' : 'dontInvert' });
+          if (code?.data) { hit(code.data); return; }
+        }
+      } catch { /* a frame that could not be read */ }
+    }
+    if (alive) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+  return stop;
 }
 
 /** The engine's connection log, for the diagnostics panel. */

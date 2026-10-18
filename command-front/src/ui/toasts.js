@@ -2,6 +2,7 @@
 /** Toasts (section 14): at most 3, top-centre, 3 s each, tap to jump the camera. */
 import { html } from 'htm/preact';
 import { LAYOUT } from '../data/ui.js';
+import { t as tr } from '../lib/i18n.js';
 
 /** @typedef {{ id: number, text: string, at?: { x: number, y: number } }} Toast */
 
@@ -21,7 +22,7 @@ export function createToaster(publish) {
   return {
     /** @param {string} text @param {{x: number, y: number}} [at] */
     show(text, at) {
-      const t = { id: ++seq, text, at };
+      const t = { id: ++seq, text: tr(text), at };
       list = [...list, t].slice(-LAYOUT.maxToasts);
       publish(list);
       setTimeout(() => {

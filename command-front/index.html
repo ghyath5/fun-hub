@@ -34,10 +34,10 @@
      "name": "جبهة القيادة",
      "alternateName": "Command Front",
      "url": "https://funhub.super-dar.com/command-front/",
-     "description": "لعبة استراتيجية في الوقت الحقيقي على الهاتف بالوضع الأفقي، وحدك ضد الكمبيوتر أو مع صديق على هاتفين بنفس الواي فاي. انشر شاحنة القيادة لتبني قاعدتك، واحصد الخام لتموّل المصانع، ودرّب المشاة والدبابات والطائرات، ثم واجه صديقك أو تحالفا معًا ضد الكمبيوتر؛ آخر من يبقى يفوز. الواجهة بالإنجليزية.",
+     "description": "لعبة استراتيجية في الوقت الحقيقي على الهاتف بالوضع الأفقي، وحدك ضد الكمبيوتر أو مع صديق على هاتفين بنفس الواي فاي. انشر شاحنة القيادة لتبني قاعدتك، واحصد الخام لتموّل المصانع، ودرّب المشاة والدبابات وطائرات الميغ، ثم واجه صديقك أو تحالفا معًا ضد الكمبيوتر؛ آخر من يبقى يفوز. الواجهة والأصوات بالعربية أو الإنجليزية.",
      "image": "https://funhub.super-dar.com/command-front/og.png",
      "genre": ["استراتيجية في الوقت الحقيقي", "بناء القواعد"],
-     "inLanguage": "en",
+     "inLanguage": ["ar", "en"],
      "playMode": ["SinglePlayer", "MultiPlayer"],
      "numberOfPlayers": { "@type": "QuantitativeValue", "minValue": 1, "maxValue": 2 },
      "gamePlatform": "Web browser",
@@ -62,6 +62,9 @@
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./assets/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./assets/icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;600;800&display=swap" media="print" onload="this.media='all'">
   <link rel="stylesheet" href="./styles.css">
   <script type="importmap">
   {
@@ -86,18 +89,18 @@
     <div id="world" class="world"></div>
     <div id="hud" class="hud"></div>
     <div id="screens" class="screens"></div>
-    <div class="boot" aria-hidden="true"><span class="boot-mark">COMMAND<b>FRONT</b></span><span class="boot-sub">Deploying…</span></div>
+    <div class="boot" aria-hidden="true"><span class="boot-mark">COMMAND<b>FRONT</b></span><span class="boot-sub" data-ar="جارٍ النشر…">Deploying…</span></div>
   </main>
 
   <div class="card rotate" role="alert">
     <div class="card-inner">
       <div class="phone-icon" aria-hidden="true"></div>
-      <h1>Rotate your device</h1>
-      <p>Command Front plays in landscape.</p>
+      <h1 data-ar="أدِر جهازك">Rotate your device</h1>
+      <p data-ar="تُلعب جبهة القيادة بالوضع الأفقي.">Command Front plays in landscape.</p>
     </div>
   </div>
   <div class="card too-small" role="alert">
-    <div class="card-inner"><h1>Screen too small</h1><p>Needs at least 400 × 224 in landscape. Try fullscreen, or close other bars.</p></div>
+    <div class="card-inner"><h1 data-ar="الشاشة صغيرة جدًا">Screen too small</h1><p data-ar="تحتاج إلى 400 × 224 على الأقل بالوضع الأفقي. جرّب ملء الشاشة، أو أغلق الأشرطة الأخرى.">Needs at least 400 × 224 in landscape. Try fullscreen, or close other bars.</p></div>
   </div>
   <div class="card file-proto" id="file-proto" role="alert" hidden>
     <div class="card-inner">
@@ -110,6 +113,16 @@
   </div>
   <script>
     if (location.protocol === 'file:') document.getElementById('file-proto').hidden = false;
+    // Arabic before the game loads (the choice made in Settings, else the browser's language).
+    (function () {
+      var lang = null;
+      try { lang = localStorage.getItem('cf-lang'); } catch (e) { /* storage blocked */ }
+      if (!lang) lang = /^ar/i.test((navigator.languages && navigator.languages[0]) || navigator.language || '') ? 'ar' : 'en';
+      if (lang !== 'ar') return;
+      document.documentElement.lang = 'ar';
+      document.documentElement.classList.add('lang-ar');
+      document.querySelectorAll('[data-ar]').forEach(function (el) { el.textContent = el.getAttribute('data-ar'); });
+    })();
   </script>
 </body>
 </html>

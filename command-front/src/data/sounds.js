@@ -9,6 +9,7 @@
  */
 import { UNITS } from './units.js';
 import { WEAPONS } from './weapons.js';
+import { voiceLang } from '../lib/i18n.js';
 
 export const SOUND_INDEX = './assets/sound/sounds.json';
 
@@ -58,8 +59,8 @@ export function voiceSetOf(type, faction) {
 /** Announcer voice set for a faction. @param {string} faction */
 export const announcerOf = (faction) => (faction === 'union' ? 'eva-union' : 'eva-coalition');
 
-/** Name of a spoken line. @param {string} set @param {string} key */
-export const lineName = (set, key) => `voice:${set}:${key}`;
+/** Name of a spoken line, in the voice language chosen in Settings. @param {string} set @param {string} key */
+export const lineName = (set, key) => `voice:${set}${voiceLang() === 'ar' ? '@ar' : ''}:${key}`;
 
 /**
  * Sound of a weapon being fired.
@@ -87,7 +88,8 @@ export function shotSound(weapon, look) {
  */
 export function customNameOf(name) {
   if (!name.startsWith('voice:')) return `sfx.${name}`;
-  const [, set, key] = name.split(':');
+  const [, voiceSet, key] = name.split(':');
+  const set = voiceSet.replace(/@ar$/, ''); // one custom file replaces a line in both languages
   if (set.startsWith('eva-')) return `eva.${key}`;
   return `${set.replace(/^(coalition|union)-/, '')}.${key}`;
 }

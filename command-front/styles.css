@@ -470,3 +470,21 @@ html.too-small .card.too-small { display: grid; }
 .country-item small { display: block; color: var(--muted); font-size: 11px; }
 .end-table .flag { width: 21px; height: 14px; margin-right: 4px; }
 .topbar .flag { width: 24px; height: 16px; }
+
+/* ── Arabic (Settings → Language → Text) ─────────────────────────────
+   Arabic letters join, so no letter-spacing anywhere; reading surfaces run
+   right-to-left; the battlefield layout (sidebar, minimap, groups) stays. */
+html.lang-ar { --font: "Alexandria", "Noto Sans Arabic", "Noto Naskh Arabic", "Geeza Pro", "Segoe UI", Tahoma, system-ui, sans-serif; --mono: "Alexandria", "Noto Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif; }
+html.lang-ar body, html.lang-ar body * { letter-spacing: 0 !important; }
+html.lang-ar .screen, html.lang-ar .cx, html.lang-ar .sheet, html.lang-ar .toasts, html.lang-ar .bmenu,
+html.lang-ar .target-banner, html.lang-ar .hint, html.lang-ar .link-wait, html.lang-ar .diag-panel,
+html.lang-ar .notice-card, html.lang-ar .infocard, html.lang-ar .cmdbar, html.lang-ar .card-inner,
+html.lang-ar .country-sheet, html.lang-ar .watch-tag, html.lang-ar .ended-tag, html.lang-ar .place-why { direction: rtl; }
+html.lang-ar .country-item { text-align: right; }
+html.lang-ar .end-table th, html.lang-ar .end-table td { text-align: right; }
+html.lang-ar .menu-mark, html.lang-ar .credits, html.lang-ar .power-label, html.lang-ar code, html.lang-ar .diag-log, html.lang-ar input[type="number"] { direction: ltr; }
+html.lang-ar .bicon-cost, html.lang-ar .bicon-hold, html.lang-ar .tab { font-size: 11px; }
+
+/* The camera could not start: why, and Try again. */
+.cam.cam-error { display: grid; place-content: center; gap: 12px; padding: 16px; text-align: center; background: rgba(0,0,0,.35); border: 1px dashed var(--rule); min-height: 160px; }
+.cam.cam-error p { margin: 0; line-height: 1.5; }

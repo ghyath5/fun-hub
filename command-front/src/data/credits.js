@@ -17,10 +17,24 @@ export const CREDITS = Object.freeze([
     lines: [{ name: 'Claude by Anthropic', note: 'Programming, 3D models, sound effects and voice direction' }],
   },
   {
+    title: '3D models',
+    lines: [
+      { name: 'Ska-Ara', note: 'Apocalypse Tank, V3 Launcher, Prism Tower, Sentry Gun, Tesla Coil, Tesla Reactor · CC BY 4.0' },
+      { name: 'Yosef Anan', note: 'IFV · CC BY 4.0' },
+      { name: 'Marrowgrave', note: 'Iron Curtain · CC BY 4.0' },
+      { name: '建军 Roland', note: 'Gatling Tank · CC BY 4.0' },
+      { name: 'Nord_Licht', note: 'Lunar Command Base · CC BY 4.0' },
+      { name: 'nikolalightsaber', note: 'Psi Beacon · CC BY 4.0' },
+      { name: 'TraianDumbrava', note: 'Ore Refinery · CC BY 4.0' },
+    ],
+  },
+  {
     title: 'Voices',
     lines: [
       { name: 'Kokoro text-to-speech', note: 'hexgrad · Apache-2.0' },
       { name: 'kokoro-onnx', note: 'thewh1teagle · MIT' },
+      { name: 'OpenVoiceOS phoonnx (miro, dii) and Piper (kareem)', note: 'Arabic voices' },
+      { name: 'sherpa-onnx', note: 'k2-fsa · Apache-2.0' },
     ],
   },
   {

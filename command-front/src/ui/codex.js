@@ -11,6 +11,7 @@ import { WARHEADS } from '../data/warheads.js';
 import { BONUSES, POWER, SIM, SUPPORT_POWERS, PLACEMENT, COMBAT, SHROUD } from '../data/rules.js';
 import { codexText } from '../data/codex.js';
 import { buildTicks } from '../sim/formulas/production.js';
+import { t as tr, nameOf, weaponNameOf, codexOf, list as listOf } from '../lib/i18n.js';
 
 /** @typedef {{ label: string, value: string }} Stat */
 /** @typedef {{ name: string, damage: string, every: string, range: string, targets: string, notes: string[] }} WeaponLine */
@@ -63,14 +64,14 @@ const num = (n) => String(Math.round(n * 100) / 100);
 /** A speed in words and cells per second. @param {number} speed */
 function speedLabel(speed) {
   const word = speed < 1 ? 'Slow' : speed < 2 ? 'Medium' : speed < 3 ? 'Fast' : 'Very fast';
-  return `${word} ${num(speed)}/s`;
+  return tr('{word} {n}/s', { word: tr(word), n: num(speed) });
 }
 
 /** Names of the buildings filling a role for a side ("navalyard" → "Naval Yard" or "Sub Pen"). @param {string} role @param {string} faction */
 export function roleNames(role, faction) {
   const defs = Object.values(STRUCTURES).filter((d) => d.role === role);
   const mine = defs.filter((d) => d.faction === faction || d.faction === 'both');
-  return [...new Set((mine.length ? mine : defs).map((d) => d.name))].join(' or ');
+  return [...new Set((mine.length ? mine : defs).map((d) => nameOf(d.id, d.name)))].join(tr(' or '));
 }
 
 /** Damage a weapon deals per second to one kind of target (0 if it cannot hit it). @param {any} w @param {typeof TARGETS[number]} t */
@@ -86,20 +87,20 @@ function weaponLine(w) {
   const heal = w.damage < 0;
   /** @type {string[]} */
   const notes = [];
-  if (w.effect === 'mindControl') notes.push('takes control of the target instead of damaging it');
-  if (w.warhead === 'Drone') notes.push('vehicles only');
-  if (w.warhead === 'Rad') notes.push('deadly to infantry, weak against armour');
-  if (w.splash) notes.push(`splash ${num(w.splash)} cells`);
-  if (w.minRange) notes.push(`not closer than ${num(w.minRange)} cells`);
-  if (w.ammo) notes.push(`${w.ammo} shots, then rearms`);
-  if (w.powered) notes.push('needs power');
-  if (w.chargeUp) notes.push(`${num(w.chargeUp)} s to charge`);
+  if (w.effect === 'mindControl') notes.push(tr('takes control of the target instead of damaging it'));
+  if (w.warhead === 'Drone') notes.push(tr('vehicles only'));
+  if (w.warhead === 'Rad') notes.push(tr('deadly to infantry, weak against armour'));
+  if (w.splash) notes.push(tr('splash {n} cells', { n: num(w.splash) }));
+  if (w.minRange) notes.push(tr('not closer than {n} cells', { n: num(w.minRange) }));
+  if (w.ammo) notes.push(tr('{n} shots, then rearms', { n: w.ammo }));
+  if (w.powered) notes.push(tr('needs power'));
+  if (w.chargeUp) notes.push(tr('{n} s to charge', { n: num(w.chargeUp) }));
   return {
-    name: w.name,
-    damage: heal ? `heals ${-w.damage}` : w.effect === 'mindControl' ? 'control' : w.burst > 1 ? `${w.damage} × ${w.burst}` : String(w.damage),
-    every: `${num(w.cooldown)} s`,
-    range: `${num(w.range)} cells`,
-    targets: w.only ? ONLY_LABEL[w.only] ?? w.only : w.hits.map((/** @type {keyof typeof LAYER_LABEL} */ h) => LAYER_LABEL[h]).join(', '),
+    name: weaponNameOf(w.id, w.name),
+    damage: heal ? tr('heals {n}', { n: -w.damage }) : w.effect === 'mindControl' ? tr('control') : w.burst > 1 ? `${w.damage} × ${w.burst}` : String(w.damage),
+    every: tr('{n} s', { n: num(w.cooldown) }),
+    range: tr('{n} cells', { n: num(w.range) }),
+    targets: w.only ? tr(ONLY_LABEL[w.only] ?? w.only) : listOf(w.hits.map((/** @type {keyof typeof LAYER_LABEL} */ h) => tr(LAYER_LABEL[h]))),
     notes,
   };
 }
@@ -109,13 +110,13 @@ function effectOf(weapons) {
   if (!weapons.some((w) => w.damage > 0)) return [];
   return TARGETS.map((t) => {
     const dps = Math.max(0, ...weapons.map((w) => weaponDps(w, t)));
-    return { label: t.label, dps: Math.round(dps * 10) / 10, share: Math.min(1, Math.sqrt(dps / EFFECT_FULL_DPS)) };
+    return { label: tr(t.label), dps: Math.round(dps * 10) / 10, share: Math.min(1, Math.sqrt(dps / EFFECT_FULL_DPS)) };
   });
 }
 
 /** Headline attack: the strongest single volley ("35 × 2", or the healing). @param {any[]} weapons */
 function attackLabel(weapons) {
-  if (!weapons.length) return 'None';
+  if (!weapons.length) return tr('None');
   const best = weapons.reduce((a, b) => (Math.abs(b.damage * b.burst) > Math.abs(a.damage * a.burst) ? b : a));
   return weaponLine(best).damage;
 }
@@ -123,47 +124,47 @@ function attackLabel(weapons) {
 /** Traits of a unit. @param {any} d @param {string} faction */
 function unitTraits(d, faction) {
   const t = [];
-  if (d.capacity) t.push(`Carries ${d.capacity} infantry`);
-  if (d.crusher === 'infantry') t.push('Runs over infantry');
-  if (d.crusher === 'sandbags') t.push('Runs over infantry and sandbag walls');
-  if (d.tags.includes('selfRepair')) t.push(`Repairs itself below ${Math.round(COMBAT.titanSelfRepairBelow * 100)}% health`);
-  if (d.tags.includes('detectsSpies')) t.push('Sees through Spy disguises');
-  if (d.tags.includes('detectsSubs')) t.push('Detects submerged submarines nearby');
-  if (d.tags.includes('submarine')) t.push('Hidden underwater until it fires');
-  if (d.limit) t.push(`Only ${d.limit} at a time`);
-  if (d.tags.includes('jumpjet')) t.push('Flies over everything with a jetpack; only anti-air can hit it');
-  else if (d.loco === 'air') t.push(`Needs a free parking spot on ${d.tags.includes('heli') && !d.pad ? 'a Helipad or an Airfield (4 spots)' : 'an Airfield (4 spots)'}; rearms and repairs there`);
-  if (d.tags.includes('disguise')) t.push(`Hidden from enemies while it stands still, unless they come within ${SHROUD.camoRevealRadius} cells`);
-  if (d.tags.includes('psi')) t.push('Takes control of up to 3 enemy units; they return to their owners if he dies');
-  if (d.tags.includes('kamikaze')) t.push('Destroyed by its own blast');
-  if (d.tags.includes('demolition')) t.push('Explodes when destroyed, damaging everything nearby');
-  if (d.tags.includes('mindImmune')) t.push('Immune to mind control');
-  if (d.tags.includes('c4')) t.push('Plants C4 on enemy buildings');
-  if (d.slots > 1) t.push('Takes two places in a transport');
-  if (faction === 'union' && d.line === 'infantry' && !BONUSES.noClone.includes(d.id)) t.push('A Clone Lab trains a free twin');
-  if (faction === 'union' && BONUSES.industryLines.includes(d.line)) t.push(`${Math.round((1 - BONUSES.industryCostFactor) * 100)}% cheaper with an Industrial Plant`);
+  if (d.capacity) t.push(tr('Carries {n} infantry', { n: d.capacity }));
+  if (d.crusher === 'infantry') t.push(tr('Runs over infantry'));
+  if (d.crusher === 'sandbags') t.push(tr('Runs over infantry and sandbag walls'));
+  if (d.tags.includes('selfRepair')) t.push(tr('Repairs itself below {pct}% health', { pct: Math.round(COMBAT.titanSelfRepairBelow * 100) }));
+  if (d.tags.includes('detectsSpies')) t.push(tr('Sees through Spy disguises'));
+  if (d.tags.includes('detectsSubs')) t.push(tr('Detects submerged submarines nearby'));
+  if (d.tags.includes('submarine')) t.push(tr('Hidden underwater until it fires'));
+  if (d.limit) t.push(tr('Only {n} at a time', { n: d.limit }));
+  if (d.tags.includes('jumpjet')) t.push(tr('Flies over everything with a jetpack; only anti-air can hit it'));
+  else if (d.loco === 'air') t.push(d.tags.includes('heli') && !d.pad ? tr('Needs a free parking spot on a Helipad or an Airfield (4 spots); rearms and repairs there') : tr('Needs a free parking spot on an Airfield (4 spots); rearms and repairs there'));
+  if (d.tags.includes('disguise')) t.push(tr('Hidden from enemies while it stands still, unless they come within {n} cells', { n: SHROUD.camoRevealRadius }));
+  if (d.tags.includes('psi')) t.push(tr('Takes control of up to 3 enemy units; they return to their owners if he dies'));
+  if (d.tags.includes('kamikaze')) t.push(tr('Destroyed by its own blast'));
+  if (d.tags.includes('demolition')) t.push(tr('Explodes when destroyed, damaging everything nearby'));
+  if (d.tags.includes('mindImmune')) t.push(tr('Immune to mind control'));
+  if (d.tags.includes('c4')) t.push(tr('Plants C4 on enemy buildings'));
+  if (d.slots > 1) t.push(tr('Takes two places in a transport'));
+  if (faction === 'union' && d.line === 'infantry' && !BONUSES.noClone.includes(d.id)) t.push(tr('A Clone Lab trains a free twin'));
+  if (faction === 'union' && BONUSES.industryLines.includes(d.line)) t.push(tr('{pct}% cheaper with an Industrial Plant', { pct: Math.round((1 - BONUSES.industryCostFactor) * 100) }));
   return t;
 }
 
 /** Traits of a building. @param {any} d @param {string} [faction]  the viewer's: support powers of the other side are left out */
 function structureTraits(d, faction) {
   const t = [];
-  if (d.power > 0) t.push(`Produces ${d.power} power`);
-  if (d.power < 0) t.push(`Uses ${-d.power} power`);
-  if (d.padSpots?.length > 1) t.push(`Parks, rearms and repairs ${d.padSpots.length} aircraft`);
-  if (d.storage) t.push(`Stores $${d.storage.toLocaleString('en-US')} of ore money`);
-  if (d.tags.includes('freeHarvester')) t.push('Comes with a free Harvester');
-  if (d.tags.includes('limitOne')) t.push('Only one per player');
-  if (POWER.disabledAtLowPower.includes(d.id) || POWER.disabledAtLowPower.includes(d.role) || d.tags.includes('powered')) t.push('Switches off at low power');
-  if (d.tags.includes('camo')) t.push(`Hidden until enemies come within ${SHROUD.camoRevealRadius} cells or it fires`);
-  if (d.water) t.push('Built on water');
-  if (d.wall) t.push(`Drag to build a line of up to ${PLACEMENT.wallMaxCells}`);
-  if (d.tags.includes('crushable')) t.push('Heavy vehicles can crush it');
-  if (d.line === 'structures' && d.capturable && !d.wall) t.push('Enemy Engineers can capture it');
+  if (d.power > 0) t.push(tr('Produces {n} power', { n: d.power }));
+  if (d.power < 0) t.push(tr('Uses {n} power', { n: -d.power }));
+  if (d.padSpots?.length > 1) t.push(tr('Parks, rearms and repairs {n} aircraft', { n: d.padSpots.length }));
+  if (d.storage) t.push(tr('Stores ${n} of ore money', { n: d.storage.toLocaleString('en-US') }));
+  if (d.tags.includes('freeHarvester')) t.push(tr('Comes with a free Harvester'));
+  if (d.tags.includes('limitOne')) t.push(tr('Only one per player'));
+  if (POWER.disabledAtLowPower.includes(d.id) || POWER.disabledAtLowPower.includes(d.role) || d.tags.includes('powered')) t.push(tr('Switches off at low power'));
+  if (d.tags.includes('camo')) t.push(tr('Hidden until enemies come within {n} cells or it fires', { n: SHROUD.camoRevealRadius }));
+  if (d.water) t.push(tr('Built on water'));
+  if (d.wall) t.push(tr('Drag to build a line of up to {n}', { n: PLACEMENT.wallMaxCells }));
+  if (d.tags.includes('crushable')) t.push(tr('Heavy vehicles can crush it'));
+  if (d.line === 'structures' && d.capturable && !d.wall) t.push(tr('Enemy Engineers can capture it'));
   for (const id of d.powers) {
     const p = SUPPORT_POWERS[/** @type {keyof typeof SUPPORT_POWERS} */ (id)];
     if (faction && /** @type {any} */ (p).faction && /** @type {any} */ (p).faction !== faction) continue;
-    t.push(`Support power: ${p.name}, ready every ${num(p.chargeSeconds / 60)} min`);
+    t.push(tr('Support power: {name}, ready every {n} min', { name: nameOf(p.id, p.name), n: num(p.chargeSeconds / 60) }));
   }
   return t;
 }
@@ -179,26 +180,26 @@ export function codexEntry(type, faction, price) {
   const unit = UNITS[type];
   const d = /** @type {any} */ (unit ?? STRUCTURES[type]);
   if (!d) return null;
-  const text = codexText(type);
+  const text = codexOf(type, codexText(type));
   const weapons = (unit ? unit.weapons : d.weapon ? [d.weapon] : []).map((/** @type {string} */ id) => WEAPONS[id]);
   const range = Math.max(0, ...weapons.filter((w) => w.damage).map((w) => w.range));
   const cost = price ?? d.cost;
   /** @type {Stat[]} */
   const stats = [];
-  if (weapons.length) stats.push({ label: 'Attack', value: attackLabel(weapons) });
-  stats.push({ label: 'Health', value: String(d.hp) }, { label: 'Armour', value: ARMOR_LABEL[/** @type {keyof typeof ARMOR_LABEL} */ (d.armor)] ?? d.armor });
-  if (range) stats.push({ label: 'Range', value: `${num(range)} cells` });
-  if (unit) stats.push({ label: 'Speed', value: speedLabel(unit.speed) }, { label: 'Sight', value: `${unit.sight} cells` });
+  if (weapons.length) stats.push({ label: tr('Attack'), value: attackLabel(weapons) });
+  stats.push({ label: tr('Health'), value: String(d.hp) }, { label: tr('Armour'), value: tr(ARMOR_LABEL[/** @type {keyof typeof ARMOR_LABEL} */ (d.armor)] ?? d.armor) });
+  if (range) stats.push({ label: tr('Range'), value: tr('{n} cells', { n: num(range) }) });
+  if (unit) stats.push({ label: tr('Speed'), value: speedLabel(unit.speed) }, { label: tr('Sight'), value: tr('{n} cells', { n: unit.sight }) });
   else {
-    if (d.power) stats.push({ label: 'Power', value: d.power > 0 ? `+${d.power}` : String(d.power) });
-    stats.push({ label: 'Size', value: `${d.w} × ${d.h}` });
-    if (!d.weapon && d.sight > STRUCTURE_SIGHT) stats.push({ label: 'Sight', value: `${d.sight} cells` });
+    if (d.power) stats.push({ label: tr('Power'), value: d.power > 0 ? `+${d.power}` : String(d.power) });
+    stats.push({ label: tr('Size'), value: `${d.w} × ${d.h}` });
+    if (!d.weapon && d.sight > STRUCTURE_SIGHT) stats.push({ label: tr('Sight'), value: tr('{n} cells', { n: d.sight }) });
   }
   return {
     type,
-    name: d.name,
-    kind: d.wall ? 'Wall' : KIND_OF_LINE[/** @type {keyof typeof KIND_OF_LINE} */ (d.line)],
-    side: SIDE_LABEL[/** @type {keyof typeof SIDE_LABEL} */ (d.faction)] ?? '',
+    name: nameOf(type, d.name),
+    kind: tr(d.wall ? 'Wall' : KIND_OF_LINE[/** @type {keyof typeof KIND_OF_LINE} */ (d.line)]),
+    side: tr(SIDE_LABEL[/** @type {keyof typeof SIDE_LABEL} */ (d.faction)] ?? ''),
     cost,
     buildSeconds: cost && !d.wall ? Math.round(buildTicks(cost, 1) / SIM.ticksPerSecond) : 0,
     about: text.about,

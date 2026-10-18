@@ -9,12 +9,13 @@ import { PressButton } from './press.js';
 import { CodexCard } from './codexCard.js';
 import { codexEntry } from './codex.js';
 import { PRODUCTION } from '../data/rules.js';
+import { t } from '../lib/i18n.js';
 
 
 /** What a tap on an item that cannot be started says, by its label (ui/model.js REASON_LABEL). */
 const LIMIT_TOAST = /** @type {Record<string, string>} */ ({
   'Unit cap': 'Unit cap reached',
-  'No free pad': 'Every pad already has an aircraft: build another pad, or lose an aircraft first',
+  'No free pad': 'Every parking spot is taken: build another Airfield or Helipad, or lose an aircraft first',
 });
 /** @typedef {import('./model.js').BuildItem} BuildItem */
 /** @typedef {import('./model.js').TabInfo} TabInfo */
@@ -42,19 +43,19 @@ function menuFor(it, line) {
   const unitLine = UNIT_LINES.has(line);
   /** @type {{ id: string, label: string }[]} */
   const opts = [];
-  if (it.state === 'ready') opts.push({ id: 'cancelReady', label: 'Cancel (refund)' });
+  if (it.state === 'ready') opts.push({ id: 'cancelReady', label: t('Cancel (refund)') });
   else if (it.state === 'building') {
     // A tap on a unit queues another, so pausing a unit lives here instead.
-    if (unitLine) opts.push({ id: 'pause', label: 'Pause' }, { id: 'queue5', label: 'Queue ×5' });
-    opts.push({ id: 'cancelActive', label: 'Cancel' });
+    if (unitLine) opts.push({ id: 'pause', label: t('Pause') }, { id: 'queue5', label: t('Queue ×5') });
+    opts.push({ id: 'cancelActive', label: t('Cancel') });
   } else if (it.state === 'paused') {
-    if (unitLine) opts.push({ id: 'resume', label: 'Resume' });
-    opts.push({ id: 'cancelActive', label: 'Cancel' });
+    if (unitLine) opts.push({ id: 'resume', label: t('Resume') });
+    opts.push({ id: 'cancelActive', label: t('Cancel') });
   }
-  else if (it.queued) opts.push({ id: 'removeOne', label: 'Remove one' }, { id: 'removeAll', label: 'Remove all' });
-  else if (it.state === 'available' && unitLine) opts.push({ id: 'queue5', label: 'Queue ×5' });
-  if (it.queued > 1 && it.state !== 'ready') opts.push({ id: 'removeAll', label: 'Cancel all' });
-  opts.push({ id: 'info', label: 'Info' });
+  else if (it.queued) opts.push({ id: 'removeOne', label: t('Remove one') }, { id: 'removeAll', label: t('Remove all') });
+  else if (it.state === 'available' && unitLine) opts.push({ id: 'queue5', label: t('Queue ×5') });
+  if (it.queued > 1 && it.state !== 'ready') opts.push({ id: 'removeAll', label: t('Cancel all') });
+  opts.push({ id: 'info', label: t('Info') });
   return opts.filter((o, i) => opts.findIndex((x) => x.label === o.label) === i);
 }
 
@@ -77,8 +78,8 @@ function tapItem(it, line, act, lineQueued) {
     case 'paused': act.setPaused(line, false); break;
     case 'ready': act.place(it.type); break;
     case 'locked': act.toast(it.label); break;
-    case 'limit': act.toast(LIMIT_TOAST[it.label] ?? 'Build limit reached'); break;
-    case 'busy': act.toast('Already building'); break;
+    case 'limit': act.toast(t(LIMIT_TOAST[it.reason ?? ''] ?? 'Build limit reached')); break;
+    case 'busy': act.toast(t('Already building')); break;
     default: break;
   }
 }
@@ -99,24 +100,24 @@ const wipe = (progress, grey) => {
 function BuildIcon({ it, line, lineQueued, icon, act, openMenu, openInfo }) {
   const live = it.state === 'building' || it.state === 'paused';
   return html`<div class="bcell">
-  <${PressButton} class=${`bicon ${it.state}`} aria-label=${`${it.name}, ${it.cost} credits${it.label ? `, ${it.label}` : ''}${it.state === 'ready' ? ', ready' : ''}`}
+  <${PressButton} class=${`bicon ${it.state}`} aria-label=${`${it.name}, ${t('{n} credits', { n: it.cost })}${it.label ? `, ${it.label}` : ''}${it.state === 'ready' ? `, ${t('ready')}` : ''}`}
       tap=${() => tapItem(it, line, act, lineQueued)} longPress=${() => openMenu(it)}>
     ${icon ? html`<img src=${icon} alt="" draggable="false" />` : html`<span class="bicon-name">${it.name}</span>`}
     ${live ? html`<span class="bicon-wipe" style=${wipe(it.progress, it.state === 'paused')}></span>` : null}
     ${it.state === 'locked' ? html`<span class="bicon-lock" aria-hidden="true">🔒</span>` : null}
     ${it.queued > 1 || (it.queued === 1 && !live) ? html`<span class="bicon-badge">${it.queued}</span>` : null}
-    ${it.state === 'ready' ? html`<span class="bicon-ready">READY</span>` : null}
+    ${it.state === 'ready' ? html`<span class="bicon-ready">${t('READY')}</span>` : null}
     ${it.state === 'paused' ? html`<span class="bicon-hold">${it.label}</span>` : null}
     <span class="bicon-cost">${it.cost ? `$${it.cost}` : it.name}</span>
   </${PressButton}>
-  <button class="bicon-info" aria-label=${`About ${it.name}`} onPointerDown=${(/** @type {Event} */ e) => e.stopPropagation()}
+  <button class="bicon-info" aria-label=${t('About {name}', { name: it.name })} onPointerDown=${(/** @type {Event} */ e) => e.stopPropagation()}
     onClick=${() => openInfo(it)}><span aria-hidden="true">i</span></button>
   </div>`;
 }
 
 /** Ring badge for a tab: progress of its active item, or READY. @param {{ t: TabInfo }} p */
 function TabBadge({ t }) {
-  if (t.ready) return html`<span class="tab-ready" aria-label="ready"></span>`;
+  if (t.ready) return html`<span class="tab-ready" aria-label=${t('ready')}></span>`;
   if (t.progress < 0) return null;
   return html`<span class="tab-prog" style=${`width:${Math.round(t.progress * 100)}%`}></span>`;
 }
@@ -148,19 +149,19 @@ export function Sidebar({ model, icons, tab, collapsed, mode, act }) {
   };
 
   if (collapsed) {
-    return html`<aside class="sidebar collapsed panel" aria-label="Build menu (collapsed)">
-      <button class="sb-toggle" aria-label="Show build menu" onClick=${act.collapse}>«</button>
+    return html`<aside class="sidebar collapsed panel" aria-label=${t('Build menu (collapsed)')}>
+      <button class="sb-toggle" aria-label=${t('Show build menu')} onClick=${act.collapse}>«</button>
       ${model.tabs.filter((t) => t.items).map((t) => html`<button key=${t.id} class=${`tab mini ${t.ready ? 'ready' : ''}`}
         onClick=${() => { act.tab(t.id); act.collapse(); }}>${t.label}<${TabBadge} t=${t} /></button>`)}
     </aside>`;
   }
 
   const items = model.items[line] ?? [];
-  return html`<aside class="sidebar panel" aria-label="Build menu">
+  return html`<aside class="sidebar panel" aria-label=${t('Build menu')}>
     <div class="sb-head">
-      <button class=${`sb-mode ${mode === 'sell' ? 'on sell' : ''}`} aria-pressed=${mode === 'sell'} onClick=${act.sell} title="Sell mode">$ Sell</button>
-      <button class=${`sb-mode ${mode === 'repair' ? 'on' : ''}`} aria-pressed=${mode === 'repair'} onClick=${act.repair} title="Repair mode">🔧</button>
-      <button class="sb-toggle" aria-label="Hide build menu" onClick=${act.collapse}>»</button>
+      <button class=${`sb-mode ${mode === 'sell' ? 'on sell' : ''}`} aria-pressed=${mode === 'sell'} onClick=${act.sell} title=${t('Sell mode')}>${t('$ Sell')}</button>
+      <button class=${`sb-mode ${mode === 'repair' ? 'on' : ''}`} aria-pressed=${mode === 'repair'} onClick=${act.repair} title=${t('Repair mode')}>🔧</button>
+      <button class="sb-toggle" aria-label=${t('Hide build menu')} onClick=${act.collapse}>»</button>
     </div>
     <div class="tabs" role="tablist">
       ${model.tabs.map((t) => html`<button key=${t.id} role="tab" aria-selected=${t.id === line}
@@ -170,7 +171,7 @@ export function Sidebar({ model, icons, tab, collapsed, mode, act }) {
     <div class="bgrid" role="tabpanel">
       ${items.length ? items.map((it) => html`<${BuildIcon} key=${it.type} it=${it} line=${line} lineQueued=${model.tabs.find((t) => t.id === line)?.queued ?? 0} icon=${icons[it.type]} act=${act}
         openMenu=${(/** @type {BuildItem} */ i) => setMenu({ it: i, opts: menuFor(i, line) })} openInfo=${setInfo} />`)
-        : html`<p class="bgrid-empty">Nothing to build</p>`}
+        : html`<p class="bgrid-empty">${t('Nothing to build')}</p>`}
     </div>
     ${menu ? html`<div class="bmenu-backdrop" onPointerDown=${() => setMenu(null)}>
       <div class="bmenu panel" onPointerDown=${(/** @type {Event} */ e) => e.stopPropagation()}>

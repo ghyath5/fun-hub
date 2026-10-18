@@ -4,6 +4,7 @@
  * location, and the history behind the "!" button (last 5 alert places).
  */
 import { ALERTS, CAMERA } from '../data/ui.js';
+import { t } from '../lib/i18n.js';
 
 /**
  * @param {{ show: (text: string, at?: {x: number, y: number}) => void, said?: (key: string) => void }} toaster
@@ -31,7 +32,7 @@ export function createAlerts(toaster, nowMs = () => performance.now()) {
       const now = nowMs();
       if (def.throttle > 0 && now - (last.get(k) ?? -Infinity) < def.throttle * 1000) return false;
       last.set(k, now);
-      toaster.show(text || def.text, at);
+      toaster.show(text || t(def.text), at);
       toaster.said?.(key);
       if (at) {
         places.unshift(at);
