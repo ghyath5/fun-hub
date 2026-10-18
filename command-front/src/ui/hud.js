@@ -13,6 +13,9 @@ import { Minimap } from './minimap.js';
 import { LinkCard } from './linkCard.js';
 import { t, int } from '../lib/i18n.js';
 
+/** A map's name in the current language ("Huge 128×128 #42": the size word is translated). @param {string} name */
+const mapLabel = (name) => name.replace(/^[A-Za-z][A-Za-z ]*?(?= \d|$)/, (w) => t(w));
+
 /**
  * @typedef {object} HudState
  * @property {number} credits
@@ -153,7 +156,7 @@ function Hud({ store, actions }) {
       <div class="sheet-backdrop">
         <div class="sheet panel" role="dialog" aria-label=${t('Paused')}>
           <h2>${t('Paused')}</h2>
-          <p class="muted">${s.online ? t('The other phone waits until you resume.') : t(s.mapName)}</p>
+          <p class="muted">${s.online ? t('The other phone waits until you resume.') : mapLabel(s.mapName)}</p>
           <button class="btn primary" onClick=${actions.resume}>${t('Resume')}</button>
           ${s.online ? null : html`<div class="sheet-row">
             <button class="btn" disabled=${s.watching || s.ended} onClick=${actions.save}>${t('Save')}</button>

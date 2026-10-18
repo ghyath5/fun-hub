@@ -8,9 +8,9 @@ variants as the English set in `voice`). Any line without an Arabic
 recording falls back to English in the game.
 
 Speech: the Arabic Piper/VITS voices `ar_JO-SA_dii-high` (female: the
-Coalition announcer and the medic), `ar_JO-kareem-medium` (male: the Union
-announcer and most units — the clearest on short commands in the Whisper
-check) and `ar_JO-SA_miro_V2-high` (commando, spy), run with
+Coalition announcer and the medic, spoken slowly so word endings are not
+swallowed) and `ar_JO-kareem-medium` (male: the Union announcer and every
+unit — the clearest on short commands in the Whisper check), run with
 [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx). `render.py` gives each
 voice set its speaker, speed, pitch and treatment (announcers clean with a
 little room, field units through a radio band), normalises loudness and

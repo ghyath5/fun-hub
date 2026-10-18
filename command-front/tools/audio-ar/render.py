@@ -34,14 +34,16 @@ MALE_A = 'vits-piper-ar_JO-SA_miro_V2-high'
 MALE_B = 'vits-piper-ar_JO-SA_miro-high'
 MALE_C = 'vits-piper-ar_JO-kareem-medium'
 
-# Treatments (ffmpeg filter chains, before loudness and encoding).
-ROOM = 'highpass=f=90,acompressor=threshold=-18dB:ratio=3:attack=5:release=90,aecho=0.8:0.45:35:0.16'
+# Treatments (ffmpeg filter chains, before loudness and encoding). No echo on the
+# announcer: it blurs word endings (measured with the Whisper check).
+ROOM = 'highpass=f=90,acompressor=threshold=-18dB:ratio=3:attack=5:release=90'
 RADIO = 'highpass=f=280,lowpass=f=3600,acompressor=threshold=-22dB:ratio=5:attack=3:release=60'
 FIELD = 'highpass=f=120,lowpass=f=6500,acompressor=threshold=-20dB:ratio=4:attack=4:release=70'
 
 # set → (voice, speed, pitch factor, treatment)
 CAST = {
-    'eva-coalition': (FEMALE, 0.95, 1.0, ROOM),
+    # The female voice says word endings fully only when it takes its time.
+    'eva-coalition': (FEMALE, 0.86, 1.0, ROOM),
     # The Union's announcer is a commander on the field radio: a man's voice, lightly filtered.
     'eva-union': (MALE_C, 0.95, 0.97, FIELD + ',aecho=0.8:0.35:30:0.1'),
     # Units: the kareem voice says short commands most clearly; pitch, pace and
@@ -54,12 +56,12 @@ CAST = {
     'union-vehicle': (MALE_C, 0.95, 0.88, FIELD + ',lowpass=f=4800'),
     'union-aircraft': (MALE_C, 1.02, 1.0, RADIO),
     'union-naval': (MALE_C, 0.95, 0.9, FIELD + ',aecho=0.8:0.3:45:0.12'),
-    'commando': (MALE_A, 0.92, 1.03, FIELD),
+    'commando': (MALE_C, 1.0, 1.06, FIELD + ',lowpass=f=5500'),
     'engineer': (MALE_C, 1.0, 1.1, FIELD),
     'harvester': (MALE_C, 0.98, 0.93, RADIO),
     'mcv': (MALE_C, 0.96, 0.9, RADIO),
-    'medic': (FEMALE, 0.98, 1.02, FIELD),
-    'spy': (MALE_A, 0.9, 0.95, FIELD),
+    'medic': (FEMALE, 0.88, 1.02, FIELD),
+    'spy': (MALE_C, 0.94, 0.94, FIELD + ',aecho=0.8:0.25:20:0.08'),
     'thief': (MALE_C, 1.02, 1.12, FIELD),
 }
 
