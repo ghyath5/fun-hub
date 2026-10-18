@@ -5,6 +5,7 @@
  * primary marker and the repair wrench. Reads the world; never writes it.
  */
 import { Container, Graphics, Sprite } from 'pixi.js';
+import { createFlagpole } from './flagpole.js';
 import { bakeStructures } from './structureBaker.js';
 import { PLAYER_COLORS } from '../data/factions.js';
 import { RENDER, SIM, PRODUCTION, SELL } from '../data/rules.js';
@@ -35,7 +36,7 @@ export function createStructureLayer(renderer, art = null) {
   layer.sortableChildren = true;
   const marks = new Graphics();
   const smoke = new Graphics();
-  /** @type {Map<number, { root: Container, body: Container, turret: Container | null, paint: Sprite, tinted: Sprite[], spinners: Container[] }>} */
+  /** @type {Map<number, { root: Container, body: Container, turret: Container | null, paint: Sprite, tinted: Sprite[], spinners: Container[], flag?: ReturnType<typeof createFlagpole> | null, flagId?: string }>} */
   const views = new Map();
   /** @type {{ x: number, y: number, vx: number, vy: number, life: number, max: number, fire: boolean }[]} */
   let puffs = [];
@@ -129,6 +130,15 @@ export function createStructureLayer(renderer, art = null) {
         const owner = s.owner >= 0 ? world.players[s.owner] : null;
         const tint = owner ? PLAYER_COLORS[/** @type {keyof typeof PLAYER_COLORS} */ (owner.color)].main : NEUTRAL_TINT;
         if (!v) { v = make(s, tint); views.set(s.id, v); }
+        // The owner's flag flies over each Construction Yard (and changes hands with it).
+        const flagWanted = s.type === 'constructionYard' && owner?.country ? owner.country : '';
+        if (v.flagId !== flagWanted) {
+          v.flag?.destroy();
+          v.flag = flagWanted ? createFlagpole(flagWanted) : null;
+          if (v.flag) { v.flag.view.position.set(C * 0.35, C * 0.9); v.root.addChild(v.flag.view); }
+          v.flagId = flagWanted;
+        }
+        v.flag?.update(now);
         v.root.visible = true;
         for (const sp of v.tinted) sp.tint = tint; // ownership changes on capture
         const x0 = s.cx * C;

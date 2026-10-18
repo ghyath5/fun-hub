@@ -55,6 +55,12 @@ export const STRUCTURES = Object.freeze({
   subPen:           s({ id: 'subPen', name: 'Sub Pen', role: 'navalyard', faction: 'union', cost: 650, power: -30, hp: 1000, w: 3, h: 3, requires: ['power'], water: true, exit: belowCentre(3, 3) }),
   phaseShifter:     s({ id: 'phaseShifter', name: 'Phase Shifter', role: 'superA', faction: 'coalition', cost: 2800, power: -200, hp: 1000, w: 2, h: 2, requires: ['tech'], powers: ['phaseShift'], tags: ['limitOne'] }),
   aegisProjector:   s({ id: 'aegisProjector', name: 'Aegis Projector', role: 'superB', faction: 'union', cost: 2800, power: -200, hp: 1000, w: 2, h: 2, requires: ['tech'], powers: ['aegisField'], tags: ['limitOne'] }),
+  // Economy and production boosters, each one per player (limitOne): see sim/bonuses.js.
+  oreProcessor:     s({ id: 'oreProcessor', name: 'Ore Processor', role: 'processor', faction: 'coalition', cost: 2000, power: -100, hp: 900, w: 2, h: 2, requires: ['refinery', 'radar'], tags: ['limitOne'] }),
+  industrialPlant:  s({ id: 'industrialPlant', name: 'Industrial Plant', role: 'industry', faction: 'union', cost: 2000, power: -150, hp: 900, w: 3, h: 2, requires: ['factory', 'radar'], tags: ['limitOne'] }),
+  cloneLab:         s({ id: 'cloneLab', name: 'Clone Lab', role: 'cloning', faction: 'union', cost: 2500, power: -200, hp: 800, w: 2, h: 2, requires: ['barracks', 'tech'], tags: ['limitOne'] }),
+  sensorArray:      s({ id: 'sensorArray', name: 'Sensor Array', role: 'sensor', faction: 'union', cost: 1000, power: -50, hp: 500, w: 1, h: 1, sight: 16, requires: ['radar'], tags: ['powered'] }),
+  stormGenerator:   s({ id: 'stormGenerator', name: 'Storm Generator', role: 'superD', faction: 'coalition', cost: 3000, power: -200, hp: 1000, w: 2, h: 2, requires: ['tech'], powers: ['lightningStorm'], tags: ['limitOne'] }),
   missileSilo:      s({ id: 'missileSilo', name: 'Missile Silo', role: 'superC', faction: 'union', cost: 2500, power: -150, hp: 1000, w: 2, h: 1, requires: ['tech'], powers: ['atomicStrike'], tags: ['limitOne'] }),
 
   // Defenses and walls
@@ -69,6 +75,7 @@ export const STRUCTURES = Object.freeze({
   flameTower:       s({ id: 'flameTower', name: 'Flame Tower', role: 'defense', faction: 'union', line: DEF, cost: 600, power: -15, hp: 400, w: 1, h: 1, requires: ['barracks'], weapon: 'towerFlame' }),
   arcTower:         s({ id: 'arcTower', name: 'Arc Tower', role: 'defense', faction: 'union', line: DEF, cost: 1500, power: -150, hp: 400, w: 1, h: 1, requires: ['factory'], weapon: 'arcBolt', tags: ['powered'] }),
   sentryGun:        s({ id: 'sentryGun', name: 'Sentry Gun', role: 'defense', faction: 'union', line: DEF, cost: 500, power: -15, hp: 400, w: 1, h: 1, requires: ['barracks'], weapon: 'sentryMg', tags: ['turret'] }),
+  longGun:          s({ id: 'longGun', name: 'Long Gun', role: 'defense', faction: 'coalition', line: DEF, cost: 2000, power: -100, hp: 900, w: 2, h: 2, requires: ['radar'], weapon: 'longGunShell', tags: ['turret', 'powered'] }),
   samSite:          s({ id: 'samSite', name: 'SAM Site', role: 'defense', faction: 'union', line: DEF, cost: 750, power: -20, hp: 400, w: 2, h: 1, requires: ['radar'], weapon: 'sam', tags: ['powered'] }),
 });
 

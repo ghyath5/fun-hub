@@ -215,6 +215,28 @@ export function firePower(w, pid, id, t) {
       e.aegisUntil = w.tick + ticks(SUPPORT_POWERS.aegisField.durationSeconds);
       break;
     }
+    case 'lightningStorm': {
+      // The storm gathers for a few seconds, then bolts strike random cells round the target until it passes.
+      const spec = SUPPORT_POWERS.lightningStorm;
+      const every = ticks(spec.boltEverySeconds);
+      const first = ticks(spec.delaySeconds);
+      const bolts = Math.floor(ticks(spec.durationSeconds) / every);
+      for (let k = 0; k < bolts; k++) {
+        const a = (w.rng.int(3600) / 3600) * Math.PI * 2;
+        const r = Math.sqrt(w.rng.int(1000) / 1000) * spec.radius;
+        const bx = Math.max(0, Math.min(w.map.width - 1, Math.round(t.x + Math.cos(a) * r)));
+        const by = Math.max(0, Math.min(w.map.height - 1, Math.round(t.y + Math.sin(a) * r)));
+        const tx = bx * L + L / 2;
+        const ty = by * L + L / 2;
+        w.projectiles.push({
+          id: ++w.projectileSeq, weapon: 'stormBolt', owner: pid, shooter: 0,
+          x: tx, y: ty, sx: tx, sy: ty, tx, ty, target: 0, homing: false,
+          speed: 0, ticks: first + k * every + w.rng.int(Math.max(1, every)), direct: false, born: w.tick,
+        });
+      }
+      w.events.emit('stormStarted', w.tick, { owner: pid, x: t.x, y: t.y, radius: spec.radius, ticks: first + bolts * every });
+      break;
+    }
     case 'atomicStrike': {
       const silo = w.entities.all().find((e) => e.kind === 'structure' && e.owner === pid && isActive(e) && structureDef(e.type).powers?.includes('atomicStrike'));
       const tx = t.x * L + L / 2;

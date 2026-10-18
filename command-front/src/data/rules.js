@@ -58,11 +58,19 @@ export const ECONOMY = Object.freeze({
   freeHarvesterSpawnRadius: 3,
 });
 
+/** What the support buildings do (sim/bonuses.js). */
+export const BONUSES = Object.freeze({
+  processorOreFactor: 1.25,     // Ore Processor: harvested ore and gems are worth 25% more
+  industryCostFactor: 0.75,     // Industrial Plant: vehicles, aircraft and ships cost 25% less
+  industryLines: ['vehicles', 'aircraft', 'naval'],
+  noClone: ['engineer', 'spy', 'thief', 'commando', 'hound'], // Clone Lab copies every other infantry unit
+});
+
 export const POWER = Object.freeze({
   lowPowerBelow: 1,            // r < 1 is low power
   minProductionFactor: 0.25,
   warningBelow: 1.1,
-  disabledAtLowPower: ['radar', 'arcTower', 'beamTower', 'shroudGenerator', 'aaGun', 'samSite', 'supportCharging'],
+  disabledAtLowPower: ['radar', 'arcTower', 'beamTower', 'longGun', 'sensorArray', 'shroudGenerator', 'aaGun', 'samSite', 'supportCharging'],
 });
 
 export const PRODUCTION = Object.freeze({
@@ -170,6 +178,7 @@ export const SUPPORT_POWERS = Object.freeze({
   satelliteUplink: { id: 'satelliteUplink', name: 'Satellite Uplink', faction: 'coalition', chargeSeconds: 480, oneUse: true, target: 'none' },
   phaseShift:      { id: 'phaseShift', name: 'Phase Shift', faction: 'coalition', chargeSeconds: 420, oneUse: false, target: 'ownVehicleThenCell', fallbackRadius: 3 },
   aegisField:      { id: 'aegisField', name: 'Aegis Field', faction: 'union', chargeSeconds: 660, oneUse: false, target: 'vehicleOrStructure', durationSeconds: 45 },
+  lightningStorm:  { id: 'lightningStorm', name: 'Lightning Storm', faction: 'coalition', chargeSeconds: 720, oneUse: false, target: 'anyCell', durationSeconds: 14, boltEverySeconds: 0.35, radius: 5, delaySeconds: 3 },
   atomicStrike:    { id: 'atomicStrike', name: 'Atomic Strike', faction: 'union', chargeSeconds: 780, oneUse: false, target: 'anyCell', flightSeconds: 6, damage: 1000, warhead: 'HE', splash: 3 },
 });
 
@@ -232,7 +241,8 @@ export const TECH_LEVEL_OF_ROLE = Object.freeze({
   radar: 5, navalyard: 5,
   depot: 7, helipad: 7, airfield: 7,
   tech: 9,
-  superA: 10, superB: 10, superC: 10,
+  superA: 10, superB: 10, superC: 10, superD: 10,
+  sensor: 5, processor: 7, industry: 7, cloning: 9,
 });
 export const SUPPORT_POWER_TECH_LEVEL = 10;
 
@@ -244,9 +254,9 @@ export const SUPPORT_POWER_TECH_LEVEL = 10;
  */
 export const AI = Object.freeze({
   beginner: { thinkSeconds: 3,   harvestersPerRefinery: 1, maxRefineries: 1, firstAttackSeconds: 900, waveSeconds: 420, supportPowers: 'no', engineerCapture: false, oreValueFactor: 0.6, micro: 'none',
-    armyCap: 6, maxDefenses: 0, skipRoles: ['helipad', 'airfield', 'navalyard', 'tech', 'superA', 'superB', 'superC'] },
+    armyCap: 6, maxDefenses: 0, skipRoles: ['helipad', 'airfield', 'navalyard', 'tech', 'superA', 'superB', 'superC', 'superD', 'processor', 'industry', 'cloning', 'sensor'] },
   easy:   { thinkSeconds: 2,   harvestersPerRefinery: 1, maxRefineries: 1, firstAttackSeconds: 600, waveSeconds: 300, supportPowers: 'no', engineerCapture: false, oreValueFactor: 0.8, micro: 'none',
-    armyCap: 12, maxDefenses: 2, skipRoles: ['tech', 'superA', 'superB', 'superC'] },
+    armyCap: 12, maxDefenses: 2, skipRoles: ['tech', 'superA', 'superB', 'superC', 'superD', 'cloning'] },
   normal: { thinkSeconds: 1,   harvestersPerRefinery: 2, maxRefineries: 2, firstAttackSeconds: 360, waveSeconds: 210, supportPowers: 'yes', engineerCapture: false, oreValueFactor: 1.0, micro: 'retreat',
     armyCap: 40, maxDefenses: 8, skipRoles: [] },
   hard:   { thinkSeconds: 0.5, harvestersPerRefinery: 3, maxRefineries: 3, firstAttackSeconds: 240, waveSeconds: 150, supportPowers: 'timed', engineerCapture: true, oreValueFactor: 1.25, micro: 'full',
@@ -276,7 +286,7 @@ export const STARTING_FORCE = Object.freeze({
 });
 
 export const SETUP_DEFAULTS = Object.freeze({
-  map: 'duel-canyon',
+  map: 'generated',
   opponents: 1,
   difficulty: 'normal',
   teams: 'ffa',

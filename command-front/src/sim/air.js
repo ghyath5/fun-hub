@@ -14,6 +14,9 @@ import { UNITS } from '../data/units.js';
 import { WEAPONS } from '../data/weapons.js';
 import { ticks } from '../core/fixed.js';
 import { isActive, structureDef } from './entities/structures.js';
+import { padRoleOf, padsOf, padTaken } from './pads.js';
+
+export { padRoleOf };
 import { setMove } from './systems/movement.js';
 import { spend } from './formulas/economy.js';
 import { spiral } from './nav.js';
@@ -33,8 +36,6 @@ const tagsOf = (/** @type {any} */ u) => UNITS[u.type].tags;
 export const isAircraft = (/** @type {any} */ u) => u.kind === 'unit' && UNITS[u.type].loco === 'air' && !tagsOf(u).includes('support');
 export const isHeli = (/** @type {any} */ u) => tagsOf(u).includes('heli');
 export const isPlane = (/** @type {any} */ u) => tagsOf(u).includes('plane');
-/** The pad an aircraft type is built on and rearms at. @param {string} type */
-export const padRoleOf = (type) => UNITS[type].pad ?? (UNITS[type].tags.includes('heli') ? 'helipad' : 'airfield');
 const padRole = (/** @type {any} */ u) => padRoleOf(u.type);
 
 /** Cell an aircraft parks on. @param {any} pad */
@@ -42,13 +43,13 @@ export const padCell = (pad) => ({ x: pad.cx + (pad.w >> 1), y: pad.cy + (pad.h 
 
 /** A free working pad of the right kind for an aircraft. @param {World} w @param {any} u */
 export function freePad(w, u) {
-  const role = padRole(u);
-  for (const e of w.entities.all()) {
-    if (e.kind !== 'structure' || e.owner !== u.owner || !isActive(e) || structureDef(e.type).role !== role) continue;
-    const other = e.linked ? w.entities.get(e.linked) : null;
-    if (!other || other.dead || other.pad !== e.id) return e;
-  }
-  return null;
+  return padsOf(w, u.owner, padRole(u)).find((e) => !padTaken(w, e)) ?? null;
+}
+
+/** Death hook: a destroyed aircraft lets go of its pad. @param {World} w @param {any} u */
+export function aircraftDied(w, u) {
+  const pad = u.pad ? w.entities.get(u.pad) : null;
+  if (pad && pad.linked === u.id) pad.linked = 0;
 }
 
 /** Link an aircraft to a pad (and free its old one). @param {World} w @param {any} u @param {any} pad */

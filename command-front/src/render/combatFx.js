@@ -115,6 +115,10 @@ export function createCombatFx() {
         const look = lookOf(d.weapon);
         const x = d.x * PX;
         const y = d.y * PX;
+        if (d.weapon === 'stormBolt') {
+          // A bolt out of the sky: a jagged white line down to the strike, then the blast.
+          lines.push({ x0: x + (Math.random() - 0.5) * 40, y0: y - 260, x1: x, y1: y, t0: performance.now(), ms: 260, color: 0xeef3ff, width: 3.2, jagged: true });
+        }
         if (w.splash > 0 && look !== 'flame') {
           const r = Math.max(4, w.splash * RENDER.cellPx * 0.5);
           explosion(x, y, r);

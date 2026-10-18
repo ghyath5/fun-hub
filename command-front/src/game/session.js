@@ -27,13 +27,18 @@ import { sidebarModel, economyModel, structureCard, sameShape, powersModel, inte
 import { drawMinimap, hasRadar } from '../ui/minimap.js';
 import { isTransport } from '../sim/transports.js';
 import { isAircraft } from '../sim/air.js';
-import { GAME_SPEEDS, SIM, RENDER } from '../data/rules.js';
+import { GAME_SPEEDS, SIM, RENDER, PRODUCTION } from '../data/rules.js';
 import { GESTURE, LAYOUT } from '../data/ui.js';
 import { PLAYER_COLORS, FACTIONS } from '../data/factions.js';
 import { itemDef, lineOf } from '../sim/catalog.js';
 import { structureDef, isActive, placeStructure } from '../sim/entities/structures.js';
 import { spawnUnit } from '../sim/entities/units.js';
 import { enterFullscreen } from '../ui/fullscreen.js';
+
+/** Why a full production queue is not moving, by line hold (sim/systems/production.js). */
+const QUEUE_STUCK = Object.freeze({
+  funds: 'waiting for money', exit: 'the factory exit is blocked', pad: 'no free pad', factory: 'no factory', paused: 'it is paused', requires: 'a required building is missing',
+});
 
 /** Bottom band the command bar occupies; a selection centred there sends the bar to the top. */
 const BAR_ZONE_PX = LAYOUT.commandButtonPx * 2 + 24;
@@ -307,7 +312,12 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
     setPaused: (line, paused) => { if (paused) voices.announce('onHold'); issue(paused ? 'pause' : 'resume', { line }); },
     cancel: (line, o) => { voices.announce('cancelled'); issue('cancel', { line, ...o }); },
     cancelReady: (line) => { voices.announce('cancelled'); issue('cancelReady', { line }); },
-    queueFull: (max) => { toaster.show(`Queue full (${max})`); voices.announce('queueFull'); },
+    queueFull: (line) => {
+      // Say why the line is not moving, so a full queue is never a mystery.
+      const why = QUEUE_STUCK[/** @type {keyof typeof QUEUE_STUCK} */ (me.lines[line]?.hold ?? '')] ?? '';
+      toaster.show(`Queue full (${PRODUCTION.queueMax})${why ? `: ${why}` : ''}`);
+      voices.announce('queueFull');
+    },
     place: (type) => { enterTarget(null); selection.clear(); selectStructure(0); modes.startPlacing(type); },
     toast: (text) => toaster.show(text),
     tab: (tab) => store.set({ tab }),
@@ -355,6 +365,7 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
     radialClose: () => store.set({ radial: null }),
     cancelTarget: () => { enterTarget(null); modes.cancel(); },
     alertJump: () => { const p = alerts.nextPlace(); if (p) jump(p); },
+    zoom: (dir) => cam.zoomStep(dir),
     build: buildActs,
     structure: structureActs,
     place: () => {

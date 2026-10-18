@@ -10,6 +10,7 @@
 import { html, useEffect, useRef, useState } from 'htm/preact';
 import { FACTIONS, PLAYER_COLORS } from '../data/factions.js';
 import { COLORS, maxPlayersOf } from '../game/matchSetup.js';
+import { CountryButton, Flag } from './countryPicker.js';
 import { drawQr, scanQr, extractCode } from '../net/link.js';
 
 /** @typedef {import('../game/matchSetup.js').SetupForm} SetupForm */
@@ -160,8 +161,8 @@ export function DiagPanel({ text, stun, act }) {
 /**
  * The guest's lobby: the host's choices, read-only, and this phone's own
  * faction and colour.
- * @param {{ form: SetupForm | null, maps: { id: string, name: string, maxPlayers: number }[], me: { faction: 'coalition' | 'union', color: string },
- *   onMe: (me: { faction: 'coalition' | 'union', color: string }) => void, onLeave: () => void }} p
+ * @param {{ form: SetupForm | null, maps: { id: string, name: string, maxPlayers: number }[], me: { faction: 'coalition' | 'union', color: string, country?: string },
+ *   onMe: (me: { faction: 'coalition' | 'union', color: string, country?: string }) => void, onLeave: () => void }} p
  */
 export function GuestLobby({ form, maps, me, onMe, onLeave }) {
   const mine = form?.opponents.find((o) => o.remote);
@@ -181,13 +182,15 @@ export function GuestLobby({ form, maps, me, onMe, onLeave }) {
           <select aria-label="Your colour" value=${color} onChange=${(/** @type {any} */ e) => onMe({ ...me, color: e.target.value })}>
             ${COLORS.map((c) => html`<option value=${c}>${cap(c)}</option>`)}
           </select></span></label>
+        <div class="row"><span class="row-label">Country</span><span class="row-ctl">
+          <${CountryButton} label="Your country" value=${me.country} onPick=${(/** @type {string} */ v) => onMe({ ...me, country: v })} /></span></div>
       </section>
       <section class="setup-col">
         <h3>The host's setup</h3>
         ${form ? html`
           <div class="row"><span class="row-label">Map</span><span>${mapName}</span></div>
-          <div class="row"><span class="row-label">Host</span><span>${dot(form.color)} ${FACTIONS[form.faction].name}</span></div>
-          ${form.opponents.filter((o) => !o.remote).map((o, i) => html`<div class="row" key=${i}><span class="row-label">AI ${i + 1}</span><span>${dot(o.color)} ${FACTIONS[o.faction].name} · ${cap(o.difficulty)}</span></div>`)}
+          <div class="row"><span class="row-label">Host</span><span>${dot(form.color)} <${Flag} id=${form.country} /> ${FACTIONS[form.faction].name}</span></div>
+          ${form.opponents.filter((o) => !o.remote).map((o, i) => html`<div class="row" key=${i}><span class="row-label">AI ${i + 1}</span><span>${dot(o.color)} <${Flag} id=${o.country} /> ${FACTIONS[o.faction].name} · ${cap(o.difficulty)}</span></div>`)}
           <div class="row"><span class="row-label">Teams</span><span>${teams}</span></div>
           <div class="row"><span class="row-label">Credits · speed</span><span>$${form.startingCredits.toLocaleString('en-US')} · ${cap(form.speed)}</span></div>` : html`<p class="muted">Waiting for the host…</p>`}
       </section>

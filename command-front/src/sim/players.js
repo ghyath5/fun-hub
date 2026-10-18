@@ -18,6 +18,7 @@
  * @property {number} id
  * @property {import('../types.js').FactionId} faction
  * @property {string} color      Key of PLAYER_COLORS
+ * @property {string} country    Country whose flag the player flies (data/countries.js), '' for none; cosmetic
  * @property {number} team
  * @property {boolean} human
  * @property {string} difficulty beginner | easy | normal | hard (AI players)
@@ -38,7 +39,7 @@
  */
 
 /**
- * @param {{ faction: import('../types.js').FactionId, color: string, team?: number, human?: boolean, start: number, difficulty?: string }[]} specs
+ * @param {{ faction: import('../types.js').FactionId, color: string, country?: string, team?: number, human?: boolean, start: number, difficulty?: string }[]} specs
  * @param {number} [startingCredits]
  * @returns {Player[]}
  */
@@ -47,6 +48,7 @@ export function createPlayers(specs, startingCredits = 0) {
     id,
     faction: s.faction,
     color: s.color,
+    country: s.country ?? '',
     team: s.team ?? id,
     human: !!s.human,
     difficulty: s.difficulty ?? 'normal',

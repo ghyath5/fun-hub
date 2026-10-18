@@ -1,7 +1,7 @@
 /* Command Front service worker: cache-first, versioned. Hand-maintained list —
    add every file the game loads; ?debug warns at startup about any that are missing.
    Bump CACHE whenever a listed file changes. */
-const CACHE = 'command-front-v24';
+const CACHE = 'command-front-v25';
 
 const PRECACHE = [
   './',
@@ -10,8 +10,12 @@ const PRECACHE = [
   './manifest.webmanifest',
   './assets/art/atlas-0.webp',
   './assets/art/atlas-1.webp',
+  './assets/art/atlas-2.webp',
+  './assets/art/atlas-3.webp',
+  './assets/art/atlas-4.webp',
   './assets/art/atlas.json',
   './assets/art/ground-0.webp',
+  './assets/art/ground-1.webp',
   './assets/icon-192.png',
   './assets/icon-512.png',
   './assets/icon.svg',
@@ -151,6 +155,7 @@ const PRECACHE = [
   './assets/sound/v/eva-coalition/repairing-0.mp3',
   './assets/sound/v/eva-coalition/selectTarget-0.mp3',
   './assets/sound/v/eva-coalition/silosNeeded-0.mp3',
+  './assets/sound/v/eva-coalition/stormDetected-0.mp3',
   './assets/sound/v/eva-coalition/structureCaptured-0.mp3',
   './assets/sound/v/eva-coalition/structureLost-0.mp3',
   './assets/sound/v/eva-coalition/structureSold-0.mp3',
@@ -184,6 +189,7 @@ const PRECACHE = [
   './assets/sound/v/eva-union/repairing-0.mp3',
   './assets/sound/v/eva-union/selectTarget-0.mp3',
   './assets/sound/v/eva-union/silosNeeded-0.mp3',
+  './assets/sound/v/eva-union/stormDetected-0.mp3',
   './assets/sound/v/eva-union/structureCaptured-0.mp3',
   './assets/sound/v/eva-union/structureLost-0.mp3',
   './assets/sound/v/eva-union/structureSold-0.mp3',
@@ -288,6 +294,7 @@ const PRECACHE = [
   './src/core/events.js',
   './src/core/fixed.js',
   './src/core/loop.js',
+  './src/data/countries.js',
   './src/data/credits.js',
   './src/data/factions.js',
   './src/data/rules.js',
@@ -315,6 +322,7 @@ const PRECACHE = [
   './src/input/selection.js',
   './src/lib/audio.js',
   './src/lib/debugTools.js',
+  './src/lib/flags.js',
   './src/lib/haptics.js',
   './src/lib/noise.js',
   './src/lib/pathfinder.js',
@@ -333,6 +341,7 @@ const PRECACHE = [
   './src/render/art.js',
   './src/render/camera.js',
   './src/render/combatFx.js',
+  './src/render/flagpole.js',
   './src/render/fx.js',
   './src/render/icons.js',
   './src/render/perfMonitor.js',
@@ -347,6 +356,7 @@ const PRECACHE = [
   './src/save/serialize.js',
   './src/sim/air.js',
   './src/sim/baseCommands.js',
+  './src/sim/bonuses.js',
   './src/sim/capture.js',
   './src/sim/catalog.js',
   './src/sim/commands.js',
@@ -365,6 +375,7 @@ const PRECACHE = [
   './src/sim/nav.js',
   './src/sim/naval.js',
   './src/sim/occupancy.js',
+  './src/sim/pads.js',
   './src/sim/placement.js',
   './src/sim/players.js',
   './src/sim/setup.js',
@@ -393,6 +404,7 @@ const PRECACHE = [
   './src/ui/backGuard.js',
   './src/ui/battleEvents.js',
   './src/ui/commandBar.js',
+  './src/ui/countryPicker.js',
   './src/ui/fit.js',
   './src/ui/fullscreen.js',
   './src/ui/gameEvents.js',

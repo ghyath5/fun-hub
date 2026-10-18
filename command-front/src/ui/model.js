@@ -19,6 +19,9 @@ export const TAB_LABEL = Object.freeze({
 });
 
 /** Hold reasons → the label on a greyed icon (section 14). */
+/** Short label on a build icon that cannot be started, by catalog reason. */
+export const REASON_LABEL = Object.freeze({ limit: 'Limit', unitCap: 'Unit cap', noPad: 'No free pad' });
+
 export const HOLD_LABEL = Object.freeze({
   paused: 'Paused', requires: 'Requires', factory: 'No factory', funds: 'Funds', pad: 'No pad', exit: 'Blocked',
 });
@@ -85,7 +88,7 @@ export function sidebarModel(w, pid) {
         item.state = 'busy';
       } else if (info.reason && !queued) {
         item.state = 'limit';
-        item.label = info.reason === 'unitCap' ? 'Unit cap' : 'Limit';
+        item.label = REASON_LABEL[/** @type {keyof typeof REASON_LABEL} */ (info.reason)] ?? 'Limit';
       }
       return item;
     });

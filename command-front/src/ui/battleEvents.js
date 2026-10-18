@@ -38,6 +38,7 @@ export function wireBattleEvents(ctx) {
     ev.on('impact', (e) => {
       ctx.fx.onEvent(e, entity);
       const w = WEAPONS[e.data.weapon];
+      if (e.data.weapon === 'stormBolt') at('zap', e.data.x, e.data.y, false);
       if (w.splash >= 1) at('boom', e.data.x, e.data.y);
       else if (lookOf(e.data.weapon) === 'shell' || lookOf(e.data.weapon) === 'missile') at('small', e.data.x, e.data.y);
     }),

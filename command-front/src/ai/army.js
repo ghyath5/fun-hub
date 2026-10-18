@@ -265,6 +265,16 @@ function powers(w, ai, army) {
     }
     if (best) fire({ power: 'atomicStrike', x: best.x, y: best.y });
   }
+  if (ready('lightningStorm') && ai.known.length && (ai.cfg.supportPowers !== 'timed' || attacking)) {
+    // The storm over the enemy's most valuable cluster of buildings, like the missile.
+    let best = null;
+    let bestValue = -1;
+    for (const k of ai.known) {
+      const value = ai.known.filter((o) => dist2(o, k) <= 25).reduce((a, o) => a + o.cost, 0);
+      if (value > bestValue) { bestValue = value; best = k; }
+    }
+    if (best) fire({ power: 'lightningStorm', x: best.x, y: best.y });
+  }
   if (ready('paradrop')) {
     const harv = w.entities.all().find((e) => e.kind === 'unit' && e.harv && !e.dead && !w.allied(e.owner, ai.pid) && w.visibleTo(ai.pid, e) && w.isExplored(ai.pid, e.cx, e.cy));
     if (harv) fire({ power: 'paradrop', x: harv.cx, y: harv.cy });

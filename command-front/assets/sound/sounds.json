@@ -287,6 +287,9 @@
    "silosNeeded": [
     "v/eva-coalition/silosNeeded-0.mp3"
    ],
+   "stormDetected": [
+    "v/eva-coalition/stormDetected-0.mp3"
+   ],
    "structureCaptured": [
     "v/eva-coalition/structureCaptured-0.mp3"
    ],
@@ -387,6 +390,9 @@
    ],
    "silosNeeded": [
     "v/eva-union/silosNeeded-0.mp3"
+   ],
+   "stormDetected": [
+    "v/eva-union/stormDetected-0.mp3"
    ],
    "structureCaptured": [
     "v/eva-union/structureCaptured-0.mp3"

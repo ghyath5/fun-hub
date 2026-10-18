@@ -33,6 +33,8 @@ export const GENERATOR = Object.freeze({
     { size: 96, name: 'Large' },
     { size: 128, name: 'Huge' },
     { size: 160, name: 'Giant' },
+    { size: 200, name: 'Vast' },
+    { size: 256, name: 'Colossal' },
   ]),
   /** Smallest size with room for four bases. */
   minSizeFor4: 64,

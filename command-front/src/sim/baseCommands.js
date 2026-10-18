@@ -13,6 +13,7 @@ import { structureDef, placeStructure, isActive } from './entities/structures.js
 import { checkPlacement, wallPrefix } from './placement.js';
 import { lineFor, startSell, scatterOutOf, PROGRESS_DONE } from './systems/production.js';
 import { UNITS } from '../data/units.js';
+import { padAvailable } from './pads.js';
 
 /** @typedef {import('./world.js').World} World */
 /** @typedef {import('../types.js').Command} Command */
@@ -44,20 +45,13 @@ function build(w, pid, type, count) {
     if (!single && line.queue.length >= PRODUCTION.queueMax) break;
     const now = itemInfo(w, pid, type);
     if (!now || now.reason) break;
-    if (lineId === 'aircraft' && !padAvailable(w, pid, type, line)) break;
+    if (lineId === 'aircraft' && !padAvailable(w, pid, type)) break;
     line.queue.push({ type, prog: 0, spent: 0, paused: false, pad: 0 });
     added++;
   }
   return added > 0;
 }
 
-/** Aircraft can only be queued up to the number of free pads of their type. */
-function padAvailable(w, pid, type, line) {
-  const role = UNITS[type].tags.includes('heli') ? 'helipad' : 'airfield';
-  const pads = w.entities.all().filter((e) => e.kind === 'structure' && e.owner === pid && isActive(e) && structureDef(e.type).role === role && !e.linked);
-  const sameKind = line.queue.filter((/** @type {any} */ q) => (UNITS[q.type].tags.includes('heli') ? 'helipad' : 'airfield') === role).length;
-  return pads.length > sameKind;
-}
 
 /** Cancel refunds 100% of what was spent; items not started cost nothing. */
 function cancel(w, pid, lineId, opts) {

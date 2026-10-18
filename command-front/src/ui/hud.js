@@ -65,6 +65,7 @@ import { LinkCard } from './linkCard.js';
  * @property {() => void} radialClose
  * @property {() => void} cancelTarget
  * @property {() => void} alertJump
+ * @property {(dir: 1 | -1) => void} zoom   the + and − buttons
  * @property {import('./sidebar.js').SidebarActions} build
  * @property {Parameters<typeof StructureBar>[0]['act']} structure
  * @property {() => void} place
@@ -116,6 +117,8 @@ function Hud({ store, actions }) {
       ${s.powers.map((p) => html`<${PowerButton} key=${p.id} p=${p} fire=${actions.power} />`)}
       ${s.intel ? html`<span class="intel" title="Spy intelligence">${s.intel}</span>` : null}
       <span class="spacer"></span>
+      <button class="icon-btn zoom-btn" aria-label="Zoom out" onClick=${() => actions.zoom(-1)}>−</button>
+      <button class="icon-btn zoom-btn" aria-label="Zoom in" onClick=${() => actions.zoom(1)}>+</button>
       <button class="icon-btn" aria-label="Jump to recent alerts" disabled=${!s.alertCount} onClick=${actions.alertJump}>!</button>
       <button class="icon-btn" aria-label="Pause" onClick=${actions.pause}>❚❚</button>
     </header>

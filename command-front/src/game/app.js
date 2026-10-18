@@ -243,7 +243,7 @@ export async function startApp({ hudEl, worldEl, screensEl, debug }) {
     const outcome = result.draw ? 'draw' : result.winners.some((id) => w.allied(id, HUMAN)) ? 'victory' : 'defeat';
     const rows = w.players.map((/** @type {any} */ p) => ({
       name: `${p.human ? 'You' : `AI (${p.difficulty})`} · ${FACTIONS[/** @type {'coalition' | 'union'} */ (p.faction)].name}`,
-      color: p.color, alive: p.alive, stats: p.stats,
+      color: p.color, country: p.country, alive: p.alive, stats: p.stats,
     }));
     stopSession();
     deleteGame('auto').catch(() => {});

@@ -7,6 +7,8 @@
 import { html, render } from 'htm/preact';
 import { FACTIONS, PLAYER_COLORS } from '../data/factions.js';
 import { CREDITS } from '../data/credits.js';
+import { CountryButton, Flag } from './countryPicker.js';
+import { COUNTRIES } from '../data/countries.js';
 import { GAME_SPEEDS, SETUP_DEFAULTS, SIM } from '../data/rules.js';
 import { COLORS, ORE_GROWTH_OPTIONS, maxPlayersOf } from '../game/matchSetup.js';
 import { GENERATOR } from '../map/generator.js';
@@ -89,7 +91,7 @@ export function teamOptions(form, online) {
 }
 
 /** @param {{ o: import('../game/matchSetup.js').OpponentForm }} p */
-const RemoteSlot = ({ o }) => html`<div class="opp remote">${colorDot(o.color)}<b>Phone 2</b>
+const RemoteSlot = ({ o }) => html`<div class="opp remote">${colorDot(o.color)}<${Flag} id=${o.country} /><b>Phone 2</b>
   <span class="muted">${FACTIONS[o.faction].name} · ${cap(o.color)} · chosen on their phone</span></div>`;
 
 /**
@@ -128,16 +130,19 @@ export function SetupScreen({ form, maps, error, onChange, onStart, onBack, onli
           options=${FACTION_IDS.map((f) => ({ value: f, label: FACTIONS[f].name }))} /></${Row}>
         <${Row} label="Colour">${colorDot(form.color)}<${Select} label="Your colour" value=${form.color} onChange=${(v) => set({ color: v })}
           options=${COLORS.map((c) => ({ value: c, label: cap(c) }))} /></${Row}>
+        <div class="row"><span class="row-label">Country</span><span class="row-ctl"><${CountryButton} label="Your country" value=${form.country} onPick=${(v) => set({ country: v })} /></span></div>
         <h3>Opponents</h3>
         ${form.opponents.map((o, k) => o.remote ? html`<${RemoteSlot} key=${k} o=${o} />` : html`<div class="opp" key=${k}>
           ${colorDot(o.color)}
+          <${CountryButton} compact label=${`Opponent ${k + 1} country`} value=${o.country} onPick=${(v) => opp(k, { country: v })} />
           <${Select} label=${`Opponent ${k + 1} faction`} value=${o.faction} onChange=${(v) => opp(k, { faction: v })} options=${FACTION_IDS.map((f) => ({ value: f, label: FACTIONS[f].name }))} />
           <${Select} label=${`Opponent ${k + 1} colour`} value=${o.color} onChange=${(v) => opp(k, { color: v })} options=${COLORS.map((c) => ({ value: c, label: cap(c) }))} />
           <${Select} label=${`Opponent ${k + 1} difficulty`} value=${o.difficulty} onChange=${(v) => opp(k, { difficulty: v })} options=${DIFFICULTIES.map((d) => ({ value: d, label: cap(d) }))} />
           ${form.opponents.filter((x) => !x.remote).length > (online ? 0 : 1) ? html`<button class="cmd" aria-label="Remove opponent" onClick=${() => set({ opponents: form.opponents.filter((_, i) => i !== k) })}>✕</button>` : null}
         </div>`)}
         ${form.opponents.length + 1 < maxPlayers ? html`<button class="btn" onClick=${() => set({ opponents: [...form.opponents, {
-          faction: form.opponents.length % 2 ? 'coalition' : 'union', color: COLORS.find((c) => c !== form.color && !form.opponents.some((o) => o.color === c)) ?? 'green', difficulty: 'normal' }] })}>+ Add AI opponent</button>` : null}
+          faction: form.opponents.length % 2 ? 'coalition' : 'union', color: COLORS.find((c) => c !== form.color && !form.opponents.some((o) => o.color === c)) ?? 'green',
+          country: COUNTRIES.find((c) => c.id !== form.country && !form.opponents.some((o) => o.country === c.id))?.id ?? '', difficulty: 'normal' }] })}>+ Add AI opponent</button>` : null}
         ${teamOptions(form, online).length > 1 ? html`<${Row} label="Teams"><${Select} label="Teams" value=${form.teams} onChange=${(v) => set({ teams: v })}
           options=${teamOptions(form, online)} /></${Row}>` : null}
       </section>
@@ -243,7 +248,7 @@ export function SettingsScreen({ settings, onChange, onBack, sounds }) {
 /**
  * End of the match (section 18): who won, the time, and each player's numbers.
  * @param {{ outcome: 'victory' | 'defeat' | 'draw', ticks: number,
- *   rows: { name: string, color: string, alive: boolean, stats: Record<string, number> }[],
+ *   rows: { name: string, color: string, country?: string, alive: boolean, stats: Record<string, number> }[],
  *   act: { rematch?: () => void, menu: () => void }, labels?: { rematch?: string, menu?: string, note?: string } }} p
  *   No rematch action shows the note instead (a two-phone guest waits for the host).
  */
@@ -259,7 +264,7 @@ export function EndScreen({ outcome, ticks, rows, act, labels = {} }) {
     <div class="end-table-wrap"><table class="end-table">
       <thead><tr><th>Player</th>${cols.map(([, l]) => html`<th>${l}</th>`)}</tr></thead>
       <tbody>${rows.map((r) => html`<tr class=${r.alive ? '' : 'out'}>
-        <td>${colorDot(r.color)} ${r.name}</td>${cols.map(([k]) => html`<td>${(r.stats[k] ?? 0).toLocaleString('en-US')}</td>`)}</tr>`)}</tbody>
+        <td>${colorDot(r.color)} <${Flag} id=${r.country} />${r.name}</td>${cols.map(([k]) => html`<td>${(r.stats[k] ?? 0).toLocaleString('en-US')}</td>`)}</tr>`)}</tbody>
     </table></div>
     <div class="menu-buttons row">
       ${act.rematch ? html`<button class="btn primary" onClick=${act.rematch}>${labels.rematch ?? 'Rematch'}</button>` : null}

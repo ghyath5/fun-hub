@@ -10,7 +10,7 @@
  * phones, so "both phones against the AI" costs nothing extra on the wire.
  *
  * Lobby messages (reliable channel):
- *   guest → host  { k: 'me', faction, color }
+ *   guest → host  { k: 'me', faction, color, country }
  *   host → guest  { k: 'form', form }        after every change
  *   host → guest  { k: 'start', form, seed, epoch }
  *   host → guest  { k: 'lobby' }             back to the lobby for a rematch
@@ -33,7 +33,7 @@ import { showScreen, SetupScreen, EndScreen } from '../ui/screens.js';
 import { TwoPhoneMenu, HostPair, JoinPair, DiagPanel, GuestLobby } from '../ui/pairScreens.js';
 
 /** @typedef {import('./matchSetup.js').SetupForm} SetupForm */
-/** @typedef {{ faction: 'coalition' | 'union', color: string }} PhoneChoice */
+/** @typedef {{ faction: 'coalition' | 'union', color: string, country?: string }} PhoneChoice */
 
 const HOST = 0;
 const GUEST = 1;
@@ -227,7 +227,7 @@ export function createTwoPhones(app) {
     r.listen((msg) => {
       if (msg?.k === 'me' && form) {
         const [remote, ...rest] = form.opponents;
-        form = normaliseForm({ ...form, opponents: [{ ...remote, faction: msg.faction, color: msg.color, remote: true }, ...rest] }, maxPlayersOf(form, maps));
+        form = normaliseForm({ ...form, opponents: [{ ...remote, faction: msg.faction, color: msg.color, country: typeof msg.country === 'string' ? msg.country : '', remote: true }, ...rest] }, maxPlayersOf(form, maps));
         publish();
         redraw();
       } else if (msg?.k === 'bye') notice('The other phone left', 'Host again when you are both ready.');
@@ -344,7 +344,7 @@ export function createTwoPhones(app) {
     const outcome = result.draw ? 'draw' : result.winners.some((id) => w.allied(id, mine)) ? 'victory' : 'defeat';
     const rows = w.players.map((/** @type {any} */ p) => ({
       name: `${p.id === mine ? 'You' : p.human ? 'Other phone' : `AI (${p.difficulty})`} · ${FACTIONS[/** @type {'coalition' | 'union'} */ (p.faction)].name}`,
-      color: p.color, alive: p.alive, stats: p.stats,
+      color: p.color, country: p.country, alive: p.alive, stats: p.stats,
     }));
     const theyLeft = s.store.get().link === 'left';
     net?.destroy();

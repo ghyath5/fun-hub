@@ -14,6 +14,7 @@ import { computeField } from '../flowField.js';
 import { spiral } from '../nav.js';
 import { deposit } from '../formulas/economy.js';
 import { setMove } from './movement.js';
+import { oreValueK } from '../bonuses.js';
 import { isActive, structureDef, cellAt, structuresWithRole } from '../entities/structures.js';
 import { canEnter } from '../entities/units.js';
 
@@ -300,8 +301,8 @@ const fsm = createFsm({
     const gem = h.ore === 0;
     if (gem) h.gem--; else h.ore--;
     const p = w.players[u.owner];
-    // Hard AI earns ×1.25 ore value (section 16): oreValueK is that factor in thousandths.
-    const value = Math.floor(((gem ? ECONOMY.gemBaleValue : ECONOMY.oreBaleValue) * (p.oreValueK ?? 1000)) / 1000);
+    // AI levels earn more or less per bale (section 16), and an Ore Processor adds 25%: factors in thousandths.
+    const value = Math.floor(((gem ? ECONOMY.gemBaleValue : ECONOMY.oreBaleValue) * oreValueK(w, u.owner)) / 1000);
     const res = deposit({ cash: p.cash, stored: p.stored }, value, p.capacity);
     p.stored = res.wallet.stored;
     p.stats.creditsHarvested += value - res.lost;

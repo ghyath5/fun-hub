@@ -26,6 +26,7 @@ export const ALERT_LINES = Object.freeze({
   structureLost: 'structureLost',
   structureCaptured: 'structureCaptured',
   missileLaunch: 'missileLaunch',
+  stormDetected: 'stormDetected',
   oreDepleted: 'oreDepleted',
   noRefinery: 'noRefinery',
   placementFailed: 'cannotBuild',

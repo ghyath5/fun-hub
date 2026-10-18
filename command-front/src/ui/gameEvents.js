@@ -85,6 +85,7 @@ export function wireGameEvents(ctx) {
       alerts.raise('powerReady', undefined, e.data.power, `${SUPPORT_POWERS[/** @type {keyof typeof SUPPORT_POWERS} */ (e.data.power)].name} ready`);
     }),
     ev.on('missileLaunch', (e) => { if (!mine(e.data)) alerts.raise('missileLaunch'); }),
+    ev.on('stormStarted', (e) => { if (!mine(e.data)) alerts.raise('stormDetected', { x: e.data.x, y: e.data.y }); }),
     ev.on('mineExploded', (e) => { if (mine(e.data)) alerts.raise('mineExploded', { x: e.data.x, y: e.data.y }); }),
     ev.on('crateCollected', (e) => {
       if (!mine(e.data)) return;

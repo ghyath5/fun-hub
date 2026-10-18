@@ -8,6 +8,8 @@ import { UNITS } from '../data/units.js';
 import { STRUCTURES } from '../data/structures.js';
 import { TECH_LEVEL_OF_ROLE, SUPPORT_POWER_TECH_LEVEL, LIMITS } from '../data/rules.js';
 import { rolesOf, isActive, structureDef } from './entities/structures.js';
+import { padAvailable } from './pads.js';
+import { priceFor } from './bonuses.js';
 
 /** @typedef {'structures' | 'defenses' | 'infantry' | 'vehicles' | 'aircraft' | 'naval'} LineId */
 
@@ -96,7 +98,8 @@ export function itemInfo(w, pid, type, roles = rolesOf(w, pid)) {
   else if (d.limit && countOwned(w, pid, type) >= d.limit) reason = 'limit';
   else if (d.tags?.includes('limitOne') && countOwned(w, pid, type) >= 1) reason = 'limit';
   else if (UNITS[type] && unitCount(w, pid) >= LIMITS.unitsPerPlayer) reason = 'unitCap';
-  return { type, name: d.name, line: d.line, cost: d.cost, locked: missing.length > 0, missing, reason };
+  else if (d.line === 'aircraft' && !padAvailable(w, pid, type)) reason = 'noPad';
+  return { type, name: d.name, line: d.line, cost: priceFor(w, pid, type, d.cost), locked: missing.length > 0, missing, reason };
 }
 
 /** Every visible item, by line, in data order. @param {any} w @param {number} pid */

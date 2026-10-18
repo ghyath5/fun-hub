@@ -8,6 +8,12 @@ import { html, useState } from 'htm/preact';
 import { PressButton } from './press.js';
 import { PRODUCTION } from '../data/rules.js';
 
+
+/** What a tap on an item that cannot be started says, by its label (ui/model.js REASON_LABEL). */
+const LIMIT_TOAST = /** @type {Record<string, string>} */ ({
+  'Unit cap': 'Unit cap reached',
+  'No free pad': 'Every pad already has an aircraft: build another pad, or lose an aircraft first',
+});
 /** @typedef {import('./model.js').BuildItem} BuildItem */
 /** @typedef {import('./model.js').TabInfo} TabInfo */
 /** @typedef {import('../sim/catalog.js').LineId} LineId */
@@ -18,7 +24,7 @@ import { PRODUCTION } from '../data/rules.js';
  * @property {(line: LineId, paused: boolean) => void} setPaused
  * @property {(line: LineId, opts: { type?: string, all?: boolean, active?: boolean }) => void} cancel
  * @property {(line: LineId) => void} cancelReady
- * @property {(max: number) => void} queueFull   a unit line is at its queue limit
+ * @property {(line: LineId) => void} queueFull   a unit line is at its queue limit
  * @property {(type: string) => void} place
  * @property {(text: string) => void} toast
  * @property {(tab: LineId) => void} tab
@@ -58,7 +64,7 @@ function menuFor(it, line) {
 function tapItem(it, line, act, lineQueued) {
   if (UNIT_LINES.has(line) && ['available', 'building', 'paused'].includes(it.state)) {
     if (it.state === 'paused') act.setPaused(line, false);
-    if (lineQueued >= PRODUCTION.queueMax) act.queueFull(PRODUCTION.queueMax);
+    if (lineQueued >= PRODUCTION.queueMax) act.queueFull(line);
     else act.build(it.type, 1);
     return;
   }
@@ -68,7 +74,7 @@ function tapItem(it, line, act, lineQueued) {
     case 'paused': act.setPaused(line, false); break;
     case 'ready': act.place(it.type); break;
     case 'locked': act.toast(it.label); break;
-    case 'limit': act.toast(it.label === 'Unit cap' ? 'Unit cap reached' : 'Build limit reached'); break;
+    case 'limit': act.toast(LIMIT_TOAST[it.label] ?? 'Build limit reached'); break;
     case 'busy': act.toast('Already building'); break;
     default: break;
   }

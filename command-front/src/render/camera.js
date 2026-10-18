@@ -63,7 +63,9 @@ export function createCamera(map, screenSize) {
 
   const area = () => ({ x0: insets.left, y0: insets.top, x1: W - insets.right, y1: H - insets.bottom });
   const areaH = () => Math.max(1, H - insets.top - insets.bottom);
-  const minScale = () => areaH() / (CAMERA.maxCellsVisible * C);
+  /** Zoomed right out: up to CAMERA.maxCellsVisible rows, but no point showing far more than the whole map. */
+  const maxCells = () => Math.min(CAMERA.maxCellsVisible, Math.max(CAMERA.defaultCellsVisible, map.height + 2));
+  const minScale = () => areaH() / (maxCells() * C);
   const maxScale = () => areaH() / (CAMERA.minCellsVisible * C);
 
   function apply() {
@@ -149,6 +151,11 @@ export function createCamera(map, screenSize) {
     },
     /** Zoom by a factor keeping screen point (sx, sy) fixed. @param {number} factor @param {number} sx @param {number} sy */
     zoomAt(factor, sx, sy) { glide = null; setScale(scale * factor, sx, sy); },
+    /** One step in (+1) or out (−1) about the middle of the play area: the + and − buttons. @param {1 | -1} dir */
+    zoomStep(dir) {
+      const a = area();
+      this.zoomAt(dir > 0 ? CAMERA.zoomButtonStep : 1 / CAMERA.zoomButtonStep, (a.x0 + a.x1) / 2, (a.y0 + a.y1) / 2);
+    },
     /** Carry on moving after a flick. @param {number} pxPerMsX @param {number} pxPerMsY */
     fling(pxPerMsX, pxPerMsY) {
       const max = CAMERA.flingMaxPxPerMs;

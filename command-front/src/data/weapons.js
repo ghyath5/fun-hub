@@ -66,6 +66,7 @@ export const WEAPONS = Object.freeze({
   ballistic:    w('ballistic', 'Ballistic Missile', { damage: 600, range: 10, minRange: 3, cooldown: 20, warhead: 'HE', splash: 1.5, projectile: 'missile', scatter: 1.0, hits: GN }),
   turretCannon: w('turretCannon', 'Turret Cannon', { damage: 40, range: 6, cooldown: 3.0, warhead: 'AP', splash: 0.25, projectile: 'fastShell', hits: GN }),
   towerFlame:   w('towerFlame', 'Tower Flame', { damage: 125, range: 4, cooldown: 3.3, warhead: 'Fire', splash: 0.5, hits: G }),
+  longGunShell: w('longGunShell', 'Long Gun Shell', { damage: 150, range: 12, minRange: 3, cooldown: 6.0, warhead: 'HE', splash: 1.0, projectile: 'arc', scatter: 0.75, hits: GN, powered: true }),
   towerBeam:    w('towerBeam', 'Tower Beam', { damage: 110, range: 7, cooldown: 4.5, chargeUp: 0.4, warhead: 'Laser', splash: 0.5, projectile: 'beam', hits: GN, powered: true }),
   arcBolt:      w('arcBolt', 'Arc Bolt', { damage: 140, range: 6.5, cooldown: 5.0, chargeUp: 0.8, warhead: 'Arc', projectile: 'beam', hits: GN, powered: true }),
   flak:         w('flak', 'Flak', { damage: 25, burst: 2, range: 6, cooldown: 0.7, warhead: 'AP', hits: A, powered: true }),
@@ -84,11 +85,12 @@ export const WEAPONS = Object.freeze({
   mineAntiTank: w('mineAntiTank', 'Anti-tank Mine', { damage: 400, range: 0, cooldown: 0, warhead: 'AP', hits: G }),
   mineAntiPersonnel: w('mineAntiPersonnel', 'Anti-personnel Mine', { damage: 200, range: 0, cooldown: 0, warhead: 'HE', splash: 0.5, hits: G }),
   crateBomb:    w('crateBomb', 'Booby-trapped Crate', { damage: 200, range: 0, cooldown: 0, warhead: 'HE', splash: 1.5, hits: G }),
+  stormBolt:    w('stormBolt', 'Storm Bolt', { damage: 200, range: 0, cooldown: 0, warhead: 'HE', splash: 1.25, projectile: 'beam', hits: GN }),
   atomicStrike: w('atomicStrike', 'Atomic Strike', { damage: 1000, range: 0, cooldown: 0, warhead: 'HE', splash: 3, projectile: 'missile', hits: GN }),
 });
 
 /** Weapons no unit carries (they are fired by mines and support powers). */
-export const EFFECT_WEAPONS = Object.freeze(['mineAntiTank', 'mineAntiPersonnel', 'crateBomb', 'atomicStrike']);
+export const EFFECT_WEAPONS = Object.freeze(['mineAntiTank', 'mineAntiPersonnel', 'crateBomb', 'atomicStrike', 'stormBolt']);
 
 /** Mines (section 10), applied as direct damage on trigger. */
 export const MINES = Object.freeze({

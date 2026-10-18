@@ -18,8 +18,9 @@ export const GESTURE = Object.freeze({
 
 export const CAMERA = Object.freeze({
   defaultCellsVisible: 15,
-  minCellsVisible: 7,          // zoomed in
-  maxCellsVisible: 30,         // zoomed out
+  minCellsVisible: 5,          // zoomed in
+  maxCellsVisible: 48,         // zoomed out (never more than the map's own height)
+  zoomButtonStep: 1.4,         // the on-screen + and − buttons
   alertHistory: 5,
   glideMs: 320,                // minimap / alert / group jumps
   flingMaxPxPerMs: 4,          // inertia after a flick: top speed,
@@ -72,6 +73,7 @@ export const ALERTS = Object.freeze({
   structureLost: { text: 'Structure lost', throttle: 0 },
   structureCaptured: { text: 'Structure captured', throttle: 0 },
   missileLaunch: { text: 'Missile launch detected', throttle: 0 },
+  stormDetected: { text: 'Lightning storm detected', throttle: 0 },
   oreDepleted: { text: 'Ore depleted: harvesters wait for the mines to regrow it', throttle: 0 },
   noRefinery: { text: 'No refinery', throttle: 0 },
   placementFailed: { text: 'Cannot build there', throttle: 1 },

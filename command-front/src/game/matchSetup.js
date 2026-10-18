@@ -14,7 +14,7 @@ import { playersForSize } from '../map/generator.js';
 /**
  * An opponent slot: an AI, or (`remote`) the second phone in a two-phone match,
  * whose player picks their own faction and colour.
- * @typedef {{ faction: 'coalition' | 'union', color: string, difficulty: Difficulty, remote?: boolean }} OpponentForm
+ * @typedef {{ faction: 'coalition' | 'union', color: string, country?: string, difficulty: Difficulty, remote?: boolean }} OpponentForm
  */
 
 /**
@@ -25,6 +25,7 @@ import { playersForSize } from '../map/generator.js';
  * @property {2 | 4} genPlayers         start positions on a generated map (4 needs a Medium map or larger)
  * @property {'coalition' | 'union'} faction
  * @property {string} color
+ * @property {string} [country]         flag the player flies ('' = none)
  * @property {OpponentForm[]} opponents 1–3
  * @property {'ffa' | '2v2' | 'coop'} teams   coop: every human (both phones) against every AI
  * @property {number} startingCredits
@@ -46,11 +47,12 @@ export function defaultForm() {
   return {
     map: SETUP_DEFAULTS.map,
     genSeed: 1 + (Date.now() % 99999),
-    genSize: 96,
+    genSize: 128,
     genPlayers: 2,
     faction: 'coalition',
     color: 'blue',
-    opponents: [{ faction: 'union', color: 'red', difficulty: /** @type {Difficulty} */ (SETUP_DEFAULTS.difficulty) }],
+    country: '',
+    opponents: [{ faction: 'union', color: 'red', country: 'eg', difficulty: /** @type {Difficulty} */ (SETUP_DEFAULTS.difficulty) }],
     teams: /** @type {'ffa'} */ (SETUP_DEFAULTS.teams),
     startingCredits: SETUP_DEFAULTS.startingCredits,
     startingUnits: /** @type {'mcv'} */ (SETUP_DEFAULTS.startingUnits),
@@ -96,8 +98,8 @@ export function normaliseForm(f, maxPlayers) {
  */
 export function matchOptions(f, map, seed) {
   const players = [
-    { faction: f.faction, color: f.color, human: true, difficulty: 'normal' },
-    ...f.opponents.map((o) => ({ faction: o.faction, color: o.color, human: !!o.remote, difficulty: o.difficulty })),
+    { faction: f.faction, color: f.color, country: f.country ?? '', human: true, difficulty: 'normal' },
+    ...f.opponents.map((o) => ({ faction: o.faction, color: o.color, country: o.country ?? '', human: !!o.remote, difficulty: o.difficulty })),
   ];
   const order = map.starts.map((_, i) => i);
   if (f.startPositions === 'random') {

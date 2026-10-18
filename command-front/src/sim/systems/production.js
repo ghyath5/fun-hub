@@ -19,8 +19,9 @@ import { rolesOf, isActive, structureDef, structureReady, removeStructure, place
 import { spawnUnit, canEnter, vacate } from '../entities/units.js';
 import { checkPlacement, checkDeploy } from '../placement.js';
 import { setMove } from './movement.js';
-import { padRoleOf } from '../air.js';
+import { padRoleOf, padsOf, padTaken } from '../pads.js';
 import { DIR8 } from '../../core/fixed.js';
+import { priceFor, clones } from '../bonuses.js';
 
 /** @typedef {import('../world.js').World} World */
 
@@ -60,15 +61,9 @@ export const costOf = (type) => (type === 'constructionYard' ? MCV_COST : itemDe
 
 /** A free pad of the right kind for an aircraft type, or null. @param {World} w @param {number} pid @param {string} type */
 function freePad(w, pid, type) {
-  const role = padRoleOf(type);
   const reserved = new Set();
   for (const item of lineFor(w.players[pid], 'aircraft').queue) if (item.pad) reserved.add(item.pad);
-  for (const e of w.entities.all()) {
-    if (e.kind !== 'structure' || e.owner !== pid || !isActive(e) || structureDef(e.type).role !== role) continue;
-    if (e.linked || reserved.has(e.id)) continue;
-    return e;
-  }
-  return null;
+  return padsOf(w, pid, padRoleOf(type)).find((e) => !padTaken(w, e) && !reserved.has(e.id)) ?? null;
 }
 
 /**
@@ -109,6 +104,7 @@ function deliver(w, pid, line, item) {
     const u = spawnUnit(w, item.type, pid, ex.x, ex.y, { facing: 128 });
     if (!u) continue;
     unitBuilt(w, pid, u, s);
+    if (clones(w, pid, item.type)) cloneOf(w, pid, u, s);
     return true;
   }
   return false;
@@ -127,6 +123,17 @@ function unitBuilt(w, pid, u, factory) {
     u.task = { type: 'move' };
     setMove(w, u, factory.rally.x, factory.rally.y);
   } else stepOff(w, u, factory);
+}
+
+/** The Clone Lab's free twin: same type, on the nearest free cell by the exit. @param {World} w @param {number} pid @param {any} u @param {any} factory */
+function cloneOf(w, pid, u, factory) {
+  for (const [dx, dy] of [[0, 0], ...DIR8]) {
+    const twin = spawnUnit(w, u.type, pid, u.cx + dx, u.cy + dy, { facing: 128 });
+    if (!twin) continue;
+    unitBuilt(w, pid, twin, factory);
+    w.events.emit('cloned', w.tick, { id: twin.id, of: u.id, owner: pid });
+    return;
+  }
 }
 
 /** Walk a fresh unit one cell clear of its factory exit. @param {World} w @param {any} u @param {any} s */
@@ -181,7 +188,7 @@ function runLines(w, p) {
         item.pad = free.id;
       }
     }
-    const cost = costOf(item.type);
+    const cost = priceFor(w, p.id, item.type, costOf(item.type));
     const total = buildTicks(cost, n, p.power.ratioK, secondsPer1000);
     const next = Math.min(PROGRESS_DONE, item.prog + Math.ceil(PROGRESS_DONE / total));
     const owed = Math.floor((cost * next) / PROGRESS_DONE) - item.spent;
