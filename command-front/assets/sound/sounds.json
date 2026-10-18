@@ -8,6 +8,10 @@
    "s/bite-0.mp3",
    "s/bite-1.mp3"
   ],
+  "bomb": [
+   "s/bomb-0.mp3",
+   "s/bomb-1.mp3"
+  ],
   "boom": [
    "s/boom-0.mp3",
    "s/boom-1.mp3",
@@ -26,6 +30,10 @@
    "s/die-1.mp3",
    "s/die-2.mp3"
   ],
+  "flak": [
+   "s/flak-0.mp3",
+   "s/flak-1.mp3"
+  ],
   "flame": [
    "s/flame-0.mp3",
    "s/flame-1.mp3"
@@ -40,6 +48,10 @@
   "heavy": [
    "s/heavy-0.mp3",
    "s/heavy-1.mp3"
+  ],
+  "laser": [
+   "s/laser-0.mp3",
+   "s/laser-1.mp3"
   ],
   "mg": [
    "s/mg-0.mp3",

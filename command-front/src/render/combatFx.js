@@ -96,7 +96,9 @@ export function createCombatFx() {
           lines.push({ x0: mx, y0: my, x1, y1, t0: now, ms: look === 'snipe' ? 140 : 70, color: look === 'snipe' ? 0xf4f4ea : 0xffe08a, width: look === 'snipe' ? 1 : 0.8, jagged: false });
           add({ x: mx, y: my, max: 60, color: 0xfff1c0, size: 1.6 });
         } else if (look === 'beam') {
-          lines.push({ x0, y0, x1, y1, t0: now, ms: 180, color: 0x9fd8ff, width: 2, jagged: true });
+          // Arc weapons crackle; lasers are a straight, hotter beam.
+          const arc = WEAPONS[d.weapon].warhead === 'Arc';
+          lines.push({ x0, y0, x1, y1, t0: now, ms: arc ? 180 : 240, color: arc ? 0x9fd8ff : 0xfff4d8, width: arc ? 2 : 2.6, jagged: arc });
         } else if (look === 'flame') {
           for (let k = 0; k < 12; k++) {
             const f = Math.random();

@@ -62,7 +62,7 @@ export const POWER = Object.freeze({
   lowPowerBelow: 1,            // r < 1 is low power
   minProductionFactor: 0.25,
   warningBelow: 1.1,
-  disabledAtLowPower: ['radar', 'arcTower', 'shroudGenerator', 'aaGun', 'samSite', 'supportCharging'],
+  disabledAtLowPower: ['radar', 'arcTower', 'beamTower', 'shroudGenerator', 'aaGun', 'samSite', 'supportCharging'],
 });
 
 export const PRODUCTION = Object.freeze({

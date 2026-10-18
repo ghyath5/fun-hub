@@ -33,7 +33,9 @@ const tagsOf = (/** @type {any} */ u) => UNITS[u.type].tags;
 export const isAircraft = (/** @type {any} */ u) => u.kind === 'unit' && UNITS[u.type].loco === 'air' && !tagsOf(u).includes('support');
 export const isHeli = (/** @type {any} */ u) => tagsOf(u).includes('heli');
 export const isPlane = (/** @type {any} */ u) => tagsOf(u).includes('plane');
-const padRole = (/** @type {any} */ u) => (isHeli(u) ? 'helipad' : 'airfield');
+/** The pad an aircraft type is built on and rearms at. @param {string} type */
+export const padRoleOf = (type) => UNITS[type].pad ?? (UNITS[type].tags.includes('heli') ? 'helipad' : 'airfield');
+const padRole = (/** @type {any} */ u) => padRoleOf(u.type);
 
 /** Cell an aircraft parks on. @param {any} pad */
 export const padCell = (pad) => ({ x: pad.cx + (pad.w >> 1), y: pad.cy + (pad.h >> 1) });

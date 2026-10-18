@@ -19,11 +19,11 @@ export const BUILD_ORDER = Object.freeze({
     { type: 'refinery', minDifficulty: 'normal' }, { type: 'radarDome' }, { type: 'pillbox' }, { type: 'gunTurret' },
     { type: 'advPowerPlant' }, { type: 'serviceDepot' }, { type: 'techCenter' }, { type: 'helipad' },
     { type: 'navalYard', naval: true }, { type: 'advPowerPlant' }, { type: 'phaseShifter', minDifficulty: 'normal' },
-    { type: 'refinery', minDifficulty: 'hard' }, { type: 'gunTurret' }, { type: 'aaGun' },
+    { type: 'refinery', minDifficulty: 'hard' }, { type: 'gunTurret' }, { type: 'aaGun' }, { type: 'beamTower', minDifficulty: 'normal' },
   ],
   union: [
     { type: 'powerPlant' }, { type: 'barracks' }, { type: 'refinery' }, { type: 'powerPlant' }, { type: 'warFactory' },
-    { type: 'refinery', minDifficulty: 'normal' }, { type: 'radarDome' }, { type: 'flameTower' }, { type: 'flameTower' },
+    { type: 'refinery', minDifficulty: 'normal' }, { type: 'radarDome' }, { type: 'sentryGun' }, { type: 'flameTower' },
     { type: 'advPowerPlant' }, { type: 'serviceDepot' }, { type: 'techCenter' }, { type: 'kennel' }, { type: 'airfield' },
     { type: 'subPen', naval: true }, { type: 'advPowerPlant' }, { type: 'missileSilo', minDifficulty: 'normal' },
     { type: 'aegisProjector', minDifficulty: 'normal' }, { type: 'refinery', minDifficulty: 'hard' }, { type: 'samSite' }, { type: 'arcTower' },
@@ -34,13 +34,13 @@ export const BUILD_ORDER = Object.freeze({
 export const WAVES = Object.freeze({
   coalition: {
     easy: { lightTank: 2, rifleman: 4 },
-    normal: { mediumTank: 4, lightTank: 2, artillery: 2, rifleman: 6 },
-    hard: { mediumTank: 5, lightTank: 2, artillery: 3, rifleman: 6, rocketTrooper: 2, attackHeli: 1 },
+    normal: { mediumTank: 3, ifv: 2, lightTank: 1, artillery: 1, rifleman: 5, guardTrooper: 2 },
+    hard: { mediumTank: 4, laserTank: 2, ifv: 2, salvoLauncher: 2, rifleman: 5, guardTrooper: 2, marksman: 1, attackHeli: 1 },
   },
   union: {
     easy: { heavyTank: 2, rifleman: 4 },
-    normal: { heavyTank: 4, ballisticLauncher: 2, rifleman: 6, rocketTrooper: 2 },
-    hard: { heavyTank: 5, titanTank: 1, ballisticLauncher: 2, rifleman: 6, rocketTrooper: 3, flameTrooper: 2 },
+    normal: { heavyTank: 3, rotaryTank: 2, ballisticLauncher: 1, rifleman: 5, flakTrooper: 2 },
+    hard: { heavyTank: 3, arcTank: 2, titanTank: 1, rotaryTank: 2, ballisticLauncher: 1, shockTrooper: 2, rifleman: 4, flameTrooper: 2, siegeAirship: 1 },
   },
 });
 

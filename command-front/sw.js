@@ -1,7 +1,7 @@
 /* Command Front service worker: cache-first, versioned. Hand-maintained list —
    add every file the game loads; ?debug warns at startup about any that are missing.
    Bump CACHE whenever a listed file changes. */
-const CACHE = 'command-front-v21';
+const CACHE = 'command-front-v22';
 
 const PRECACHE = [
   './',
@@ -19,6 +19,8 @@ const PRECACHE = [
   './assets/sound/s/bigBoom-1.mp3',
   './assets/sound/s/bite-0.mp3',
   './assets/sound/s/bite-1.mp3',
+  './assets/sound/s/bomb-0.mp3',
+  './assets/sound/s/bomb-1.mp3',
   './assets/sound/s/boom-0.mp3',
   './assets/sound/s/boom-1.mp3',
   './assets/sound/s/boom-2.mp3',
@@ -29,6 +31,8 @@ const PRECACHE = [
   './assets/sound/s/die-0.mp3',
   './assets/sound/s/die-1.mp3',
   './assets/sound/s/die-2.mp3',
+  './assets/sound/s/flak-0.mp3',
+  './assets/sound/s/flak-1.mp3',
   './assets/sound/s/flame-0.mp3',
   './assets/sound/s/flame-1.mp3',
   './assets/sound/s/growl-0.mp3',
@@ -36,6 +40,8 @@ const PRECACHE = [
   './assets/sound/s/heal-0.mp3',
   './assets/sound/s/heavy-0.mp3',
   './assets/sound/s/heavy-1.mp3',
+  './assets/sound/s/laser-0.mp3',
+  './assets/sound/s/laser-1.mp3',
   './assets/sound/s/mg-0.mp3',
   './assets/sound/s/mg-1.mp3',
   './assets/sound/s/mg-2.mp3',
@@ -282,6 +288,7 @@ const PRECACHE = [
   './src/core/events.js',
   './src/core/fixed.js',
   './src/core/loop.js',
+  './src/data/credits.js',
   './src/data/factions.js',
   './src/data/rules.js',
   './src/data/sounds.js',

@@ -57,6 +57,7 @@
  * @property {number} capacity     Transport slots (0 = not a transport)
  * @property {number} slots        Slots this unit takes in a naval transport
  * @property {string[]} tags       Behaviour flags
+ * @property {'helipad' | 'airfield'} [pad]  Aircraft: the pad it is built on and rearms at (default: helipad for helicopters, airfield for planes)
  */
 
 /**

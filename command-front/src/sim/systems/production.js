@@ -19,6 +19,7 @@ import { rolesOf, isActive, structureDef, structureReady, removeStructure, place
 import { spawnUnit, canEnter, vacate } from '../entities/units.js';
 import { checkPlacement, checkDeploy } from '../placement.js';
 import { setMove } from './movement.js';
+import { padRoleOf } from '../air.js';
 import { DIR8 } from '../../core/fixed.js';
 
 /** @typedef {import('../world.js').World} World */
@@ -59,7 +60,7 @@ export const costOf = (type) => (type === 'constructionYard' ? MCV_COST : itemDe
 
 /** A free pad of the right kind for an aircraft type, or null. @param {World} w @param {number} pid @param {string} type */
 function freePad(w, pid, type) {
-  const role = UNITS[type].tags.includes('heli') ? 'helipad' : 'airfield';
+  const role = padRoleOf(type);
   const reserved = new Set();
   for (const item of lineFor(w.players[pid], 'aircraft').queue) if (item.pad) reserved.add(item.pad);
   for (const e of w.entities.all()) {

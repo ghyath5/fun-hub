@@ -13,7 +13,7 @@ import { saveGame, loadGame, listSaves, deleteGame, saveSettings, loadSettings }
 import { createAudio } from '../lib/audio.js';
 import { createCustomSounds } from './customSounds.js';
 import { setHaptics } from '../lib/haptics.js';
-import { showScreen, MainMenu, SetupScreen, SlotsScreen, SettingsScreen, EndScreen } from '../ui/screens.js';
+import { showScreen, MainMenu, SetupScreen, SlotsScreen, SettingsScreen, EndScreen, CreditsScreen } from '../ui/screens.js';
 import { html } from 'htm/preact';
 import { VICTORY } from '../data/rules.js';
 import { FACTIONS } from '../data/factions.js';
@@ -70,7 +70,7 @@ export async function startApp({ hudEl, worldEl, screensEl, debug }) {
   const menu = async () => {
     const saves = await listSaves().catch(() => []);
     showScreen(screensEl, html`<${MainMenu} hasAutosave=${saves.some((s) => s.slot === 'auto')} homeScreenHint=${needsHomeScreen()}
-      act=${{ skirmish: setup, twoPhones: () => twoPhones.open(), resume: () => loadSlot('auto'), load: () => slots('load', menu), settings: () => settingsScreen(menu) }} />`);
+      act=${{ skirmish: setup, twoPhones: () => twoPhones.open(), resume: () => loadSlot('auto'), load: () => slots('load', menu), settings: () => settingsScreen(menu), credits: () => showScreen(screensEl, html`<${CreditsScreen} onBack=${menu} />`) }} />`);
   };
 
   const setup = () => {

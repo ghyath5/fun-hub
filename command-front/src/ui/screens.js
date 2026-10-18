@@ -6,6 +6,7 @@
  */
 import { html, render } from 'htm/preact';
 import { FACTIONS, PLAYER_COLORS } from '../data/factions.js';
+import { CREDITS } from '../data/credits.js';
 import { GAME_SPEEDS, SETUP_DEFAULTS, SIM } from '../data/rules.js';
 import { COLORS, ORE_GROWTH_OPTIONS, maxPlayersOf } from '../game/matchSetup.js';
 import { GENERATOR } from '../map/generator.js';
@@ -42,7 +43,7 @@ const Toggle = ({ checked, onChange, label }) => html`<input type="checkbox" cla
   onChange=${(/** @type {any} */ e) => onChange(e.target.checked)} />`;
 
 /**
- * @param {{ hasAutosave: boolean, homeScreenHint?: boolean, act: { skirmish: () => void, twoPhones: () => void, resume: () => void, load: () => void, settings: () => void } }} p
+ * @param {{ hasAutosave: boolean, homeScreenHint?: boolean, act: { skirmish: () => void, twoPhones: () => void, resume: () => void, load: () => void, settings: () => void, credits: () => void } }} p
  *   homeScreenHint: iPhone Safari, where only Add to Home Screen removes the browser bars
  */
 export function MainMenu({ hasAutosave, homeScreenHint = false, act }) {
@@ -55,8 +56,26 @@ export function MainMenu({ hasAutosave, homeScreenHint = false, act }) {
       <button class="btn" onClick=${act.load}>Load game</button>
       <button class="btn" onClick=${act.twoPhones}>Two phones · WiFi</button>
       <button class="btn" onClick=${act.settings}>Settings</button>
+      <button class="btn" onClick=${act.credits}>Credits</button>
     </div>
     ${homeScreenHint ? html`<p class="menu-tip">For full screen on iPhone: tap Share <span aria-hidden="true">⎙</span> then <b>Add to Home Screen</b>, and open the game from there.</p>` : null}
+  </div>`;
+}
+
+/**
+ * Credits (main menu): who made the game and what it is built with, ending with thanks.
+ * @param {{ onBack: () => void }} p
+ */
+export function CreditsScreen({ onBack }) {
+  return html`<div class="screen credits-screen">
+    <header class="screen-head"><button class="btn" onClick=${onBack}>‹ Back</button><h2>Credits</h2><span></span></header>
+    <div class="credits-roll">
+      ${CREDITS.map((sec) => html`<section key=${sec.title}>
+        <h3>${sec.title}</h3>
+        ${sec.lines.map((l) => html`<p><b>${l.name}</b>${l.note ? html`<span class="muted">${l.note}</span>` : null}</p>`)}
+      </section>`)}
+      <p class="credits-end">Thanks for playing</p>
+    </div>
   </div>`;
 }
 
