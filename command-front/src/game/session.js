@@ -316,8 +316,17 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
     repair: () => { enterTarget(null); modes.repair(); },
   };
 
+  /** Pause the match and show the pause menu (its own button, or Back while playing). On two phones it holds both. */
+  const pauseMatch = () => {
+    if (store.get().paused || store.get().ended) return;
+    userPaused = true;
+    store.set({ paused: true });
+    net?.hold(true);
+    hooks.autosave?.();
+  };
+
   const hud = mountHud(hudEl, store, {
-    pause: () => { userPaused = true; store.set({ paused: true }); net?.hold(true); hooks.autosave?.(); },
+    pause: () => pauseMatch(),
     resume: () => { userPaused = false; store.set({ paused: false, confirmSurrender: false }); net?.hold(false); loop.resetClock(); },
     save: () => hooks.save?.(),
     load: () => hooks.load?.(),
@@ -634,6 +643,8 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
     loop,
     toaster,
     alerts,
+    /** Pause the match and open the pause menu, as its pause button does. */
+    pause: pauseMatch,
     /** Pause or resume the match from outside (menus). @param {boolean} on */
     setPaused(on) { userPaused = on; store.set({ paused: on }); if (!on) loop.resetClock(); },
     destroy() {

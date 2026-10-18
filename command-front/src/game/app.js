@@ -12,6 +12,7 @@ import { snapshot, restore } from '../save/serialize.js';
 import { saveGame, loadGame, listSaves, deleteGame, saveSettings, loadSettings } from '../lib/storage.js';
 import { createAudio } from '../lib/audio.js';
 import { createCustomSounds } from './customSounds.js';
+import { createBackGuard } from '../ui/backGuard.js';
 import { setHaptics } from '../lib/haptics.js';
 import { showScreen, MainMenu, SetupScreen, SlotsScreen, SettingsScreen, EndScreen, CreditsScreen } from '../ui/screens.js';
 import { html } from 'htm/preact';
@@ -126,7 +127,17 @@ export async function startApp({ hudEl, worldEl, screensEl, debug }) {
   };
 
   // ---- Matches.
+  // Back (button, swipe or gesture) while playing pauses instead of leaving; Exit in the pause menu leaves.
+  let backToastAt = -Infinity;
+  const backGuard = createBackGuard(() => {
+    if (!session) return;
+    session.pause();
+    if (performance.now() - backToastAt < 3000) return; // one reminder per burst of Back presses
+    backToastAt = performance.now();
+    session.toaster.show('Back is off during a match. To leave, use the exit button in this menu.');
+  });
   const stopSession = () => {
+    backGuard.disarm();
     clearInterval(autosaveTimer);
     session?.destroy();
     session = null;
@@ -185,6 +196,7 @@ export async function startApp({ hudEl, worldEl, screensEl, debug }) {
     fullscreen.request();
     showScreen(screensEl, null);
     document.documentElement.classList.add('in-match');
+    backGuard.arm();
     meta = m;
     const human = m.me ?? HUMAN; // the player this phone controls
     session = await createSession({
