@@ -33,7 +33,7 @@ function framesFor(type) {
 }
 
 /** World-px offset of a unit's shadow (south-east, away from the sun), on the ground and in flight. */
-const SHADOW = { x: 2.2, y: 3, alpha: 0.32, flyingX: 5, flyingY: 6 };
+const SHADOW = { x: 2.2, y: 3, alpha: 0.45, flyingX: 5, flyingY: 6 };
 /** Rotor speed, radians per ms. */
 const ROTOR_SPEED = 0.045;
 
