@@ -48,8 +48,8 @@ export function createVoices({ audio, world, human }) {
     },
     /** Decode this side's lines ahead of need, so the first replies are not late. */
     async preload() {
-      const sets = [eva, `${faction}-infantry`, `${faction}-vehicle`, `${faction}-aircraft`, `${faction}-naval`, 'engineer', 'harvester', 'mcv',
-        ...(faction === 'union' ? [] : ['medic', 'spy', 'thief', 'commando'])];
+      const sets = [eva, `${faction}-infantry`, `${faction}-vehicle`, `${faction}-aircraft`, `${faction}-naval`, 'engineer', 'harvester', 'mcv', 'commando',
+        ...(faction === 'union' ? [] : ['medic', 'spy', 'thief'])];
       const wanted = sets.map((s) => lineName(s, ''));
       const all = await audio.names();
       // The announcer first: it speaks at the start of the match.

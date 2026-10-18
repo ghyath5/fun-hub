@@ -12,7 +12,7 @@
  *      stand-in while a sample is still loading or when it cannot load.
  *
  * Voices have two channels: the announcer speaks one line at a time from a
- * short queue; a unit's reply cuts off the previous reply.
+ * short queue; unit replies never cut each other off — the newest waits its turn.
  */
 import { AUDIO } from '../data/ui.js';
 import { SOUND_INDEX, customNameOf } from '../data/sounds.js';
@@ -49,6 +49,8 @@ const STAND_IN = /** @type {Record<string, string>} */ ({ heavy: 'cannon', bigBo
 const QUEUE_MAX = 2;
 /** A queued line older than this is no longer news. */
 const STALE_MS = 3500;
+/** A unit reply that waited longer than this behind another is dropped. */
+const REPLY_FRESH_MS = 1500;
 
 /**
  * @param {{ index?: string, load?: (url: string) => Promise<ArrayBuffer> }} [opts]
@@ -266,18 +268,36 @@ export function createAudio(opts = {}) {
     nextLine();
   }
 
+  /** The newest reply asked for while another was still speaking (played next, if still fresh). @type {{ name: string, volume: number, at: number } | null} */
+  let pendingReply = null;
+
+  /** Start a reply and, when it ends, the one that waited behind it. @param {AudioBuffer[]} list @param {number} volume */
+  function speakReply(list, volume) {
+    const src = start(any(list), { bus: 'voice', volume });
+    replying = src;
+    src.onended = () => {
+      if (replying !== src) return;
+      replying = null;
+      const next = pendingReply;
+      pendingReply = null;
+      if (!next || performance.now() - next.at > REPLY_FRESH_MS) return;
+      const bufs = ready(next.name);
+      if (bufs) speakReply(bufs, next.volume);
+    };
+  }
+
   /**
-   * A unit's reply: cuts off the previous reply. Falls back to a blip while the line loads.
+   * A unit's reply. A line is never cut off mid-word: a reply asked for
+   * while another is speaking waits for it to finish (only the newest waits,
+   * and only while it is still fresh). Falls back to a blip while the line loads.
    * @param {string} name @param {number} [volume]
    */
   function reply(name, volume = 0.9) {
     if (!buses) return;
     const list = ready(name);
     if (!list) { play('ack', { bus: 'voice', volume: 0.5 }); return; }
-    try { replying?.stop(); } catch { /* already ended */ }
-    replying = start(any(list), { bus: 'voice', volume });
-    const mine = replying;
-    replying.onended = () => { if (replying === mine) replying = null; };
+    if (replying) { pendingReply = { name, volume, at: performance.now() }; return; }
+    speakReply(list, volume);
   }
 
   /** Decode lines ahead of need (a faction's voices at match start). @param {string[]} names */

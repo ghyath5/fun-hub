@@ -116,10 +116,10 @@ function BuildIcon({ it, line, lineQueued, icon, act, openMenu, openInfo }) {
 }
 
 /** Ring badge for a tab: progress of its active item, or READY. @param {{ t: TabInfo }} p */
-function TabBadge({ t }) {
-  if (t.ready) return html`<span class="tab-ready" aria-label=${t('ready')}></span>`;
-  if (t.progress < 0) return null;
-  return html`<span class="tab-prog" style=${`width:${Math.round(t.progress * 100)}%`}></span>`;
+function TabBadge({ t: tab }) {
+  if (tab.ready) return html`<span class="tab-ready" aria-label=${t('ready')}></span>`;
+  if (tab.progress < 0) return null;
+  return html`<span class="tab-prog" style=${`width:${Math.round(tab.progress * 100)}%`}></span>`;
 }
 
 /**
