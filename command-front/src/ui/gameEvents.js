@@ -7,6 +7,7 @@
 import { buzz } from '../lib/haptics.js';
 import { SIM, SUPPORT_POWERS } from '../data/rules.js';
 import { ALERTS, AUDIO } from '../data/ui.js';
+import { t, nameOf } from '../lib/i18n.js';
 
 const L = SIM.leptonsPerCell;
 
@@ -47,7 +48,7 @@ export function wireGameEvents(ctx) {
     ev.on('silosNeeded', (e) => { if (mine(e.data)) alerts.raise('silosNeeded'); }),
     ev.on('oreDepleted', (e) => { if (mine(e.data)) alerts.raise('oreDepleted'); }),
     ev.on('noRefinery', (e) => { if (mine(e.data)) alerts.raise('noRefinery'); }),
-    ev.on('placementFailed', (e) => { if (mine(e.data)) alerts.raise('placementFailed', undefined, '', e.data.reason); }),
+    ev.on('placementFailed', (e) => { if (mine(e.data)) alerts.raise('placementFailed', undefined, '', e.data.reason ? t(e.data.reason) : ''); }),
     ev.on('deployFailed', (e) => {
       if (!mine(e.data)) return;
       alerts.raise('cannotDeploy');
@@ -82,15 +83,15 @@ export function wireGameEvents(ctx) {
     }),
     ev.on('powerReady', (e) => {
       if (!mine(e.data)) return;
-      alerts.raise('powerReady', undefined, e.data.power, `${SUPPORT_POWERS[/** @type {keyof typeof SUPPORT_POWERS} */ (e.data.power)].name} ready`);
+      alerts.raise('powerReady', undefined, e.data.power, t('{name} ready', { name: nameOf(e.data.power, SUPPORT_POWERS[/** @type {keyof typeof SUPPORT_POWERS} */ (e.data.power)].name) }));
     }),
     ev.on('missileLaunch', (e) => { if (!mine(e.data)) alerts.raise('missileLaunch'); }),
     ev.on('stormStarted', (e) => { if (!mine(e.data)) alerts.raise('stormDetected', { x: e.data.x, y: e.data.y }); }),
     ev.on('mineExploded', (e) => { if (mine(e.data)) alerts.raise('mineExploded', { x: e.data.x, y: e.data.y }); }),
     ev.on('crateCollected', (e) => {
       if (!mine(e.data)) return;
-      const text = { cash: `Crate: $${e.data.detail}`, unit: 'Crate: reinforcements', heal: 'Crate: units healed', reveal: 'Crate: map revealed',
-        armor: 'Crate: armour upgrade', speed: 'Crate: speed upgrade', explode: 'Crate: booby trap!' }[/** @type {string} */ (e.data.effect)] ?? 'Crate';
+      const text = { cash: t('Crate: ${n}', { n: e.data.detail }), unit: t('Crate: reinforcements'), heal: t('Crate: units healed'), reveal: t('Crate: map revealed'),
+        armor: t('Crate: armour upgrade'), speed: t('Crate: speed upgrade'), explode: t('Crate: booby trap!') }[/** @type {string} */ (e.data.effect)] ?? t('Crate');
       ctx.toast(text, { x: e.data.x, y: e.data.y });
       if (e.data.effect === 'unit') ctx.voices.announce('reinforcements');
     }),

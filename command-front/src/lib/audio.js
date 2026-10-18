@@ -95,6 +95,14 @@ export function createAudio(opts = {}) {
         for (const [set, keys] of Object.entries(doc.voice ?? {})) {
           for (const [key, list] of Object.entries(/** @type {Record<string, string[]>} */ (keys))) files.set(`voice:${set}:${key}`, list.map((f) => base + f));
         }
+        // Arabic voices (Settings → Language → Voices) are `voice:<set>@ar:<key>`; a line
+        // with no Arabic recording falls back to the English one, so nothing goes silent.
+        for (const [name, urls] of [...files]) {
+          if (name.startsWith('voice:')) files.set(name.replace(/^voice:([^:]+):/, 'voice:$1@ar:'), urls);
+        }
+        for (const [set, keys] of Object.entries(doc.voiceAr ?? {})) {
+          for (const [key, list] of Object.entries(/** @type {Record<string, string[]>} */ (keys))) files.set(`voice:${set}@ar:${key}`, list.map((f) => base + f));
+        }
       } catch (e) {
         console.warn('[audio] sound set unavailable, using generated blips', e);
       }

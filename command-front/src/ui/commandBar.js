@@ -8,6 +8,7 @@ import { PressButton } from './press.js';
 import { healthBand } from '../sim/formulas/combat.js';
 import { GESTURE } from '../data/ui.js';
 import { toUi } from './fit.js';
+import { t, textLang } from '../lib/i18n.js';
 
 const STANCE_LABEL = { guard: 'Guard', hold: 'Hold', holdFire: 'No fire' };
 
@@ -21,6 +22,8 @@ const STANCE_LABEL = { guard: 'Guard', hold: 'Hold', holdFire: 'No fire' };
 
 /** Short label for a type chip: initials for multi-word names, else the first three letters. @param {string} name */
 const abbrev = (name) => {
+  // Arabic letters do not abbreviate: the first word, shortened.
+  if (textLang() === 'ar') return name.split(' ')[0].slice(0, 5);
   const words = name.split(' ');
   return (words.length > 1 ? words.map((w) => w[0]).join('') : name.slice(0, 3)).toUpperCase();
 };
@@ -33,24 +36,24 @@ const abbrev = (name) => {
  */
 export function CommandBar({ sel, onTop, addMode, selectMode, targetMode, act }) {
   if (!sel.count) return null;
-  return html`<section class=${`cmdbar panel ${onTop ? 'top' : ''}`} aria-label="Commands">
+  return html`<section class=${`cmdbar panel ${onTop ? 'top' : ''}`} aria-label=${t('Commands')}>
     <div class="cmd-row">
-      <button class="cmd" onClick=${act.stop}>Stop</button>
-      <button class="cmd" onClick=${act.stance} title="Guard → Hold Position → Hold Fire">${STANCE_LABEL[sel.stance ?? 'guard']}</button>
-      <button class=${`cmd ${targetMode === 'attackMove' ? 'on' : ''}`} aria-pressed=${targetMode === 'attackMove'} onClick=${act.attackMove} title="Next tap: attack-move there">A-Move</button>
-      <button class="cmd" onClick=${act.scatter}>Scatter</button>
-      ${sel.can?.deploy ? html`<button class="cmd ctx" onClick=${act.deploy}>Deploy</button>` : null}
-      ${sel.can?.harvest ? html`<button class="cmd ctx" onClick=${act.harvest}>Harvest</button>` : null}
-      ${sel.can?.unload ? html`<button class="cmd ctx" onClick=${act.unload}>Unload</button>` : null}
-      ${sel.can?.mines ? html`<button class=${`cmd ctx ${targetMode === 'mines' ? 'on' : ''}`} onClick=${act.mines}>Mines</button>` : null}
-      ${sel.can?.returnPad ? html`<button class="cmd ctx" onClick=${act.returnPad}>Return</button>` : null}
-      <button class="cmd" onClick=${act.same} title="Select all of these types on screen">Same</button>
-      <button class=${`cmd ${addMode ? 'on' : ''}`} aria-pressed=${addMode} onClick=${act.toggleAdd} title="Taps add or remove units">Add</button>
-      <button class=${`cmd ${selectMode ? 'on' : ''}`} aria-pressed=${selectMode} onClick=${act.toggleSelect} title="One-finger drag draws a selection box">Box</button>
-      <button class="cmd" onClick=${act.deselect} aria-label="Deselect">✕</button>
+      <button class="cmd" onClick=${act.stop}>${t('Stop')}</button>
+      <button class="cmd" onClick=${act.stance} title=${t('Guard → Hold Position → Hold Fire')}>${t(STANCE_LABEL[sel.stance ?? 'guard'])}</button>
+      <button class=${`cmd ${targetMode === 'attackMove' ? 'on' : ''}`} aria-pressed=${targetMode === 'attackMove'} onClick=${act.attackMove} title=${t('Next tap: attack-move there')}>${t('A-Move')}</button>
+      <button class="cmd" onClick=${act.scatter}>${t('Scatter')}</button>
+      ${sel.can?.deploy ? html`<button class="cmd ctx" onClick=${act.deploy}>${t('Deploy')}</button>` : null}
+      ${sel.can?.harvest ? html`<button class="cmd ctx" onClick=${act.harvest}>${t('Harvest')}</button>` : null}
+      ${sel.can?.unload ? html`<button class="cmd ctx" onClick=${act.unload}>${t('Unload')}</button>` : null}
+      ${sel.can?.mines ? html`<button class=${`cmd ctx ${targetMode === 'mines' ? 'on' : ''}`} onClick=${act.mines}>${t('Mines')}</button>` : null}
+      ${sel.can?.returnPad ? html`<button class="cmd ctx" onClick=${act.returnPad}>${t('Return')}</button>` : null}
+      <button class="cmd" onClick=${act.same} title=${t('Select all of these types on screen')}>${t('Same')}</button>
+      <button class=${`cmd ${addMode ? 'on' : ''}`} aria-pressed=${addMode} onClick=${act.toggleAdd} title=${t('Taps add or remove units')}>${t('Add')}</button>
+      <button class=${`cmd ${selectMode ? 'on' : ''}`} aria-pressed=${selectMode} onClick=${act.toggleSelect} title=${t('One-finger drag draws a selection box')}>${t('Box')}</button>
+      <button class="cmd" onClick=${act.deselect} aria-label=${t('Deselect')}>✕</button>
     </div>
     <div class="sel-row">
-      <span class="sel-count">${sel.count} sel:</span>
+      <span class="sel-count">${t('{n} sel:', { n: sel.count })}</span>
       ${sel.types.map((t) => html`<button key=${t.type} class="chip" onClick=${() => act.narrow(t.type)} title=${t.name}>
         <b>${abbrev(t.name)}</b> ×${t.count}</button>`)}
     </div>
@@ -61,9 +64,9 @@ export function CommandBar({ sel, onTop, addMode, selectMode, targetMode, act })
  * @param {{ sizes: number[], act: { recall: (n: number) => void, centre: (n: number) => void, assign: (n: number) => void } }} p
  */
 export function ControlGroups({ sizes, act }) {
-  return html`<nav class="groups" aria-label="Control groups">
+  return html`<nav class="groups" aria-label=${t('Control groups')}>
     ${sizes.map((n, i) => html`<${PressButton} key=${i} class=${`group ${n ? '' : 'empty'}`}
-      aria-label=${`Group ${i + 1}${n ? `, ${n} units` : ', empty'}. Long-press to assign`}
+      aria-label=${n ? t('Group {g}, {n} units. Long-press to assign', { g: i + 1, n }) : t('Group {g}, empty. Long-press to assign', { g: i + 1 })}
       tap=${() => act.recall(i)} doubleTap=${() => act.centre(i)} longPress=${() => act.assign(i)}>
       <span class="g-num">${i + 1}</span>${n ? html`<span class="g-count">${n}</span>` : null}
     </${PressButton}>`)}
@@ -102,7 +105,7 @@ export function RadialMenu({ menu, pick, close }) {
       const x = cx + Math.cos(a) * R - S / 2;
       const y = cy + Math.sin(a) * R - S / 2;
       return html`<button key=${o.id} class="radial-opt panel" style=${`left:${x}px;top:${y}px;width:${S}px;height:${S}px`}
-        onPointerDown=${(/** @type {Event} */ e) => e.stopPropagation()} onClick=${() => pick(o.id)}>${o.label}</button>`;
+        onPointerDown=${(/** @type {Event} */ e) => e.stopPropagation()} onClick=${() => pick(o.id)}>${t(o.label)}</button>`;
     })}
   </div>`;
 }
@@ -120,9 +123,9 @@ const BANNER_TEXT = {
 /** Banner while the next tap picks a target or a mode is on. @param {{ mode: string | null, cancel: () => void }} p */
 export function TargetBanner({ mode, cancel }) {
   if (!mode || mode === 'place') return null;
-  if (mode === 'power' || mode === 'mines' || mode === 'walls') return html`<div class=${`target-banner panel ${mode}`} role="status">${BANNER_TEXT[mode]}</div>`;
-  const text = BANNER_TEXT[/** @type {keyof typeof BANNER_TEXT} */ (mode)] ?? 'Tap a target';
-  return html`<div class=${`target-banner panel ${mode}`} role="status">${text}<button class="cmd" onClick=${cancel} aria-label="Cancel">✕</button></div>`;
+  if (mode === 'power' || mode === 'mines' || mode === 'walls') return html`<div class=${`target-banner panel ${mode}`} role="status">${t(BANNER_TEXT[mode])}</div>`;
+  const text = t(BANNER_TEXT[/** @type {keyof typeof BANNER_TEXT} */ (mode)] ?? 'Tap a target');
+  return html`<div class=${`target-banner panel ${mode}`} role="status">${text}<button class="cmd" onClick=${cancel} aria-label=${t('Cancel')}>✕</button></div>`;
 }
 
 /**
@@ -139,18 +142,18 @@ export function StructureBar({ s, onTop, sellArmed, rallyMode, act }) {
   if (!s) return null;
   const band = healthBand(s.hp, s.maxHp);
   const pw = s.power > 0 ? `+${s.power}` : `${s.power}`;
-  return html`<section class=${`cmdbar panel ${onTop ? 'top' : ''}`} aria-label=${`${s.name} commands`}>
+  return html`<section class=${`cmdbar panel ${onTop ? 'top' : ''}`} aria-label=${t('{name} commands', { name: s.name })}>
     <div class="sb-card">
-      <span class="sb-name">${s.name}${s.primary ? html` <b class="sb-prim">PRIMARY</b>` : null}</span>
+      <span class="sb-name">${s.name}${s.primary ? html` <b class="sb-prim">${t('PRIMARY')}</b>` : null}</span>
       <span class="ic-bar sb-hp"><span class=${`ic-fill ${band}`} style=${`width:${Math.round((s.hp / s.maxHp) * 100)}%`}></span></span>
-      <span class="sb-nums">${s.hp}/${s.maxHp}${s.power ? html` · PWR ${pw}` : null}</span>
+      <span class="sb-nums">${s.hp}/${s.maxHp}${s.power ? html` · ${t('PWR')} ${pw}` : null}</span>
     </div>
     ${s.own ? html`<div class="cmd-row">
-      <button class=${`cmd ${sellArmed ? 'danger' : ''}`} disabled=${!s.canSell} onClick=${act.sell}>${sellArmed ? 'Confirm' : 'Sell'}</button>
-      <button class=${`cmd ${s.repairing ? 'on' : ''}`} aria-pressed=${s.repairing} disabled=${!s.canRepair} onClick=${act.repair}>Repair</button>
-      ${s.canRally ? html`<button class=${`cmd ${rallyMode ? 'on' : ''}`} onClick=${act.rally}>Rally</button>` : null}
-      ${s.canPrimary ? html`<button class=${`cmd ${s.primary ? 'on' : ''}`} onClick=${act.primary}>Primary</button>` : null}
-      <button class="cmd" onClick=${act.deselect} aria-label="Deselect">✕</button>
+      <button class=${`cmd ${sellArmed ? 'danger' : ''}`} disabled=${!s.canSell} onClick=${act.sell}>${sellArmed ? t('Confirm') : t('Sell')}</button>
+      <button class=${`cmd ${s.repairing ? 'on' : ''}`} aria-pressed=${s.repairing} disabled=${!s.canRepair} onClick=${act.repair}>${t('Repair')}</button>
+      ${s.canRally ? html`<button class=${`cmd ${rallyMode ? 'on' : ''}`} onClick=${act.rally}>${t('Rally')}</button>` : null}
+      ${s.canPrimary ? html`<button class=${`cmd ${s.primary ? 'on' : ''}`} onClick=${act.primary}>${t('Primary')}</button>` : null}
+      <button class="cmd" onClick=${act.deselect} aria-label=${t('Deselect')}>✕</button>
     </div>` : null}
   </section>`;
 }
@@ -162,8 +165,8 @@ export function StructureBar({ s, onTop, sellArmed, rallyMode, act }) {
 export function PlaceControls({ at, place, cancel }) {
   if (!at) return null;
   return html`<div class="placectl" style=${`left:${Math.round(toUi(at.x))}px;top:${Math.round(toUi(at.y))}px`}>
-    <button class="cmd place-ok" disabled=${!at.ok} onClick=${place} aria-label="Place">✓</button>
-    <button class="cmd" onClick=${cancel} aria-label="Cancel placement">✕</button>
-    ${!at.ok && at.reason ? html`<span class="place-why">${at.reason}</span>` : null}
+    <button class="cmd place-ok" disabled=${!at.ok} onClick=${place} aria-label=${t('Place')}>✓</button>
+    <button class="cmd" onClick=${cancel} aria-label=${t('Cancel placement')}>✕</button>
+    ${!at.ok && at.reason ? html`<span class="place-why">${t(at.reason)}</span>` : null}
   </div>`;
 }

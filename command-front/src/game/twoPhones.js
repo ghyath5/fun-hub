@@ -29,6 +29,7 @@ import { pack, unpack } from '../lib/storage.js';
 import { step } from '../sim/world.js';
 import { GAME_SPEEDS } from '../data/rules.js';
 import { FACTIONS } from '../data/factions.js';
+import { t } from '../lib/i18n.js';
 import { showScreen, SetupScreen, EndScreen } from '../ui/screens.js';
 import { TwoPhoneMenu, HostPair, JoinPair, DiagPanel, GuestLobby } from '../ui/pairScreens.js';
 
@@ -101,8 +102,8 @@ export function createTwoPhones(app) {
     closeRoom();
     phase = 'menu';
     redraw = () => show(html`<div class="screen menu pair"><div class="notice-card panel">
-      <h1>${title}</h1><p class="muted">${note}</p>
-      <button class="btn primary" onClick=${open}>OK</button></div></div>`);
+      <h1>${t(title)}</h1><p class="muted">${t(note)}</p>
+      <button class="btn primary" onClick=${open}>${t('OK')}</button></div></div>`);
     redraw();
   }
 
@@ -133,11 +134,11 @@ export function createTwoPhones(app) {
       scan: (/** @type {boolean} */ on) => { scanning = on; redraw(); },
       code: async (/** @type {string} */ code) => {
         status = 'Linking…'; scanning = false; redraw();
-        try { await room?.accept(code); } catch (e) { status = `That reply code did not fit: ${/** @type {any} */ (e)?.message ?? e}`; redraw(); }
+        try { await room?.accept(code); } catch (e) { status = t('That reply code did not fit: {why}', { why: /** @type {any} */ (e)?.message ?? e }); redraw(); }
       },
       back: open,
       diag: openDiag,
-      noCamera: () => { scanning = false; status = 'No camera here — paste their reply code instead.'; redraw(); },
+      noCamera: () => { status = 'Or paste their reply code below.'; redraw(); },
     }} />`);
     redraw();
     try {
@@ -173,7 +174,7 @@ export function createTwoPhones(app) {
         reply = await room.answer(c);
         status = 'Waiting for the host to scan it…';
       } catch (e) {
-        stage = 'scan'; status = `That invite did not fit: ${/** @type {any} */ (e)?.message ?? e}`;
+        stage = 'scan'; status = t('That invite did not fit: {why}', { why: /** @type {any} */ (e)?.message ?? e });
       }
       redraw();
     };
@@ -188,7 +189,7 @@ export function createTwoPhones(app) {
       },
       back: open,
       diag: openDiag,
-      noCamera: () => { camera = false; redraw(); },
+      noCamera: () => { status = 'Or paste the invite link below.'; redraw(); },
     }} />`);
     redraw();
     try {
@@ -234,7 +235,7 @@ export function createTwoPhones(app) {
     });
     redraw = () => {
       if (!form) return;
-      show(html`<${SetupScreen} online=${true} form=${form} maps=${maps} error=${error || (r.state === 'down' ? 'Reconnecting to the other phone…' : '')}
+      show(html`<${SetupScreen} online=${true} form=${form} maps=${maps} error=${t(error) || (r.state === 'down' ? t('Reconnecting to the other phone…') : '')}
         onChange=${(/** @type {SetupForm} */ f) => { form = normaliseForm(f, maxPlayersOf(f, maps)); publish(); redraw(); }}
         onStart=${async () => {
           if (!form || r.state !== 'open') return;
@@ -343,7 +344,7 @@ export function createTwoPhones(app) {
     const mine = myId();
     const outcome = result.draw ? 'draw' : result.winners.some((id) => w.allied(id, mine)) ? 'victory' : 'defeat';
     const rows = w.players.map((/** @type {any} */ p) => ({
-      name: `${p.id === mine ? 'You' : p.human ? 'Other phone' : `AI (${p.difficulty})`} · ${FACTIONS[/** @type {'coalition' | 'union'} */ (p.faction)].name}`,
+      name: `${p.id === mine ? t('You') : p.human ? t('Other phone') : t('AI ({level})', { level: t(p.difficulty[0].toUpperCase() + p.difficulty.slice(1)) })} · ${t(FACTIONS[/** @type {'coalition' | 'union'} */ (p.faction)].name)}`,
       color: p.color, country: p.country, alive: p.alive, stats: p.stats,
     }));
     const theyLeft = s.store.get().link === 'left';
@@ -364,9 +365,9 @@ export function createTwoPhones(app) {
     redraw = () => show(html`<${EndScreen} outcome=${outcome} ticks=${result.tick} rows=${rows}
       act=${{ rematch: r?.role === 'host' && canRematch ? () => { r.send({ k: 'lobby' }); hostLobby(); } : undefined, menu: toMenu }}
       labels=${{
-        rematch: 'Back to the lobby',
-        menu: 'Leave',
-        note: !canRematch ? 'The other phone has gone.' : r?.role === 'guest' ? 'The host can start a rematch.' : '',
+        rematch: t('Back to the lobby'),
+        menu: t('Leave'),
+        note: !canRematch ? t('The other phone has gone.') : r?.role === 'guest' ? t('The host can start a rematch.') : '',
       }} />`);
     redraw();
   }

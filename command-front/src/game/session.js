@@ -24,6 +24,7 @@ import { createVoices } from '../ui/voices.js';
 import { wireBattleEvents } from '../ui/battleEvents.js';
 import { wireGameEvents } from '../ui/gameEvents.js';
 import { sidebarModel, economyModel, structureCard, sameShape, powersModel, intelLine } from '../ui/model.js';
+import { t, nameOf } from '../lib/i18n.js';
 import { drawMinimap, hasRadar } from '../ui/minimap.js';
 import { isTransport } from '../sim/transports.js';
 import { isAircraft } from '../sim/air.js';
@@ -189,8 +190,8 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
   let cardTimer = 0;
   const showCard = (/** @type {any} */ e) => {
     if (!e) return;
-    const owner = e.owner >= 0 ? FACTIONS[world.players[e.owner].faction].name : 'Neutral';
-    store.set({ card: { name: itemDef(e.type)?.name ?? structureDef(e.type)?.name ?? e.type, hp: e.hp, maxHp: e.maxHp, owner } });
+    const owner = e.owner >= 0 ? t(FACTIONS[world.players[e.owner].faction].name) : t('Neutral');
+    store.set({ card: { name: nameOf(e.type, itemDef(e.type)?.name ?? structureDef(e.type)?.name ?? e.type), hp: e.hp, maxHp: e.maxHp, owner } });
     clearTimeout(cardTimer);
     cardTimer = /** @type {any} */ (setTimeout(() => store.set({ card: null }), 2000));
   };
@@ -245,7 +246,7 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
     assign: (/** @type {number} */ n) => {
       if (!selection.size) return;
       const count = selection.assign(n);
-      toaster.show(`Group ${n + 1} set (${count})`);
+      toaster.show(t('Group {g} set ({n})', { g: n + 1, n: count }));
     },
   };
   const refreshSelection = () => store.set({ sel: intents.summary(), groups: selection.groupSizes() });
@@ -315,7 +316,7 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
     queueFull: (line) => {
       // Say why the line is not moving, so a full queue is never a mystery.
       const why = QUEUE_STUCK[/** @type {keyof typeof QUEUE_STUCK} */ (me.lines[line]?.hold ?? '')] ?? '';
-      toaster.show(`Queue full (${PRODUCTION.queueMax})${why ? `: ${why}` : ''}`);
+      toaster.show(why ? t('Queue full ({n}): {why}', { n: PRODUCTION.queueMax, why: t(why) }) : t('Queue full ({n})', { n: PRODUCTION.queueMax }));
       voices.announce('queueFull');
     },
     place: (type) => { enterTarget(null); selection.clear(); selectStructure(0); modes.startPlacing(type); },
@@ -375,7 +376,7 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
     power: (id) => {
       const p = store.get().powers.find((x) => x.id === id);
       if (!p) return;
-      if (!p.ready) { toaster.show(`${p.name}: ${Math.round(p.progress * 100)}% charged`); return; }
+      if (!p.ready) { toaster.show(t('{name}: {pct}% charged', { name: p.name, pct: Math.round(p.progress * 100) })); return; }
       enterTarget(null);
       selectStructure(0);
       modes.power(id);

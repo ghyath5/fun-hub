@@ -12,6 +12,7 @@ import { html, useRef, useEffect } from 'htm/preact';
 import { TERRAIN } from '../data/terrain.js';
 import { PLAYER_COLORS } from '../data/factions.js';
 import { structureDef, isActive } from '../sim/entities/structures.js';
+import { t } from '../lib/i18n.js';
 
 const ORE = [214, 172, 72];
 const GEM = [120, 200, 220];
@@ -98,14 +99,14 @@ export function Minimap({ radar, collapsed, onCanvas, jump, toggle }) {
     const r = /** @type {HTMLElement} */ (e.currentTarget).getBoundingClientRect();
     jump(Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)));
   };
-  if (collapsed) return html`<button class="minimap-tab panel" aria-label="Show minimap" onClick=${toggle}>▣</button>`;
-  return html`<div class="minimap panel" aria-label="Minimap">
+  if (collapsed) return html`<button class="minimap-tab panel" aria-label=${t('Show minimap')} onClick=${toggle}>▣</button>`;
+  return html`<div class="minimap panel" aria-label=${t('Minimap')}>
     ${radar
       ? html`<canvas ref=${ref} class="mm-canvas"
           onPointerDown=${(/** @type {PointerEvent} */ e) => { e.stopPropagation(); /** @type {any} */ (e.currentTarget).setPointerCapture?.(e.pointerId); at(e); }}
           onPointerMove=${(/** @type {PointerEvent} */ e) => { if (e.buttons || e.pointerType === 'touch') at(e); }}></canvas>`
-      : html`<div class="mm-off">No radar</div>`}
-    <button class="mm-hide" aria-label="Hide minimap" onClick=${toggle}>–</button>
+      : html`<div class="mm-off">${t('No radar')}</div>`}
+    <button class="mm-hide" aria-label=${t('Hide minimap')} onClick=${toggle}>–</button>
   </div>`;
 }
 

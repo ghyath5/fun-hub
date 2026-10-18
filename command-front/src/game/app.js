@@ -21,6 +21,7 @@ import { FACTIONS } from '../data/factions.js';
 import { createTwoPhones } from './twoPhones.js';
 import { inviteInUrl } from '../net/link.js';
 import { autoFullscreen, enterFullscreen, needsHomeScreen } from '../ui/fullscreen.js';
+import { setLanguages, browserLang, textLang, voiceLang, t, list as listOf } from '../lib/i18n.js';
 
 const HUMAN = 0;
 const AUTOSAVE_MS = VICTORY.autosaveSeconds * 1000;
@@ -30,7 +31,7 @@ const FIRST_HINT = 'Tap the truck, then Deploy';
 /** @typedef {import('../ui/screens.js').AppSettings} AppSettings */
 
 /** @returns {AppSettings} */
-const defaultSettings = () => ({ leftHanded: false, haptics: true, effects: 1, voice: 1, ui: 0.8, autoFullscreen: true });
+const defaultSettings = () => ({ leftHanded: false, haptics: true, effects: 1, voice: 1, ui: 0.8, autoFullscreen: true, textLang: browserLang(), voiceLang: browserLang() });
 
 /**
  * @param {{ hudEl: HTMLElement, worldEl: HTMLElement, screensEl: HTMLElement, debug: boolean }} el
@@ -58,6 +59,9 @@ export async function startApp({ hudEl, worldEl, screensEl, debug }) {
   }));
 
   const applySettings = () => {
+    setLanguages({ text: settings.textLang, voice: settings.voiceLang });
+    settings.textLang = textLang();
+    settings.voiceLang = voiceLang();
     setHaptics(settings.haptics);
     audio.setBusVolume('effects', settings.effects);
     audio.setBusVolume('voice', settings.voice);
@@ -94,15 +98,15 @@ export async function startApp({ hudEl, worldEl, screensEl, debug }) {
       add: async (files) => {
         const r = await customSounds.add(files).catch((e) => ({ added: 0, unknown: [], tooBig: [], full: false, error: String(e) }));
         soundsNote = [
-          `${r.added} file${r.added === 1 ? '' : 's'} added.`,
-          r.unknown.length ? `Not a sound name: ${r.unknown.join(', ')}.` : '',
-          r.tooBig.length ? `Too large (over 5 MB): ${r.tooBig.join(', ')}.` : '',
-          r.full ? 'Storage for custom sounds is full; remove some first.' : '',
-          /** @type {any} */ (r).error ? `Could not save: ${/** @type {any} */ (r).error}` : '',
+          r.added === 1 ? t('1 file added.') : t('{n} files added.', { n: r.added }),
+          r.unknown.length ? t('Not a sound name: {list}.', { list: listOf(r.unknown) }) : '',
+          r.tooBig.length ? t('Too large (over 5 MB): {list}.', { list: listOf(r.tooBig) }) : '',
+          r.full ? t('Storage for custom sounds is full; remove some first.') : '',
+          /** @type {any} */ (r).error ? t('Could not save: {why}', { why: /** @type {any} */ (r).error }) : '',
         ].filter(Boolean).join(' ');
         settingsScreen(back);
       },
-      clear: async () => { await customSounds.clear(); soundsNote = 'Custom sounds removed: the built-in sounds play again.'; settingsScreen(back); },
+      clear: async () => { await customSounds.clear(); soundsNote = t('Custom sounds removed: the built-in sounds play again.'); settingsScreen(back); },
     };
     showScreen(screensEl, html`<${SettingsScreen} settings=${settings} sounds=${sounds}
       onChange=${(/** @type {AppSettings} */ s) => { settings = { ...settings, ...s }; applySettings(); persist(); settingsScreen(back); }}
@@ -116,9 +120,9 @@ export async function startApp({ hudEl, worldEl, screensEl, debug }) {
       .filter((slot) => mode === 'load' || slot !== 'auto')
       .map((slot) => {
         const rec = saved.find((s) => s.slot === slot);
-        return { slot, label: slot === 'auto' ? 'Autosave' : `Slot ${slot}`, at: rec?.at, info: rec?.info };
+        return { slot, label: slot === 'auto' ? t('Autosave') : t('Slot {n}', { n: slot }), at: rec?.at, info: rec?.info };
       });
-    showScreen(screensEl, html`<${SlotsScreen} title=${mode === 'save' ? 'Save game' : 'Load game'} slots=${list} mode=${mode}
+    showScreen(screensEl, html`<${SlotsScreen} title=${mode === 'save' ? t('Save game') : t('Load game')} slots=${list} mode=${mode}
       onPick=${async (/** @type {string} */ slot) => {
         if (mode === 'save') { await saveTo(slot); back(); } else await loadSlot(slot);
       }}
@@ -242,7 +246,7 @@ export async function startApp({ hudEl, worldEl, screensEl, debug }) {
     const w = session.world;
     const outcome = result.draw ? 'draw' : result.winners.some((id) => w.allied(id, HUMAN)) ? 'victory' : 'defeat';
     const rows = w.players.map((/** @type {any} */ p) => ({
-      name: `${p.human ? 'You' : `AI (${p.difficulty})`} · ${FACTIONS[/** @type {'coalition' | 'union'} */ (p.faction)].name}`,
+      name: `${p.human ? t('You') : t('AI ({level})', { level: t(p.difficulty[0].toUpperCase() + p.difficulty.slice(1)) })} · ${t(FACTIONS[/** @type {'coalition' | 'union'} */ (p.faction)].name)}`,
       color: p.color, country: p.country, alive: p.alive, stats: p.stats,
     }));
     stopSession();

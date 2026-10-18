@@ -11,6 +11,7 @@ import { credits } from '../sim/players.js';
 import { structureDef, isActive } from '../sim/entities/structures.js';
 import { POWER_IDS, grants, chargeTicks } from '../sim/systems/supportPowers.js';
 import { SUPPORT_POWERS } from '../data/rules.js';
+import { t, nameOf, list, int } from '../lib/i18n.js';
 
 /** @typedef {import('../sim/catalog.js').LineId} LineId */
 
@@ -28,9 +29,12 @@ export const HOLD_LABEL = Object.freeze({
 
 /** Display name of the first structure filling a role ("power" → "Power Plant"). @param {string} role */
 export function roleName(role) {
-  for (const d of Object.values(STRUCTURES)) if (d.role === role) return d.name;
+  for (const d of Object.values(STRUCTURES)) if (d.role === role) return nameOf(d.id, d.name);
   return role;
 }
+
+/** "Requires …" for a list of roles. @param {string[]} roles */
+const requiresText = (roles) => t('Requires {list}', { list: list(roles.map(roleName)) });
 
 /**
  * @typedef {object} BuildItem
@@ -40,7 +44,8 @@ export function roleName(role) {
  * @property {'available' | 'building' | 'paused' | 'ready' | 'locked' | 'busy' | 'limit'} state
  * @property {number} progress   0–1 for the active item
  * @property {number} queued     Items of this type in the queue (including the active one)
- * @property {string} label      Hold reason or lock text
+ * @property {string} label      Hold reason or lock text (shown)
+ * @property {string} [reason]   Why it cannot be started (English key of REASON_LABEL), for the toast
  * @property {boolean} wall      Walls skip the queue: tapping draws a line
  */
 
@@ -71,7 +76,7 @@ export function sidebarModel(w, pid) {
     items[id] = all[id].map((info) => {
       const queued = line.queue.filter((/** @type {any} */ q) => q.type === info.type).length;
       /** @type {BuildItem} */
-      const item = { type: info.type, name: info.name, cost: info.cost, state: 'available', progress: 0, queued, label: '', wall: !!itemDef(info.type).wall };
+      const item = { type: info.type, name: nameOf(info.type, info.name), cost: info.cost, state: 'available', progress: 0, queued, label: '', wall: !!itemDef(info.type).wall };
       if (line.ready === info.type) {
         item.state = 'ready';
         item.progress = 1;
@@ -79,22 +84,23 @@ export function sidebarModel(w, pid) {
         item.progress = Math.min(1, active.prog / PROGRESS_DONE);
         const held = active.paused ? 'paused' : line.hold;
         item.state = held ? 'paused' : 'building';
-        item.label = held ? HOLD_LABEL[/** @type {keyof typeof HOLD_LABEL} */ (held)] ?? '' : '';
-        if (held === 'requires') item.label = `Requires ${itemDef(info.type).requires.map(roleName).join(', ')}`;
+        item.label = held ? t(HOLD_LABEL[/** @type {keyof typeof HOLD_LABEL} */ (held)] ?? '') : '';
+        if (held === 'requires') item.label = requiresText(itemDef(info.type).requires);
       } else if (info.locked) {
         item.state = 'locked';
-        item.label = `Requires ${info.missing.map(roleName).join(', ')}`;
+        item.label = requiresText(info.missing);
       } else if (single && (line.ready || line.queue.length)) {
         item.state = 'busy';
       } else if (info.reason && !queued) {
         item.state = 'limit';
-        item.label = REASON_LABEL[/** @type {keyof typeof REASON_LABEL} */ (info.reason)] ?? 'Limit';
+        item.reason = REASON_LABEL[/** @type {keyof typeof REASON_LABEL} */ (info.reason)] ?? 'Limit';
+        item.label = t(item.reason);
       }
       return item;
     });
     return {
       id,
-      label: TAB_LABEL[id],
+      label: t(TAB_LABEL[id]),
       items: items[id].length,
       progress: line.ready ? 1 : active ? Math.min(1, active.prog / PROGRESS_DONE) : -1,
       ready: !!line.ready,
@@ -133,7 +139,7 @@ export function structureCard(w, s, pid) {
   return {
     id: s.id,
     type: s.type,
-    name: def.name,
+    name: nameOf(s.type, def.name),
     hp: s.hp,
     maxHp: s.maxHp,
     power: def.power ?? 0,
@@ -155,7 +161,7 @@ export function powersModel(w, pid) {
   const p = w.players[pid];
   return POWER_IDS.filter((id) => grants(w, pid, id) && !(SUPPORT_POWERS[id].oneUse && p.powers[id]?.used)).map((id) => {
     const st = p.powers[id] ?? { charge: 0, ready: false };
-    return { id, name: SUPPORT_POWERS[id].name, ready: !!st.ready, progress: st.ready ? 1 : Math.min(1, Math.floor((st.charge / chargeTicks(id)) * 100) / 100) };
+    return { id, name: nameOf(id, SUPPORT_POWERS[id].name), short: t(SUPPORT_POWERS[id].name.split(' ').map((w) => w[0]).join('')), ready: !!st.ready, progress: st.ready ? 1 : Math.min(1, Math.floor((st.charge / chargeTicks(id)) * 100) / 100) };
   });
 }
 
@@ -165,10 +171,11 @@ export function intelLine(w, pid) {
   const parts = [];
   for (const q of w.players) {
     if (q.id === pid) continue;
-    if ((p.flags[`creditsOf${q.id}`] ?? 0) > w.tick) parts.push(`${q.color}: $${(q.cash + q.stored).toLocaleString('en-US')}`);
+    const who = t(q.color[0].toUpperCase() + q.color.slice(1));
+    if ((p.flags[`creditsOf${q.id}`] ?? 0) > w.tick) parts.push(`${who}: $${int(q.cash + q.stored)}`);
     if ((p.flags[`queuesOf${q.id}`] ?? 0) > w.tick) {
-      const building = Object.values(q.lines).map((/** @type {any} */ l) => l.queue[0]?.type).filter(Boolean).map((/** @type {string} */ t) => itemDef(t).name);
-      parts.push(`${q.color} builds: ${building.length ? building.join(', ') : 'nothing'}`);
+      const building = Object.values(q.lines).map((/** @type {any} */ l) => l.queue[0]?.type).filter(Boolean).map((/** @type {string} */ k) => nameOf(k, itemDef(k).name));
+      parts.push(t('{who} builds: {what}', { who, what: building.length ? list(building) : t('nothing') }));
     }
   }
   return parts.length ? parts.join(' · ') : null;
