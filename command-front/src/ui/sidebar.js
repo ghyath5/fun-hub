@@ -4,8 +4,10 @@
  * 2-column grid of build icons with their states, long-press menus, Sell and
  * Repair mode buttons, and collapse to a 44 px strip of tab badges.
  */
-import { html, useState } from 'htm/preact';
+import { html, useCallback, useState } from 'htm/preact';
 import { PressButton } from './press.js';
+import { CodexCard } from './codexCard.js';
+import { codexEntry } from './codex.js';
 import { PRODUCTION } from '../data/rules.js';
 
 
@@ -52,6 +54,7 @@ function menuFor(it, line) {
   else if (it.queued) opts.push({ id: 'removeOne', label: 'Remove one' }, { id: 'removeAll', label: 'Remove all' });
   else if (it.state === 'available' && unitLine) opts.push({ id: 'queue5', label: 'Queue ×5' });
   if (it.queued > 1 && it.state !== 'ready') opts.push({ id: 'removeAll', label: 'Cancel all' });
+  opts.push({ id: 'info', label: 'Info' });
   return opts.filter((o, i) => opts.findIndex((x) => x.label === o.label) === i);
 }
 
@@ -87,10 +90,16 @@ const wipe = (progress, grey) => {
   return `background: conic-gradient(transparent 0deg ${deg}deg, ${shade} ${deg}deg 360deg)`;
 };
 
-/** @param {{ it: BuildItem, line: LineId, lineQueued: number, icon: string | undefined, act: SidebarActions, openMenu: (it: BuildItem) => void }} p */
-function BuildIcon({ it, line, lineQueued, icon, act, openMenu }) {
+/**
+ * One build icon with its ⓘ button in the top-left corner (a sibling, not a
+ * child, so pressing it never counts as a press on the icon).
+ * @param {{ it: BuildItem, line: LineId, lineQueued: number, icon: string | undefined, act: SidebarActions,
+ *   openMenu: (it: BuildItem) => void, openInfo: (it: BuildItem) => void }} p
+ */
+function BuildIcon({ it, line, lineQueued, icon, act, openMenu, openInfo }) {
   const live = it.state === 'building' || it.state === 'paused';
-  return html`<${PressButton} class=${`bicon ${it.state}`} aria-label=${`${it.name}, ${it.cost} credits${it.label ? `, ${it.label}` : ''}${it.state === 'ready' ? ', ready' : ''}`}
+  return html`<div class="bcell">
+  <${PressButton} class=${`bicon ${it.state}`} aria-label=${`${it.name}, ${it.cost} credits${it.label ? `, ${it.label}` : ''}${it.state === 'ready' ? ', ready' : ''}`}
       tap=${() => tapItem(it, line, act, lineQueued)} longPress=${() => openMenu(it)}>
     ${icon ? html`<img src=${icon} alt="" draggable="false" />` : html`<span class="bicon-name">${it.name}</span>`}
     ${live ? html`<span class="bicon-wipe" style=${wipe(it.progress, it.state === 'paused')}></span>` : null}
@@ -99,7 +108,10 @@ function BuildIcon({ it, line, lineQueued, icon, act, openMenu }) {
     ${it.state === 'ready' ? html`<span class="bicon-ready">READY</span>` : null}
     ${it.state === 'paused' ? html`<span class="bicon-hold">${it.label}</span>` : null}
     <span class="bicon-cost">${it.cost ? `$${it.cost}` : it.name}</span>
-  </${PressButton}>`;
+  </${PressButton}>
+  <button class="bicon-info" aria-label=${`About ${it.name}`} onPointerDown=${(/** @type {Event} */ e) => e.stopPropagation()}
+    onClick=${() => openInfo(it)}><span aria-hidden="true">i</span></button>
+  </div>`;
 }
 
 /** Ring badge for a tab: progress of its active item, or READY. @param {{ t: TabInfo }} p */
@@ -110,11 +122,13 @@ function TabBadge({ t }) {
 }
 
 /**
- * @param {{ model: { tabs: TabInfo[], items: Record<LineId, BuildItem[]> }, icons: Record<string, string>, tab: LineId,
+ * @param {{ model: { tabs: TabInfo[], items: Record<LineId, BuildItem[]>, faction: string }, icons: Record<string, string>, tab: LineId,
  *   collapsed: boolean, mode: string | null, act: SidebarActions }} p
  */
 export function Sidebar({ model, icons, tab, collapsed, mode, act }) {
   const [menu, setMenu] = useState(/** @type {{ it: BuildItem, opts: { id: string, label: string }[] } | null} */ (null));
+  const [info, setInfo] = useState(/** @type {BuildItem | null} */ (null));
+  const closeInfo = useCallback(() => setInfo(null), []);
   const line = tab;
   const pick = (/** @type {string} */ id) => {
     const it = menu?.it;
@@ -128,6 +142,7 @@ export function Sidebar({ model, icons, tab, collapsed, mode, act }) {
       case 'cancelReady': act.cancelReady(line); break;
       case 'removeOne': act.cancel(line, { type: it.type }); break;
       case 'removeAll': act.cancel(line, { all: true }); break;
+      case 'info': setInfo(it); break;
       default: break;
     }
   };
@@ -154,7 +169,7 @@ export function Sidebar({ model, icons, tab, collapsed, mode, act }) {
     </div>
     <div class="bgrid" role="tabpanel">
       ${items.length ? items.map((it) => html`<${BuildIcon} key=${it.type} it=${it} line=${line} lineQueued=${model.tabs.find((t) => t.id === line)?.queued ?? 0} icon=${icons[it.type]} act=${act}
-        openMenu=${(/** @type {BuildItem} */ i) => { const opts = menuFor(i, line); if (opts.length) setMenu({ it: i, opts }); }} />`)
+        openMenu=${(/** @type {BuildItem} */ i) => setMenu({ it: i, opts: menuFor(i, line) })} openInfo=${setInfo} />`)
         : html`<p class="bgrid-empty">Nothing to build</p>`}
     </div>
     ${menu ? html`<div class="bmenu-backdrop" onPointerDown=${() => setMenu(null)}>
@@ -163,5 +178,6 @@ export function Sidebar({ model, icons, tab, collapsed, mode, act }) {
         ${menu.opts.map((o) => html`<button key=${o.id} class="cmd" onClick=${() => pick(o.id)}>${o.label}</button>`)}
       </div>
     </div>` : null}
+    ${info ? html`<${CodexCard} entry=${codexEntry(info.type, model.faction, info.cost)} icon=${icons[info.type]} close=${closeInfo} />` : null}
   </aside>`;
 }

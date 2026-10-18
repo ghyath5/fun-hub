@@ -219,6 +219,60 @@ html.too-small .card.too-small { display: grid; }
 .bmenu { padding: 10px; display: flex; flex-direction: column; gap: 8px; min-width: 180px; }
 .bmenu-title { font-weight: 600; letter-spacing: .06em; color: var(--accent); }
 
+/* Build icon ⓘ and the info card it opens (ui/codexCard.js) */
+.bcell { position: relative; width: 56px; line-height: 0; }
+.bcell > .bicon { display: block; line-height: 1.3; }
+.bicon-info {
+  position: absolute; left: 0; top: 0; width: 26px; height: 26px; padding: 0; z-index: 1;
+  background: transparent; border: 0; display: grid; place-items: start; touch-action: manipulation;
+}
+.bicon-info span {
+  display: block; width: 17px; height: 17px; margin: 3px 0 0 3px; border-radius: 50%;
+  background: rgba(14, 15, 11, .88); border: 1px solid var(--accent); color: var(--accent);
+  font: italic 700 12px/15px Georgia, "Times New Roman", serif; text-align: center;
+}
+.bicon-info:active span { background: var(--accent); color: #10120c; }
+.cx-backdrop { position: fixed; inset: 0; z-index: 45; background: rgba(10, 10, 8, .6); display: grid; place-items: center; padding: 8px; }
+.cx {
+  position: relative; width: min(680px, 100%); max-height: calc(100dvh - 16px); overflow-y: auto; overscroll-behavior: contain;
+  padding: 12px 14px 14px; background: var(--panel-solid); border-top: 3px solid var(--accent); scrollbar-width: thin;
+}
+.cx-close { position: absolute; right: 6px; top: 6px; width: 36px; height: 36px; background: transparent; color: var(--ink); border: 1px solid var(--rule); font-size: 16px; }
+.cx-head { display: flex; gap: 12px; align-items: center; padding-right: 40px; margin-bottom: 8px; }
+.cx-icon { width: 64px; height: 64px; flex: none; background: #23261c; border: 1px solid var(--rule); }
+.cx-head h2 { margin: 0; font-size: 19px; letter-spacing: .08em; text-transform: uppercase; }
+.cx-sub { color: var(--muted); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; }
+.cx-price { display: flex; gap: 12px; margin-top: 3px; font: 13px var(--mono); }
+.cx-cost { color: var(--accent); }
+.cx-time { color: var(--muted); }
+.cx-body { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; }
+@media (max-width: 520px) { .cx-body { grid-template-columns: 1fr; } }
+.cx-col { min-width: 0; }
+.cx-para { margin: 0 0 7px; font-size: 13px; line-height: 1.4; }
+.cx-para b { letter-spacing: .03em; }
+.cx-para.good b { color: var(--ok); }
+.cx-para.bad b { color: var(--danger); }
+.cx-para.muted-line { color: var(--muted); }
+.cx-traits { margin: 4px 0 0; padding-left: 16px; font-size: 12px; color: var(--muted); line-height: 1.45; }
+.cx-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; margin: 0 0 8px; }
+.cx-stats div { background: #0e0f0b; border: 1px solid var(--rule); padding: 3px 6px; min-width: 0; }
+.cx-stats dt { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.cx-stats dd { margin: 0; font: 600 13px/1.25 var(--mono); color: var(--ink); overflow-wrap: anywhere; }
+.cx-block { margin-bottom: 8px; }
+.cx-block h3 { margin: 0 0 4px; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
+.cx-weapon { border-left: 2px solid var(--rule); padding: 1px 0 2px 7px; margin-bottom: 5px; }
+.cx-weapon-name { font-weight: 600; font-size: 13px; }
+.cx-targets { font-weight: 400; font-size: 11px; color: var(--muted); }
+.cx-weapon-nums { display: flex; flex-wrap: wrap; gap: 2px 12px; font: 12px var(--mono); }
+.cx-weapon-nums i { font: normal 10px var(--font); color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.cx-weapon-notes { font-size: 11px; color: var(--muted); }
+.cx-bars { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
+.cx-bars li { display: grid; grid-template-columns: 92px 1fr 34px; gap: 6px; align-items: center; font-size: 12px; }
+.cx-bars li.none { color: var(--muted); }
+.cx-bar { height: 8px; background: #0e0f0b; border: 1px solid var(--rule); }
+.cx-bar span { display: block; height: 100%; background: var(--accent); }
+.cx-bar-num { font: 11px var(--mono); text-align: right; }
+
 /* Command bar sits between the minimap / groups and the sidebar */
 .cmdbar { left: calc(var(--mm) + 10px + var(--sal)); right: calc(var(--sb) + 6px + var(--sar)); transform: none; margin-inline: auto; max-width: calc(100% - var(--mm) - 16px - var(--sal) - var(--sb) - var(--sar)); }
 .sb-card { display: flex; align-items: center; gap: 8px; padding: 0 4px; min-height: 22px; }

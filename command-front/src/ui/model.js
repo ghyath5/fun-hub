@@ -57,7 +57,7 @@ export function roleName(role) {
 /**
  * Sidebar model: every tab with its badges and every visible item's state.
  * @param {any} w @param {number} pid
- * @returns {{ tabs: TabInfo[], items: Record<LineId, BuildItem[]> }}
+ * @returns {{ tabs: TabInfo[], items: Record<LineId, BuildItem[]>, faction: string }}
  */
 export function sidebarModel(w, pid) {
   const p = w.players[pid];
@@ -101,7 +101,7 @@ export function sidebarModel(w, pid) {
       queued: line.queue.length,
     };
   });
-  return { tabs, items: /** @type {Record<LineId, BuildItem[]>} */ (items) };
+  return { tabs, items: /** @type {Record<LineId, BuildItem[]>} */ (items), faction: p.faction };
 }
 
 /** Top-bar economy: credits, storage and power. @param {any} w @param {number} pid */

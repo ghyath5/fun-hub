@@ -1,7 +1,7 @@
 /* Command Front service worker: cache-first, versioned. Hand-maintained list —
    add every file the game loads; ?debug warns at startup about any that are missing.
    Bump CACHE whenever a listed file changes. */
-const CACHE = 'command-front-v25';
+const CACHE = 'command-front-v26';
 
 const PRECACHE = [
   './',
@@ -294,6 +294,7 @@ const PRECACHE = [
   './src/core/events.js',
   './src/core/fixed.js',
   './src/core/loop.js',
+  './src/data/codex.js',
   './src/data/countries.js',
   './src/data/credits.js',
   './src/data/factions.js',
@@ -403,6 +404,8 @@ const PRECACHE = [
   './src/ui/alerts.js',
   './src/ui/backGuard.js',
   './src/ui/battleEvents.js',
+  './src/ui/codex.js',
+  './src/ui/codexCard.js',
   './src/ui/commandBar.js',
   './src/ui/countryPicker.js',
   './src/ui/fit.js',
