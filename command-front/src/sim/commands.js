@@ -343,9 +343,9 @@ export function applyCommand(w, c) {
       for (const u of units) {
         if (!isAircraft(u)) continue;
         clearIntent(w, u);
-        if (pad && pad.kind === 'structure' && pad.owner === u.owner) {
-          const free = freePad(w, u);
-          if (free && free.id === pad.id) linkPad(w, u, pad);
+        if (pad && pad.kind === 'structure' && pad.owner === u.owner && pad.id !== u.pad) {
+          const free = freePad(w, u, pad);
+          if (free && free.pad.id === pad.id) linkPad(w, u, pad, free.slot);
         }
         returnToPad(w, u);
         ok = true;

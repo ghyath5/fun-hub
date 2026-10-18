@@ -27,7 +27,7 @@ export const renderResolution = (lowEnd) => Math.min(window.devicePixelRatio || 
 /**
  * @param {HTMLElement} host
  * @param {MapData} map
- * @param {{ lowEnd?: boolean }} [opts]
+ * @param {{ lowEnd?: boolean, faction?: string }} [opts]  faction: the viewer's, for faction-specific building looks
  */
 export async function createRenderer(host, map, opts = {}) {
   const app = new Application();
@@ -53,7 +53,7 @@ export async function createRenderer(host, map, opts = {}) {
   const units = createUnitLayer(app.renderer, art?.units);
   const fx = createFx();
   const combat = createCombatFx();
-  const placement = createPlacementOverlay(structures.textures);
+  const placement = createPlacementOverlay(structures.textures, opts.faction ?? '');
   const shroud = createShroudLayer(map);
   const overlay = new Container();
   const top = new Container();

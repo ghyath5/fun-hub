@@ -19,7 +19,7 @@ import { rolesOf, isActive, structureDef, structureReady, removeStructure, place
 import { spawnUnit, canEnter, vacate } from '../entities/units.js';
 import { checkPlacement, checkDeploy } from '../placement.js';
 import { setMove } from './movement.js';
-import { padRoleOf, padsOf, padTaken } from '../pads.js';
+import { findSlot, reservedSlots, slotCell, slotHolders, slotPoint } from '../pads.js';
 import { DIR8 } from '../../core/fixed.js';
 import { priceFor, clones } from '../bonuses.js';
 
@@ -59,11 +59,10 @@ export function lineFor(p, id) {
 /** Cost of an item for production and refunds (the Yard comes from an MCV). @param {string} type */
 export const costOf = (type) => (type === 'constructionYard' ? MCV_COST : itemDef(type).cost);
 
-/** A free pad of the right kind for an aircraft type, or null. @param {World} w @param {number} pid @param {string} type */
+/** A free, unclaimed parking slot for an aircraft type, or null. @param {World} w @param {number} pid @param {string} type */
 function freePad(w, pid, type) {
-  const reserved = new Set();
-  for (const item of lineFor(w.players[pid], 'aircraft').queue) if (item.pad) reserved.add(item.pad);
-  return padsOf(w, pid, padRoleOf(type)).find((e) => !padTaken(w, e) && !reserved.has(e.id)) ?? null;
+  lineFor(w.players[pid], 'aircraft');
+  return findSlot(w, pid, type, { reserved: reservedSlots(w, pid) });
 }
 
 /**
@@ -75,12 +74,17 @@ function deliver(w, pid, line, item) {
   const def = UNITS[item.type];
   if (def.line === 'aircraft') {
     const pad = item.pad ? w.entities.get(item.pad) : null;
-    if (!pad || !isActive(pad)) { item.pad = 0; return false; }
-    const u = spawnUnit(w, item.type, pid, pad.cx + (pad.w >> 1), pad.cy + (pad.h >> 1), { facing: 128, air: true });
+    if (!pad || !isActive(pad) || pad.owner !== pid) { item.pad = 0; return false; }
+    const slot = item.slot ?? 0;
+    const cell = slotCell(pad, slot);
+    const u = spawnUnit(w, item.type, pid, cell.x, cell.y, { facing: 128, air: true });
     if (!u) return false;
+    const at = slotPoint(pad, slot);
+    u.x = u.px = at.x;
+    u.y = u.py = at.y;
     u.landed = true;
     u.pad = pad.id;
-    pad.linked = u.id;
+    u.padSlot = slot;
     unitBuilt(w, pid, u, null);
     return true;
   }
@@ -181,11 +185,13 @@ function runLines(w, p) {
     if (n === 0) { line.hold = 'factory'; continue; }
     if (id === 'aircraft') {
       const pad = item.pad ? w.entities.get(item.pad) : null;
-      if (!pad || !isActive(pad)) {
+      if (!pad || !isActive(pad) || pad.owner !== p.id || slotHolders(w, pad)[item.slot ?? 0]) {
         item.pad = 0;
+        item.slot = 0;
         const free = freePad(w, p.id, item.type);
         if (!free) { line.hold = 'pad'; continue; }
-        item.pad = free.id;
+        item.pad = free.pad.id;
+        item.slot = free.slot;
       }
     }
     const cost = priceFor(w, p.id, item.type, costOf(item.type));

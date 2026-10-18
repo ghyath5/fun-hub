@@ -8,7 +8,7 @@ import { UNITS } from '../data/units.js';
 import { STRUCTURES } from '../data/structures.js';
 import { TECH_LEVEL_OF_ROLE, SUPPORT_POWER_TECH_LEVEL, LIMITS } from '../data/rules.js';
 import { rolesOf, isActive, structureDef } from './entities/structures.js';
-import { padAvailable } from './pads.js';
+import { padAvailable, padRolesOf } from './pads.js';
 import { priceFor } from './bonuses.js';
 
 /** @typedef {'structures' | 'defenses' | 'infantry' | 'vehicles' | 'aircraft' | 'naval'} LineId */
@@ -40,7 +40,7 @@ export function techLevelOf(type) {
 /** The roles a unit's line needs to be produced at, given the unit. @param {string} type */
 export function producerRoles(type) {
   const d = itemDef(type);
-  if (d.line === 'aircraft') return d.tags.includes('heli') ? ['helipad'] : ['airfield'];
+  if (d.line === 'aircraft') return padRolesOf(type);
   return FACTORY_ROLES[/** @type {LineId} */ (d.line)];
 }
 

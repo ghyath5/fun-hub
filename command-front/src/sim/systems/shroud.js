@@ -7,6 +7,7 @@
  * one team record. Stealth (submerged submarines, Camo Pillboxes) is decided
  * here too, as a per-team detection bitmask on the entity.
  */
+import { disguiseMask, disguises } from '../unitPowers.js';
 import { SHROUD, SUBMARINE, SIM } from '../../data/rules.js';
 import { UNITS } from '../../data/units.js';
 import { structureDef, isActive } from '../entities/structures.js';
@@ -166,6 +167,8 @@ function detection(w) {
       }
       for (const p of w.players) if ((p.flags.sonarUntil ?? 0) > w.tick && (p.flags.sonarOn ?? -1) === e.owner) mask |= 1 << p.team;
       e.detect = mask;
+    } else if (disguises(e)) {
+      e.detect = e.inside ? ~0 : disguiseMask(w, e);
     } else if (e.kind === 'structure' && e.owner >= 0 && structureDef(e.type)?.tags.includes('camo')) {
       let mask = 0;
       if ((e.firedAt ?? -1e9) + afterFire > w.tick) mask = ~0;
@@ -183,7 +186,7 @@ function detection(w) {
 /** Is this entity hidden by stealth from player pid? @param {World} w @param {number} pid @param {any} e */
 export function stealthed(w, pid, e) {
   if (w.allied(e.owner, pid)) return false;
-  const stealthy = (e.kind === 'unit' && e.submerged) || (e.kind === 'structure' && e.detect !== undefined);
+  const stealthy = (e.kind === 'unit' && (e.submerged || (disguises(e) && e.detect !== undefined))) || (e.kind === 'structure' && e.detect !== undefined);
   if (!stealthy) return false;
   return !((e.detect ?? 0) & (1 << w.players[pid].team));
 }

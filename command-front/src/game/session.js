@@ -70,7 +70,7 @@ const portraitPhone = () => matchMedia('(orientation: portrait) and (pointer: co
  */
 export async function createSession({ world, human, hudEl, worldEl, audio, speed = 'normal', debug = false, hooks = {}, hint = null, leftHanded = false, net = null, edgePan = true }) {
   const map = world.map;
-  const view = await createRenderer(worldEl, map);
+  const view = await createRenderer(worldEl, map, { faction: world.players[human]?.faction ?? '' });
   const cam = view.camera;
   const me = world.players[human];
   const tint = PLAYER_COLORS[/** @type {keyof typeof PLAYER_COLORS} */ (me.color)].main;
@@ -619,7 +619,7 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
 
   // Icons are cut from baked art after the first frames, so the match appears at once.
   setTimeout(() => {
-    makeIcons(view.app.renderer, view.units.textures, view.structures.textures, tint)
+    makeIcons(view.app.renderer, view.units.textures, view.structures.textures, tint, world.players[human]?.faction ?? '')
       .then((icons) => store.set({ icons }))
       .catch((e) => console.warn('icons', e));
   }, 50);

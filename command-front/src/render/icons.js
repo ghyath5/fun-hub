@@ -69,12 +69,15 @@ function tile(a, w, h, ox, oy) {
  * @param {Map<string, any>} unitTex
  * @param {Map<string, any>} structTex
  * @param {number} tint
+ * @param {string} [faction]  the viewer's faction: its own building looks (`refinery@union`) make the icons
  * @returns {Promise<Record<string, string>>}
  */
-export async function makeIcons(renderer, unitTex, structTex, tint) {
+export async function makeIcons(renderer, unitTex, structTex, tint, faction = '') {
   /** @type {[string, Container][]} */
   const tiles = [];
-  for (const [type, t] of structTex) {
+  for (const [type, shared] of structTex) {
+    if (type.includes('@')) continue;
+    const t = structTex.get(`${type}@${faction}`) ?? shared;
     // Pre-rendered buildings: frame the whole image minus the shadow margin to the south-east.
     if (t.art) tiles.push([type, tile(art(t, tint, false), t.w - t.ox, t.h - t.oy, -t.ox, -t.oy)]);
     else tiles.push([type, tile(art(t, tint, false), t.w, t.h, 0, 0)]);

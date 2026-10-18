@@ -46,7 +46,8 @@ export function createStructureLayer(renderer, art = null) {
 
   /** @param {any} s @param {number} tint */
   function make(s, tint) {
-    const tex = /** @type {any} */ (textures.get(s.type));
+    // A faction's own look (`refinery@union`) wins over the shared one.
+    const tex = /** @type {any} */ (textures.get(`${s.type}@${s.faction}`) ?? textures.get(s.type));
     const root = new Container();
     const body = new Container();
     const paint = new Sprite(tex.paint);

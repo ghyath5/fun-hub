@@ -31,7 +31,7 @@ export const CONTEXT_RULES = /** @type {ContextRule[]} */ ([
   // Passengers tap their own transport.
   { command: 'load', who: (u) => UNITS[u.type].loco !== 'air', on: (w, u, t) => own(u, t) && t.kind === 'unit' && slotsFor(t, u) > 0 && (canBoard(w, t, u) || UNITS[t.type].loco === 'air') },
   // Aircraft tap their own pad to go home.
-  { command: 'returnPad', who: isAircraft, on: (w, u, t) => own(u, t) && t.kind === 'structure' && ['helipad', 'airfield'].includes(role(t)) && (t.id === u.pad || freePad(w, u)?.id === t.id) },
+  { command: 'returnPad', who: isAircraft, on: (w, u, t) => own(u, t) && t.kind === 'structure' && ['helipad', 'airfield'].includes(role(t)) && (t.id === u.pad || freePad(w, u, t)?.pad.id === t.id) },
 ]);
 
 /** Register more rules (specialists, transports and aircraft add theirs). @param {ContextRule[]} rules */
