@@ -54,6 +54,13 @@ export const UNITS = Object.freeze({
   marksman:      u({ id: 'marksman', name: 'Marksman', faction: 'coalition', line: INF, cost: 600, hp: 60, armor: 'none', loco: 'foot', speed: 1.0, sight: 7, weapons: ['sniper'], requires: ['barracks', 'radar'] }),
   shockTrooper:  u({ id: 'shockTrooper', name: 'Shock Trooper', faction: 'union', line: INF, cost: 600, hp: 120, armor: 'none', loco: 'foot', speed: 0.8, sight: 4, weapons: ['shockBolt'], requires: ['barracks', 'radar'] }),
   flakTrooper:   u({ id: 'flakTrooper', name: 'Flak Trooper', faction: 'union', line: INF, cost: 300, hp: 50, armor: 'none', loco: 'foot', speed: 1.0, sight: 5, weapons: ['flakGun', 'rifle'], requires: ['barracks'], tags: ['antiAir'] }),
+  seal:          u({ id: 'seal', name: 'Navy SEAL', faction: 'coalition', line: INF, cost: 1000, hp: 125, armor: 'none', loco: 'foot', speed: 1.1, sight: 6, weapons: ['sealSmg'], requires: ['barracks', 'tech'], tags: ['c4'] }),
+  chronoTrooper: u({ id: 'chronoTrooper', name: 'Chrono Legionnaire', faction: 'coalition', line: INF, cost: 1500, hp: 75, armor: 'none', loco: 'foot', speed: 1.0, sight: 6, weapons: ['chronoRay'], requires: ['barracks', 'tech'] }),
+  rocketeer:     u({ id: 'rocketeer', name: 'Rocketeer', faction: 'coalition', line: INF, cost: 600, hp: 100, armor: 'light', loco: 'air', speed: 2.4, sight: 6, weapons: ['rocketeerGun'], requires: ['barracks', 'airfield'], tags: ['jumpjet'] }),
+  desolator:     u({ id: 'desolator', name: 'Desolator', faction: 'union', line: INF, cost: 600, hp: 150, armor: 'none', loco: 'foot', speed: 0.8, sight: 5, weapons: ['radBeam'], requires: ['barracks', 'radar'] }),
+  ivan:          u({ id: 'ivan', name: 'Crazy Ivan', faction: 'union', line: INF, cost: 600, hp: 75, armor: 'none', loco: 'foot', speed: 1.0, sight: 4, weapons: ['ivanBomb'], requires: ['barracks', 'radar'] }),
+  psiCommander:  u({ id: 'psiCommander', name: 'Psi Commander', faction: 'union', line: INF, cost: 1200, hp: 100, armor: 'none', loco: 'foot', speed: 0.9, sight: 6, weapons: ['mindControl'], requires: ['barracks', 'tech'], limit: 1, tags: ['psi'] }),
+  hero:          u({ id: 'hero', name: 'War Hero', faction: 'union', line: INF, cost: 1500, hp: 200, armor: 'none', loco: 'foot', speed: 1.2, sight: 6, weapons: ['heroRifle'], requires: ['barracks', 'tech'], limit: 1, tags: ['c4'] }),
   commando:      u({ id: 'commando', name: 'Commando', faction: 'coalition', line: INF, cost: 1200, hp: 100, armor: 'none', loco: 'foot', speed: 1.3, sight: 6, weapons: ['sniper'], requires: ['barracks', 'tech'], limit: 1, tags: ['c4'] }),
 
   // Vehicles
@@ -73,6 +80,12 @@ export const UNITS = Object.freeze({
   arcTank:       u({ id: 'arcTank', name: 'Arc Tank', faction: 'union', line: VEH, cost: 1100, hp: 350, armor: 'heavy', loco: 'track', speed: 1.7, sight: 5, weapons: ['arcCannon'], turret: true, crusher: 'infantry', requires: ['factory', 'radar'] }),
   heavyTank:     u({ id: 'heavyTank', name: 'Heavy Tank', faction: 'union', line: VEH, cost: 900, hp: 450, armor: 'heavy', loco: 'track', speed: 1.5, sight: 5, weapons: ['twin105'], turret: true, crusher: 'infantry', requires: ['factory'] }),
   titanTank:     u({ id: 'titanTank', name: 'Titan Tank', faction: 'union', line: VEH, cost: 1700, hp: 600, armor: 'heavy', loco: 'track', speed: 0.9, sight: 6, weapons: ['twin120', 'titanMissiles'], turret: true, crusher: 'sandbags', turnRate: TURN_RATE.heavy, requires: ['factory', 'tech'], slots: 2, tags: ['selfRepair'] }),
+  tankDestroyer: u({ id: 'tankDestroyer', name: 'Tank Destroyer', faction: 'coalition', line: VEH, cost: 900, hp: 400, armor: 'heavy', loco: 'track', speed: 1.6, sight: 5, weapons: ['tdCannon'], crusher: 'infantry', requires: ['factory', 'radar'] }),
+  mirageTank:    u({ id: 'mirageTank', name: 'Mirage Tank', faction: 'coalition', line: VEH, cost: 1000, hp: 200, armor: 'heavy', loco: 'track', speed: 2.0, sight: 6, weapons: ['mirageGun'], turret: true, crusher: 'infantry', requires: ['factory', 'tech'], tags: ['disguise'] }),
+  robotTank:     u({ id: 'robotTank', name: 'Robot Tank', faction: 'coalition', line: VEH, cost: 600, hp: 200, armor: 'heavy', loco: 'track', speed: 2.4, sight: 5, weapons: ['robotGun'], turret: true, requires: ['factory', 'radar'], tags: ['mindImmune'] }),
+  battleFortress: u({ id: 'battleFortress', name: 'Battle Fortress', faction: 'coalition', line: VEH, cost: 2000, hp: 800, armor: 'heavy', loco: 'track', speed: 1.1, sight: 6, weapons: ['fortressGuns'], turret: true, crusher: 'sandbags', turnRate: TURN_RATE.heavy, requires: ['factory', 'tech'], capacity: 5, slots: 2, tags: ['transport'] }),
+  terrorDrone:   u({ id: 'terrorDrone', name: 'Terror Drone', faction: 'union', line: VEH, cost: 500, hp: 60, armor: 'light', loco: 'wheel', speed: 3.2, sight: 5, weapons: ['droneClaws'], requires: ['factory'], tags: ['mindImmune'] }),
+  demoTruck:     u({ id: 'demoTruck', name: 'Demolition Truck', faction: 'union', line: VEH, cost: 1500, hp: 150, armor: 'light', loco: 'wheel', speed: 1.8, sight: 5, weapons: ['demoCharge'], requires: ['factory', 'tech'], tags: ['kamikaze', 'demolition', 'noAutoAcquire'] }),
   ballisticLauncher: u({ id: 'ballisticLauncher', name: 'Ballistic Launcher', faction: 'union', line: VEH, cost: 1100, hp: 150, armor: 'light', loco: 'wheel', speed: 1.4, sight: 5, weapons: ['ballistic'], requires: ['factory', 'radar'], tags: ['artillery'] }),
 
   // Aircraft
@@ -81,6 +94,12 @@ export const UNITS = Object.freeze({
   attackPlane:   u({ id: 'attackPlane', name: 'Attack Plane', faction: 'union', line: AIR, cost: 800, hp: 60, armor: 'light', loco: 'air', speed: 6.0, sight: 2, weapons: ['planeChaingun'], requires: ['airfield'], tags: ['plane', 'noRally'] }),
   strikeJet:     u({ id: 'strikeJet', name: 'Strike Jet', faction: 'union', line: AIR, cost: 1000, hp: 70, armor: 'light', loco: 'air', speed: 7.0, sight: 2, weapons: ['jetMissiles'], requires: ['airfield'], tags: ['plane', 'antiAir', 'noRally'] }),
 
+  siegeChopper:  u({ id: 'siegeChopper', name: 'Siege Chopper', faction: 'union', line: AIR, cost: 1100, hp: 300, armor: 'light', loco: 'air', speed: 3.2, sight: 6, weapons: ['chopperCannon'], requires: ['airfield'], tags: ['heli', 'noRally'] }),
+  migFighter:    u({ id: 'migFighter', name: 'MiG Fighter', faction: 'union', line: AIR, cost: 1100, hp: 120, armor: 'light', loco: 'air', speed: 7.0, sight: 3, weapons: ['migMissiles'], requires: ['airfield'], tags: ['plane', 'antiAir', 'noRally'] }),
+  migInterceptor: u({ id: 'migInterceptor', name: 'MiG Interceptor', faction: 'union', line: AIR, cost: 900, hp: 100, armor: 'light', loco: 'air', speed: 8.0, sight: 4, weapons: ['interceptorAa'], requires: ['airfield'], tags: ['plane', 'antiAir', 'noRally'] }),
+  migBomber:     u({ id: 'migBomber', name: 'MiG Bomber', faction: 'union', line: AIR, cost: 1500, hp: 220, armor: 'light', loco: 'air', speed: 5.5, sight: 2, weapons: ['migBombs'], requires: ['airfield', 'tech'], tags: ['plane', 'noRally'] }),
+  harrier:       u({ id: 'harrier', name: 'Harrier', faction: 'coalition', line: AIR, cost: 1200, hp: 150, armor: 'light', loco: 'air', speed: 6.5, sight: 3, weapons: ['harrierMissiles'], requires: ['airfield'], tags: ['plane', 'noRally'] }),
+  eagleJet:      u({ id: 'eagleJet', name: 'Eagle Strike Jet', faction: 'coalition', line: AIR, cost: 1500, hp: 200, armor: 'light', loco: 'air', speed: 7.5, sight: 3, weapons: ['eagleBomb'], requires: ['airfield', 'tech'], tags: ['plane', 'noRally'] }),
   siegeAirship:  u({ id: 'siegeAirship', name: 'Siege Airship', faction: 'union', line: AIR, cost: 2000, hp: 800, armor: 'heavy', loco: 'air', speed: 0.8, sight: 5, weapons: ['airshipBombs'], requires: ['airfield', 'tech'], pad: 'airfield', tags: ['heli', 'airship', 'noRally'] }),
 
   // Ships

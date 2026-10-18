@@ -52,6 +52,25 @@ const BASE = './assets/art/';
 /** @type {Promise<{ json: any, blobs: Blob[], groundBlobs: Blob[] } | null> | null} */
 let download = null;
 
+/**
+ * How much of the atlas resolution to keep on the GPU (1 = all of it). Every
+ * page is 2048² RGBA (16 MB, 21 MB with mipmaps), so phones and low-memory
+ * devices decode the pages smaller: ¾ keeps sprites sharp at normal zoom
+ * for 56% of the memory, ½ for 25%. `?art=low|medium|full` overrides.
+ */
+export function artScale() {
+  const want = new URLSearchParams(location.search).get('art');
+  if (want === 'low') return 0.5;
+  if (want === 'medium') return 0.75;
+  if (want === 'full') return 1;
+  const nav = /** @type {any} */ (navigator);
+  const memory = nav.deviceMemory ?? 8; // GB (Chromium only; others report nothing)
+  if (memory <= 2) return 0.5;
+  const phone = matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 820;
+  if (memory <= 4 || phone) return 0.75;
+  return 1;
+}
+
 /** Fetch the atlas index and pages once (the service worker keeps them offline). */
 function fetchArt() {
   download ??= (async () => {
@@ -87,16 +106,31 @@ export async function loadArt() {
   const res = json.pxPerCell / json.cellPx; // atlas px per world px
   const gj = json.terrain?.ground;
   const gres = gj ? gj.pxPerCell / json.cellPx : 1;
+  const scale = artScale();
   /** @param {Blob} b @param {number} resolution */
   // WebGL ignores its premultiply-on-upload flag for ImageBitmaps, so the
-  // bitmap is premultiplied as it is decoded and declared as such.
-  const source = async (b, resolution) => new ImageSource({
-    resource: await createImageBitmap(b, { premultiplyAlpha: 'premultiply' }),
-    resolution,
-    autoGenerateMipmaps: true,
-    scaleMode: 'linear',
-    alphaMode: 'premultiplied-alpha',
-  });
+  // bitmap is premultiplied as it is decoded and declared as such. On small
+  // devices it is also scaled down while decoding (artScale), so the full
+  // size never reaches the GPU; frames are cut in atlas pixels / resolution,
+  // so the scale only changes `resolution`.
+  const source = async (b, resolution) => {
+    let bitmap = await createImageBitmap(b, { premultiplyAlpha: 'premultiply' });
+    if (scale < 1) {
+      const full = bitmap;
+      bitmap = await createImageBitmap(full, {
+        premultiplyAlpha: 'premultiply', resizeQuality: 'high',
+        resizeWidth: Math.round(full.width * scale), resizeHeight: Math.round(full.height * scale),
+      });
+      full.close();
+    }
+    return new ImageSource({
+      resource: bitmap,
+      resolution: resolution * scale,
+      autoGenerateMipmaps: true,
+      scaleMode: 'linear',
+      alphaMode: 'premultiplied-alpha',
+    });
+  };
   let sources;
   let groundSources;
   try {

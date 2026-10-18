@@ -86,6 +86,9 @@ function weaponLine(w) {
   const heal = w.damage < 0;
   /** @type {string[]} */
   const notes = [];
+  if (w.effect === 'mindControl') notes.push('takes control of the target instead of damaging it');
+  if (w.warhead === 'Drone') notes.push('vehicles only');
+  if (w.warhead === 'Rad') notes.push('deadly to infantry, weak against armour');
   if (w.splash) notes.push(`splash ${num(w.splash)} cells`);
   if (w.minRange) notes.push(`not closer than ${num(w.minRange)} cells`);
   if (w.ammo) notes.push(`${w.ammo} shots, then rearms`);
@@ -93,7 +96,7 @@ function weaponLine(w) {
   if (w.chargeUp) notes.push(`${num(w.chargeUp)} s to charge`);
   return {
     name: w.name,
-    damage: heal ? `heals ${-w.damage}` : w.burst > 1 ? `${w.damage} × ${w.burst}` : String(w.damage),
+    damage: heal ? `heals ${-w.damage}` : w.effect === 'mindControl' ? 'control' : w.burst > 1 ? `${w.damage} × ${w.burst}` : String(w.damage),
     every: `${num(w.cooldown)} s`,
     range: `${num(w.range)} cells`,
     targets: w.only ? ONLY_LABEL[w.only] ?? w.only : w.hits.map((/** @type {keyof typeof LAYER_LABEL} */ h) => LAYER_LABEL[h]).join(', '),
@@ -128,18 +131,26 @@ function unitTraits(d, faction) {
   if (d.tags.includes('detectsSubs')) t.push('Detects submerged submarines nearby');
   if (d.tags.includes('submarine')) t.push('Hidden underwater until it fires');
   if (d.limit) t.push(`Only ${d.limit} at a time`);
-  if (d.loco === 'air') t.push(`Needs its own free ${d.tags.includes('heli') && !d.pad ? 'Helipad' : 'Airfield'}; rearms and repairs there`);
+  if (d.tags.includes('jumpjet')) t.push('Flies over everything with a jetpack; only anti-air can hit it');
+  else if (d.loco === 'air') t.push(`Needs a free parking spot on ${d.tags.includes('heli') && !d.pad ? 'a Helipad or an Airfield (4 spots)' : 'an Airfield (4 spots)'}; rearms and repairs there`);
+  if (d.tags.includes('disguise')) t.push(`Hidden from enemies while it stands still, unless they come within ${SHROUD.camoRevealRadius} cells`);
+  if (d.tags.includes('psi')) t.push('Takes control of up to 3 enemy units; they return to their owners if he dies');
+  if (d.tags.includes('kamikaze')) t.push('Destroyed by its own blast');
+  if (d.tags.includes('demolition')) t.push('Explodes when destroyed, damaging everything nearby');
+  if (d.tags.includes('mindImmune')) t.push('Immune to mind control');
+  if (d.tags.includes('c4')) t.push('Plants C4 on enemy buildings');
   if (d.slots > 1) t.push('Takes two places in a transport');
   if (faction === 'union' && d.line === 'infantry' && !BONUSES.noClone.includes(d.id)) t.push('A Clone Lab trains a free twin');
   if (faction === 'union' && BONUSES.industryLines.includes(d.line)) t.push(`${Math.round((1 - BONUSES.industryCostFactor) * 100)}% cheaper with an Industrial Plant`);
   return t;
 }
 
-/** Traits of a building. @param {any} d */
-function structureTraits(d) {
+/** Traits of a building. @param {any} d @param {string} [faction]  the viewer's: support powers of the other side are left out */
+function structureTraits(d, faction) {
   const t = [];
   if (d.power > 0) t.push(`Produces ${d.power} power`);
   if (d.power < 0) t.push(`Uses ${-d.power} power`);
+  if (d.padSpots?.length > 1) t.push(`Parks, rearms and repairs ${d.padSpots.length} aircraft`);
   if (d.storage) t.push(`Stores $${d.storage.toLocaleString('en-US')} of ore money`);
   if (d.tags.includes('freeHarvester')) t.push('Comes with a free Harvester');
   if (d.tags.includes('limitOne')) t.push('Only one per player');
@@ -151,6 +162,7 @@ function structureTraits(d) {
   if (d.line === 'structures' && d.capturable && !d.wall) t.push('Enemy Engineers can capture it');
   for (const id of d.powers) {
     const p = SUPPORT_POWERS[/** @type {keyof typeof SUPPORT_POWERS} */ (id)];
+    if (faction && /** @type {any} */ (p).faction && /** @type {any} */ (p).faction !== faction) continue;
     t.push(`Support power: ${p.name}, ready every ${num(p.chargeSeconds / 60)} min`);
   }
   return t;
@@ -195,7 +207,7 @@ export function codexEntry(type, faction, price) {
     stats,
     weapons: weapons.map(weaponLine),
     effect: effectOf(weapons),
-    traits: unit ? unitTraits(unit, faction) : structureTraits(d),
+    traits: unit ? unitTraits(unit, faction) : structureTraits(d, faction),
     requires: d.requires.map((/** @type {string} */ r) => roleNames(r, faction)),
   };
 }

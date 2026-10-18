@@ -1,9 +1,9 @@
 // @ts-check
 /**
  * Aircraft (section 10), run in system 6 before units move. Every aircraft
- * is linked to one pad of its kind (Helipad for helicopters, Airfield for
- * planes); on it, it rearms 1 ammo per second and repairs 2% max HP per
- * second (charged like a Service Depot). Out of ammo, it flies home.
+ * is linked to one parking slot of a pad (a Helipad holds one helicopter, an
+ * Airfield four aircraft of any kind; see pads.js); there it rearms 1 ammo
+ * per second and repairs 2% max HP per second (charged like a Service Depot). Out of ammo, it flies home.
  * Helicopters hover; planes never stop: an attack flies passes over the
  * target, a move circles the spot for 30 s, then they return. A lost pad is
  * replaced by a free one; with none, helicopters land near the base and
@@ -14,9 +14,7 @@ import { UNITS } from '../data/units.js';
 import { WEAPONS } from '../data/weapons.js';
 import { ticks } from '../core/fixed.js';
 import { isActive, structureDef } from './entities/structures.js';
-import { padRoleOf, padsOf, padTaken } from './pads.js';
-
-export { padRoleOf };
+import { findSlot, reservedSlots, slotCell, slotPoint } from './pads.js';
 import { setMove } from './systems/movement.js';
 import { spend } from './formulas/economy.js';
 import { spiral } from './nav.js';
@@ -33,31 +31,39 @@ const OVERFLY = 3;
 const ORBIT = [[2, 0], [0, 2], [-2, 0], [0, -2]];
 
 const tagsOf = (/** @type {any} */ u) => UNITS[u.type].tags;
-export const isAircraft = (/** @type {any} */ u) => u.kind === 'unit' && UNITS[u.type].loco === 'air' && !tagsOf(u).includes('support');
+/** Aircraft that use pads: not support planes, and not jump-jet infantry (they fly like any foot soldier walks). */
+export const isAircraft = (/** @type {any} */ u) => u.kind === 'unit' && UNITS[u.type].loco === 'air' && !tagsOf(u).includes('support') && !tagsOf(u).includes('jumpjet');
 export const isHeli = (/** @type {any} */ u) => tagsOf(u).includes('heli');
 export const isPlane = (/** @type {any} */ u) => tagsOf(u).includes('plane');
-const padRole = (/** @type {any} */ u) => padRoleOf(u.type);
+/** Cell an aircraft parks on: its own slot of its pad. @param {any} pad @param {any} [u] */
+export const padCell = (pad, u) => slotCell(pad, u?.pad === pad.id ? u.padSlot ?? 0 : 0);
 
-/** Cell an aircraft parks on. @param {any} pad */
-export const padCell = (pad) => ({ x: pad.cx + (pad.w >> 1), y: pad.cy + (pad.h >> 1) });
-
-/** A free working pad of the right kind for an aircraft. @param {World} w @param {any} u */
-export function freePad(w, u) {
-  return padsOf(w, u.owner, padRole(u)).find((e) => !padTaken(w, e)) ?? null;
+/**
+ * A free parking slot for an aircraft (its current pad first, so a
+ * returnPad order to a pad with room keeps it there).
+ * @param {World} w @param {any} u @param {any} [prefer]
+ */
+export function freePad(w, u, prefer) {
+  return findSlot(w, u.owner, u.type, { prefer, reserved: reservedSlots(w, u.owner) });
 }
 
-/** Death hook: a destroyed aircraft lets go of its pad. @param {World} w @param {any} u */
-export function aircraftDied(w, u) {
-  const pad = u.pad ? w.entities.get(u.pad) : null;
-  if (pad && pad.linked === u.id) pad.linked = 0;
-}
+/** Death hook: nothing to release — a slot is free once its aircraft is gone (pads.js). @param {World} _w @param {any} _u */
+export function aircraftDied(_w, _u) {}
 
-/** Link an aircraft to a pad (and free its old one). @param {World} w @param {any} u @param {any} pad */
-export function linkPad(w, u, pad) {
-  const old = u.pad ? w.entities.get(u.pad) : null;
-  if (old && old.linked === u.id) old.linked = 0;
+/** Link an aircraft to a pad slot (its old slot frees itself). @param {World} _w @param {any} u @param {any} pad @param {number} [slot] */
+export function linkPad(_w, u, pad, slot = 0) {
   u.pad = pad ? pad.id : 0;
-  if (pad) pad.linked = u.id;
+  u.padSlot = pad ? slot : 0;
+}
+
+/** Set an aircraft down on its slot's exact spot. @param {any} u @param {any} pad */
+function park(u, pad) {
+  const p = slotPoint(pad, u.padSlot ?? 0);
+  u.x = p.x;
+  u.y = p.y;
+  u.landed = true;
+  u.task = null;
+  u.order = null;
 }
 
 /** Ammo-carrying weapons all empty? @param {any} u */
@@ -142,9 +148,10 @@ function stepAircraft(w, u) {
   // Pad upkeep: relink when it is gone.
   let pad = u.pad ? w.entities.get(u.pad) : null;
   if (!pad || pad.dead || pad.owner !== u.owner || !isActive(pad)) {
-    if (pad && !pad.dead) u.air.orphan = padCell(pad);
-    pad = freePad(w, u);
-    linkPad(w, u, pad);
+    if (pad && !pad.dead) u.air.orphan = padCell(pad, u);
+    const got = freePad(w, u);
+    pad = got?.pad ?? null;
+    linkPad(w, u, pad, got?.slot ?? 0);
     if (pad) { u.air.crashAt = 0; u.air.orphan = null; }
   }
   // Any order lifts it off.
@@ -161,8 +168,8 @@ function stepAircraft(w, u) {
 
   if (u.task?.type === 'returnPad') {
     if (pad) {
-      const c = padCell(pad);
-      if (u.cx === c.x && u.cy === c.y && !u.next) { u.landed = true; u.task = null; u.order = null; }
+      const c = padCell(pad, u);
+      if (u.cx === c.x && u.cy === c.y && !u.next) park(u, pad);
       else if (!u.order && !u.next) setMove(w, u, c.x, c.y, { auto: true });
     } else if (isHeli(u)) {
       const b = nearBase(w, u);
@@ -172,7 +179,7 @@ function stepAircraft(w, u) {
     } else u.task = null; // a plane with no pad circles (below)
   }
   if (u.landed) {
-    if (pad && u.cx === padCell(pad).x && u.cy === padCell(pad).y) service(w, u);
+    if (pad && u.cx === padCell(pad, u).x && u.cy === padCell(pad, u).y) service(w, u);
     return;
   }
   if (!isPlane(u)) return; // helicopters hover where they are

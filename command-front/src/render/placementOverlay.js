@@ -10,8 +10,11 @@ import { RENDER } from '../data/rules.js';
 const C = RENDER.cellPx;
 const COLORS = { ok: 0x7fd04a, amber: 0xe0a43a, red: 0xd0543a };
 
-/** @param {Map<string, any>} textures structure textures */
-export function createPlacementOverlay(textures) {
+/**
+ * @param {Map<string, any>} textures structure textures
+ * @param {string} [faction]  the viewer's faction, for faction-specific building looks
+ */
+export function createPlacementOverlay(textures, faction = '') {
   const layer = new Container();
   const area = new Graphics();
   const cells = new Graphics();
@@ -61,7 +64,7 @@ export function createPlacementOverlay(textures) {
       }
       if (p.type && p.type !== ghostType) {
         ghost.removeChildren().forEach((ch) => ch.destroy());
-        const tex = textures.get(p.type);
+        const tex = textures.get(`${p.type}@${faction}`) ?? textures.get(p.type);
         if (tex) {
           const paint = new Sprite(tex.paint);
           paint.tint = p.tint;

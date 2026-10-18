@@ -7,7 +7,7 @@
 /** @typedef {'coalition' | 'union'} FactionId */
 /** @typedef {FactionId | 'both'} FactionScope */
 /** @typedef {'none' | 'wood' | 'light' | 'heavy' | 'concrete'} ArmorId */
-/** @typedef {'SA' | 'HE' | 'AP' | 'Fire' | 'HollowPoint' | 'Arc' | 'Laser' | 'Bite'} WarheadId */
+/** @typedef {'SA' | 'HE' | 'AP' | 'Fire' | 'HollowPoint' | 'Arc' | 'Laser' | 'Bite' | 'Rad' | 'Chrono' | 'Psi' | 'Drone'} WarheadId */
 /** @typedef {'foot' | 'wheel' | 'track' | 'float' | 'air'} LocomotorId */
 /** @typedef {'G' | 'A' | 'N' | 'S'} HitLayer */
 /** @typedef {'structures' | 'defenses' | 'infantry' | 'vehicles' | 'aircraft' | 'naval'} LineId */
@@ -34,6 +34,7 @@
  * @property {number} leap          Melee leap distance, cells
  * @property {'infantry' | 'friendlyInfantry' | 'ships' | 'subs' | null} only
  * @property {boolean} powered      Needs the owner's full power to fire
+ * @property {'mindControl' | null} effect  Special effect on a direct hit instead of damage
  */
 
 /**
@@ -80,6 +81,7 @@
  * @property {{x: number, y: number} | null} exit   Cell relative to footprint origin
  * @property {{x: number, y: number} | null} dock
  * @property {{x: number, y: number} | null} pad
+ * @property {number[][]} [padSpots]  Aircraft pads: parking spots (one per aircraft), cells from the footprint corner
  * @property {string | null} weapon
  * @property {string[]} powers  Support powers granted (each gated by its own faction)
  * @property {boolean} wall

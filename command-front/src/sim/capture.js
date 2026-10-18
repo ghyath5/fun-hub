@@ -23,7 +23,6 @@ export function captureStructure(w, s, to) {
   s.selling = 0;
   s.dockQueue = [];
   s.docked = 0;
-  s.linked = 0;
   s.target = 0;
   for (const pid of [from, to]) {
     if (pid < 0) continue;

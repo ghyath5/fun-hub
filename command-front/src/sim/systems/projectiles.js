@@ -14,6 +14,7 @@ import { isqrt } from '../../core/fixed.js';
 import { damage, falloffPermille } from '../formulas/combat.js';
 import { armorOf, layerOf, isInfantryEntity, reachDist } from '../targeting.js';
 import { terrainImpact, scorchEarth } from '../terrainDamage.js';
+import { mindControl } from '../unitPowers.js';
 
 /** @typedef {import('../world.js').World} World */
 /** @typedef {import('./weapons.js').Projectile} Projectile */
@@ -46,7 +47,10 @@ export function detonate(w, p) {
   /** @param {any} victim @param {number} amount */
   const hit = (victim, amount) => w.damage.push({ victim: victim.id, amount, attacker: p.shooter, owner: p.owner });
 
-  if (!wd.warhead) {
+  if (wd.effect === 'mindControl') {
+    // No damage: a direct hit turns the target (unitPowers.js).
+    if (direct) mindControl(w, w.entities.get(p.shooter), direct);
+  } else if (!wd.warhead) {
     // Healing: a direct effect on its patient only.
     if (direct) hit(direct, wd.damage);
   } else {

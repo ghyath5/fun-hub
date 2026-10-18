@@ -17,8 +17,8 @@ export const BUILD_ORDER = Object.freeze({
   coalition: [
     { type: 'powerPlant' }, { type: 'barracks' }, { type: 'refinery' }, { type: 'powerPlant' }, { type: 'warFactory' },
     { type: 'refinery', minDifficulty: 'normal' }, { type: 'radarDome' }, { type: 'pillbox' }, { type: 'gunTurret' },
-    { type: 'advPowerPlant' }, { type: 'serviceDepot' }, { type: 'techCenter' }, { type: 'helipad' },
-    { type: 'navalYard', naval: true }, { type: 'advPowerPlant' }, { type: 'phaseShifter', minDifficulty: 'normal' },
+    { type: 'advPowerPlant' }, { type: 'serviceDepot' }, { type: 'techCenter' }, { type: 'airfield' },
+    { type: 'navalYard', naval: true }, { type: 'helipad', minDifficulty: 'hard' }, { type: 'advPowerPlant' }, { type: 'phaseShifter', minDifficulty: 'normal' },
     { type: 'refinery', minDifficulty: 'hard' }, { type: 'gunTurret' }, { type: 'aaGun' }, { type: 'beamTower', minDifficulty: 'normal' },
     { type: 'oreProcessor', minDifficulty: 'normal' }, { type: 'longGun', minDifficulty: 'normal' }, { type: 'stormGenerator', minDifficulty: 'hard' },
   ],
@@ -37,14 +37,14 @@ export const WAVES = Object.freeze({
   coalition: {
     beginner: { rifleman: 3, lightTank: 1 },
     easy: { lightTank: 2, rifleman: 4 },
-    normal: { mediumTank: 3, ifv: 2, lightTank: 1, artillery: 1, rifleman: 5, guardTrooper: 2 },
-    hard: { mediumTank: 4, laserTank: 2, ifv: 2, salvoLauncher: 2, rifleman: 5, guardTrooper: 2, marksman: 1, attackHeli: 1 },
+    normal: { mediumTank: 3, ifv: 2, tankDestroyer: 1, robotTank: 1, artillery: 1, rifleman: 5, guardTrooper: 2 },
+    hard: { mediumTank: 3, laserTank: 2, tankDestroyer: 2, mirageTank: 1, ifv: 2, salvoLauncher: 1, rifleman: 4, guardTrooper: 2, marksman: 1, chronoTrooper: 1, rocketeer: 2, attackHeli: 1, harrier: 1 },
   },
   union: {
     beginner: { rifleman: 3, flakTrack: 1 },
     easy: { heavyTank: 1, rifleman: 4, flameTrooper: 1 },
-    normal: { heavyTank: 3, rotaryTank: 2, ballisticLauncher: 1, rifleman: 5, flakTrooper: 2 },
-    hard: { heavyTank: 3, arcTank: 2, titanTank: 1, rotaryTank: 2, ballisticLauncher: 1, shockTrooper: 2, rifleman: 4, flameTrooper: 2, siegeAirship: 1 },
+    normal: { heavyTank: 3, rotaryTank: 2, terrorDrone: 2, ballisticLauncher: 1, rifleman: 4, flakTrooper: 2, desolator: 1 },
+    hard: { heavyTank: 3, arcTank: 2, titanTank: 1, rotaryTank: 2, terrorDrone: 2, ballisticLauncher: 1, shockTrooper: 2, desolator: 2, ivan: 1, rifleman: 3, siegeChopper: 1, migFighter: 1, siegeAirship: 1 },
   },
 });
 

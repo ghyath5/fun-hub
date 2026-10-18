@@ -15,7 +15,7 @@ import { occupyStructure } from '../sim/entities/structures.js';
 import { requestPath } from '../sim/systems/movement.js';
 
 /** Bumped whenever the snapshot layout changes; older saves are refused, never half-loaded. */
-export const SNAPSHOT_VERSION = 1;
+export const SNAPSHOT_VERSION = 2;
 
 /** @typedef {import('../sim/world.js').World} World */
 

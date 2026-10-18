@@ -251,6 +251,11 @@ export async function startApp({ hudEl, worldEl, screensEl, debug }) {
       act=${{ rematch: () => startFromForm(), menu }} />`);
   }
 
+  if (new URLSearchParams(location.search).has('showcase')) {
+    const { runShowcase } = await import('./showcase.js');
+    runShowcase({ hudEl, worldEl, screensEl, audio, mode: new URLSearchParams(location.search).get('showcase') ?? '' }).catch((e) => console.error(e));
+    return { get session() { return session; }, startFromForm, menu };
+  }
   if (new URLSearchParams(location.search).has('bench')) {
     const { runBenchmark } = await import('./bench.js');
     const secs = Number(new URLSearchParams(location.search).get('bench')) || undefined;

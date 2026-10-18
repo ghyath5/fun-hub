@@ -169,9 +169,10 @@ const fallback = (/** @type {Layers} */ b) => { b.paint.rect(-6, -6, 12, 12).fil
  * Bake every unit type once. The invisible square fixes each texture's bounds
  * so its centre is the unit's centre.
  * @param {import('pixi.js').Renderer} renderer
+ * @param {string[]} [only]  bake just these types (the rest come from the atlas)
  * @returns {Map<string, UnitTextures>}
  */
-export function bakeUnits(renderer) {
+export function bakeUnits(renderer, only) {
   const HALF = 24;
   const bake = (/** @type {Graphics} */ g) => {
     g.rect(-HALF, -HALF, HALF * 2, HALF * 2).fill({ color: 0, alpha: 0.001 });
@@ -183,6 +184,7 @@ export function bakeUnits(renderer) {
   /** @type {Map<string, UnitTextures>} */
   const out = new Map();
   for (const def of Object.values(UNITS)) {
+    if (only && !only.includes(def.id)) continue;
     const body = layers();
     const turret = def.turret ? layers() : null;
     (KITS[def.id] ?? fallback)(body, turret);

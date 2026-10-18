@@ -1,0 +1,8 @@
+{
+  "name": "command-front-glb-bake",
+  "private": true,
+  "type": "module",
+  "description": "Offline studio: renders GLB and procedural 3D models into Command Front's sprite atlas.",
+  "scripts": { "bake": "node bake.mjs" },
+  "dependencies": { "three": "0.169.0", "playwright-core": "1.56.0" }
+}

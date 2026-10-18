@@ -27,6 +27,13 @@ export const CODEX = Object.freeze({
   marksman: { about: 'Sniper with a long-range rifle that kills most infantry in one shot. Sees far.', bestFor: 'Picking off infantry and specialists from a safe distance.', weakTo: 'Any vehicle — his rifle cannot hurt them.' },
   shockTrooper: { about: 'Heavily protected soldier with an arc gun that hurts every kind of target equally.', bestFor: 'A tough all-rounder against infantry, vehicles and buildings alike.', weakTo: 'Splash damage and tanks that run infantry over; slow on foot.' },
   flakTrooper: { about: 'Soldier with a flak gun for aircraft and a rifle for ground targets.', bestFor: 'Protecting an infantry group from helicopters and planes.', weakTo: 'Tanks — his rifle barely scratches them.' },
+  seal: { about: 'Special-forces diver with a submachine gun and C4 charges.', bestFor: 'Raiding bases: he cuts down infantry and blows up buildings with C4.', weakTo: 'Tanks, Hounds and defenses.' },
+  chronoTrooper: { about: 'Soldier with a chrono ray that erases any ground target — infantry, tanks and buildings alike.', bestFor: 'Removing heavy tanks and defenses one at a time from range.', weakTo: 'Massed infantry and anything fast: the ray is slow to recharge.' },
+  rocketeer: { about: 'Flying soldier with a jetpack and twin guns. Only anti-air weapons can hit him.', bestFor: 'Hunting infantry and helicopters, and scouting over cliffs and water.', weakTo: 'Anti-air guns, Flak Troopers, IFVs and Rotary Tanks.' },
+  desolator: { about: 'Soldier with a radiation beam that kills infantry in groups.', bestFor: 'Holding chokepoints against infantry rushes.', weakTo: 'Tanks — radiation barely hurts armour.' },
+  ivan: { about: 'Demolition expert who hurls satchel bombs with a big blast.', bestFor: 'Wrecking buildings and defenses, and blowing up clumps of soldiers.', weakTo: 'Anything that outranges him: his bombs only reach 1.5 cells.' },
+  psiCommander: { about: 'Psychic who takes control of enemy units with his mind. Holds up to 3 at once; they go home if he dies. Only one at a time.', bestFor: 'Stealing the enemy\'s best tanks and turning them on their own army.', weakTo: 'Robot Tanks and Terror Drones (no mind to take), aircraft, and anything that kills him first.' },
+  hero: { about: 'Union war hero: a heavy rifle that shreds infantry, and C4 for buildings. Only one at a time.', bestFor: 'Leading raids into the enemy base.', weakTo: 'Tanks, Hounds and defenses.' },
   commando: { about: 'Elite soldier: a long-range rifle that kills infantry in one shot, and C4 that destroys any enemy building 3 s after he plants it. Only one at a time.', bestFor: 'Raids — slip into the enemy base and blow up key buildings one by one.', weakTo: 'Vehicles, defenses and Hounds. An Aegis Field stops his C4.' },
 
   // ── Vehicles ──────────────────────────────────────────────
@@ -46,6 +53,12 @@ export const CODEX = Object.freeze({
   arcTank: { about: 'Tank with an arc cannon that does full damage to every kind of target.', bestFor: 'Breaking through mixed armies and defenses.', weakTo: 'Anti-tank infantry in numbers and air attack; slow to reload.' },
   heavyTank: { about: 'The Union\'s main battle tank: twin 105 mm guns and thick armour.', bestFor: 'Winning tank battles head-on.', weakTo: 'Anti-tank infantry in numbers, air attack and artillery.' },
   titanTank: { about: 'Huge tank with twin 120 mm guns and missiles that also hit aircraft. Repairs itself when badly damaged. Crushes sandbag walls.', bestFor: 'Leading an assault — very hard to kill.', weakTo: 'Massed anti-tank weapons; very slow and expensive.' },
+  tankDestroyer: { about: 'Low tank hunter with a long fixed gun that hits armour very hard. No turret: it turns to aim.', bestFor: 'Ambushing and stopping tank columns.', weakTo: 'Infantry — its gun does little to soldiers.' },
+  mirageTank: { about: 'Tank that hides in plain sight: standing still, it cannot be seen until enemies come close. Fires explosive shells.', bestFor: 'Ambushes, guarding ore fields and surprise flanks.', weakTo: 'It shows itself when it moves or fires; light armour once found.' },
+  robotTank: { about: 'Fast remote-controlled tank with a quick cannon. Has no crew, so it cannot be mind-controlled.', bestFor: 'Cheap, fast armour and a counter to the Psi Commander.', weakTo: 'Heavier tanks and anti-tank infantry.' },
+  battleFortress: { about: 'Huge armoured carrier with guns all round. Carries 5 infantry and crushes walls.', bestFor: 'Spearheading an assault while carrying troops.', weakTo: 'Massed anti-tank weapons and air attack; slow and expensive.' },
+  terrorDrone: { about: 'Small fast robot spider that leaps onto vehicles and tears them apart from close up. Cannot hurt infantry or buildings.', bestFor: 'Swarming tanks and harvesters.', weakTo: 'Infantry and machine guns — it is fragile.' },
+  demoTruck: { about: 'Truck full of explosives. Drive it into the enemy: it blows up with a huge blast, and also explodes if destroyed.', bestFor: 'Destroying a group of buildings or a tank column in one blow.', weakTo: 'Being shot on the way — keep it away from your own army.' },
   ballisticLauncher: { about: 'Fires a single huge missile from very long range (not closer than 3 cells), with a long reload.', bestFor: 'Destroying buildings and defenses from outside their reach.', weakTo: 'Anything that reaches it — it is fragile.' },
 
   // ── Aircraft ──────────────────────────────────────────────
@@ -53,6 +66,12 @@ export const CODEX = Object.freeze({
   attackHeli: { about: 'Armoured helicopter with 6 rockets, rearmed on its Helipad.', bestFor: 'Hunting tanks and harvesters fast, anywhere on the map.', weakTo: 'Anti-air guns, SAM Sites, Rocket and Flak Troopers.' },
   attackPlane: { about: 'Fast plane with a chain gun (15 bursts) that strafes, then flies home to rearm.', bestFor: 'Quick strikes on infantry, light vehicles and harvesters.', weakTo: 'Anti-air — it is fragile.' },
   strikeJet: { about: 'Jet with 4 missiles that hit ground and air targets, then flies home to rearm.', bestFor: 'Hitting tanks and key targets, or shooting down enemy aircraft.', weakTo: 'Anti-air — it is fragile.' },
+  siegeChopper: { about: 'Armoured Union helicopter with a heavy cannon. Parks on an Airfield.', bestFor: 'Shelling tanks and defenses from the air.', weakTo: 'Anti-air guns, SAM Sites, Rocket and Flak Troopers.' },
+  migFighter: { about: 'MiG jet fighter with 4 pairs of missiles that hit ground and air targets.', bestFor: 'Fast strikes on tanks, and shooting down enemy aircraft.', weakTo: 'Anti-air — it is fragile.' },
+  migInterceptor: { about: 'Very fast MiG built only to shoot down aircraft, with 6 pairs of air-to-air missiles.', bestFor: 'Clearing the sky of helicopters, jets and airships.', weakTo: 'It cannot hit anything on the ground.' },
+  migBomber: { about: 'MiG bomber that drops 4 heavy bombs in one pass.', bestFor: 'Flattening defenses, buildings and clumped armies.', weakTo: 'Anti-air; it cannot hit aircraft.' },
+  harrier: { about: 'Coalition jump-jet with 2 heavy missiles per sortie.', bestFor: 'Picking off tanks, artillery and harvesters.', weakTo: 'Anti-air — it is fragile.' },
+  eagleJet: { about: 'Stealthy strike jet that drops one precision bomb that wrecks a building or a tank.', bestFor: 'Killing a key defense, power plant or superweapon.', weakTo: 'Anti-air; one bomb per trip.' },
   siegeAirship: { about: 'Slow, heavily armoured airship that drops big bombs straight down.', bestFor: 'Flattening bases and defenses that lack anti-air.', weakTo: 'Anti-air — it is too slow to escape. It cannot hit aircraft.' },
 
   // ── Ships ─────────────────────────────────────────────────
@@ -74,8 +93,8 @@ export const CODEX = Object.freeze({
   serviceDepot: { about: 'Repairs vehicles parked on it (for a fee) and reloads Mine Layers.', bestFor: 'Sending damaged tanks back to fight again. Also unlocks the MCV and Mine Layer.' },
   techCenter: { about: 'Unlocks the top units and buildings, and the Satellite Uplink, which reveals the whole map once.', bestFor: 'Late-game power: superweapons, Commando, Titan Tank, Cruiser and more. Uses a lot of power.' },
   kennel: { about: 'Breeds Hounds.', bestFor: 'Training Hounds to hunt infantry and Spies.' },
-  helipad: { about: 'Builds helicopters; each Helipad parks, rearms and repairs one.', bestFor: 'One pad per helicopter you want to keep.' },
-  airfield: { about: 'Builds planes and airships; each Airfield parks, rearms and repairs one. Gives the Spy Plane and Paradrop support powers.', bestFor: 'One airfield per aircraft you want to keep, plus scouting and surprise paratroopers.' },
+  helipad: { about: 'Builds helicopters; each Helipad parks, rearms and repairs one. Helicopters can also park on an Airfield.', bestFor: 'A cheap pad for one more helicopter.' },
+  airfield: { about: 'Air base with four parking spots: it builds, parks, rearms and repairs up to 4 aircraft — helicopters, MiGs, jets or airships. Gives the Union the Spy Plane and Paradrop support powers.', bestFor: 'Every air force: one Airfield keeps four aircraft flying.' },
   navalYard: { about: 'Builds ships. Must be built on water next to your base.', bestFor: 'Starting a navy on water maps.' },
   subPen: { about: 'Builds submarines and ships. Must be built on water next to your base.', bestFor: 'Starting a navy on water maps.' },
   phaseShifter: { about: 'Superweapon: teleports one of your vehicles to a spot you choose.', bestFor: 'Dropping a heavy tank or a Harvester where the enemy does not expect it.' },

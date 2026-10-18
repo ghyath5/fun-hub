@@ -1,7 +1,7 @@
 /* Command Front service worker: cache-first, versioned. Hand-maintained list —
    add every file the game loads; ?debug warns at startup about any that are missing.
    Bump CACHE whenever a listed file changes. */
-const CACHE = 'command-front-v27';
+const CACHE = 'command-front-v28';
 
 const PRECACHE = [
   './',
@@ -13,6 +13,7 @@ const PRECACHE = [
   './assets/art/atlas-2.webp',
   './assets/art/atlas-3.webp',
   './assets/art/atlas-4.webp',
+  './assets/art/atlas-5.webp',
   './assets/art/atlas.json',
   './assets/art/ground-0.webp',
   './assets/art/ground-1.webp',
@@ -308,6 +309,7 @@ const PRECACHE = [
   './src/data/weapons.js',
   './src/game/app.js',
   './src/game/bench.js',
+  './src/game/showcase.js',
   './src/game/customSounds.js',
   './src/game/mapForForm.js',
   './src/game/matchSetup.js',
@@ -377,6 +379,7 @@ const PRECACHE = [
   './src/sim/naval.js',
   './src/sim/occupancy.js',
   './src/sim/pads.js',
+  './src/sim/unitPowers.js',
   './src/sim/placement.js',
   './src/sim/players.js',
   './src/sim/setup.js',

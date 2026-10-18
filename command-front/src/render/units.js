@@ -54,8 +54,11 @@ function layered(t, tint) {
  * @param {Map<string, import('./art.js').UnitArt> | null} [art]  pre-rendered art; code-drawn when absent
  */
 export function createUnitLayer(renderer, art = null) {
+  // Pre-rendered art where the atlas has it; any type it lacks is drawn in code, so nothing is ever missing.
   /** @type {Map<string, any>} */
-  const textures = art ?? bakeUnits(renderer);
+  const textures = new Map(art ?? []);
+  const missing = Object.keys(UNITS).filter((id) => !textures.has(id));
+  if (missing.length) for (const [id, t] of bakeUnits(renderer, missing)) textures.set(id, t);
   const layer = new Container();
   layer.sortableChildren = true;
   const marks = new Graphics();
@@ -140,7 +143,9 @@ export function createUnitLayer(renderer, art = null) {
           views.set(e.id, v);
         }
         v.root.visible = true;
-        v.root.alpha = e.submerged ? 0.45 : 1;
+        // Submerged subs and disguised Mirage Tanks show see-through to their own side.
+        const hidden = e.submerged || (e.detect !== undefined && e.detect !== -1 && UNITS[e.type].tags.includes('disguise'));
+        v.root.alpha = hidden ? 0.45 : 1;
         const x = (e.px + (e.x - e.px) * alpha) * PX_PER_LEPTON;
         const y = (e.py + (e.y - e.py) * alpha) * PX_PER_LEPTON;
         v.root.position.set(x, y);

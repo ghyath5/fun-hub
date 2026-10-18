@@ -50,7 +50,9 @@ export const STRUCTURES = Object.freeze({
   techCenter:       s({ id: 'techCenter', name: 'Tech Center', role: 'tech', faction: 'both', cost: 1500, power: -200, hp: 600, w: 2, h: 2, requires: ['factory', 'radar'], powers: ['satelliteUplink'] }),
   kennel:           s({ id: 'kennel', name: 'Kennel', role: 'kennel', faction: 'union', cost: 200, power: -10, hp: 300, w: 1, h: 1, requires: ['barracks'], exit: { x: 0, y: 1 } }),
   helipad:          s({ id: 'helipad', name: 'Helipad', role: 'helipad', faction: 'coalition', cost: 1500, power: -10, hp: 800, w: 2, h: 2, requires: ['radar'], tags: ['pad'] }),
-  airfield:         s({ id: 'airfield', name: 'Airfield', role: 'airfield', faction: 'union', cost: 600, power: -20, hp: 1000, w: 3, h: 2, requires: ['radar'], powers: ['spyPlane', 'paradrop'], tags: ['pad'] }),
+  // Four parking spots: helicopters, MiGs, jets and the Siege Airship all park, rearm and repair here.
+  airfield:         s({ id: 'airfield', name: 'Airfield', role: 'airfield', faction: 'both', cost: 1000, power: -50, hp: 1200, w: 4, h: 3, requires: ['radar'], powers: ['spyPlane', 'paradrop'], tags: ['pad'],
+    padSpots: [[1, 0.95], [3, 0.95], [1, 2.1], [3, 2.1]] }),
   navalYard:        s({ id: 'navalYard', name: 'Naval Yard', role: 'navalyard', faction: 'coalition', cost: 650, power: -30, hp: 1000, w: 3, h: 3, requires: ['power'], water: true, exit: belowCentre(3, 3) }),
   subPen:           s({ id: 'subPen', name: 'Sub Pen', role: 'navalyard', faction: 'union', cost: 650, power: -30, hp: 1000, w: 3, h: 3, requires: ['power'], water: true, exit: belowCentre(3, 3) }),
   phaseShifter:     s({ id: 'phaseShifter', name: 'Phase Shifter', role: 'superA', faction: 'coalition', cost: 2800, power: -200, hp: 1000, w: 2, h: 2, requires: ['tech'], powers: ['phaseShift'], tags: ['limitOne'] }),

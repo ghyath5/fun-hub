@@ -26,6 +26,7 @@ import { createVision, installShroud, shroudSystem, visionDigest } from './syste
 import { createBridges } from './terrainDamage.js';
 import { transportDied } from './transports.js';
 import { aircraftDied } from './air.js';
+import { unitPowerDied } from './unitPowers.js';
 import { supportPowerSystem } from './systems/supportPowers.js';
 import { aiSystem } from './systems/ai.js';
 import { victorySystem } from './systems/victory.js';
@@ -97,6 +98,7 @@ export function createWorld({ map, seed, players, settings }) {
       (/** @type {any} */ w, /** @type {any} */ u) => { harvesterDied(w, u); },
       (/** @type {any} */ w, /** @type {any} */ u) => { transportDied(w, u, killUnit); },
       (/** @type {any} */ w, /** @type {any} */ u) => { aircraftDied(w, u); },
+      (/** @type {any} */ w, /** @type {any} */ u) => { unitPowerDied(w, u); },
     ]),
     /** Can player `pid` see entity `e`? Replaced by the shroud system (milestone 6). */
     visibleTo: (/** @type {number} */ pid, /** @type {any} */ e) => true,

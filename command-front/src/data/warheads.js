@@ -12,6 +12,14 @@ export const WARHEADS = {
   Arc:         { none: 100, wood: 100, light: 100, heavy: 100, concrete: 100 },
   Laser:       { none: 80,  wood: 100, light: 80,  heavy: 60,  concrete: 80 },
   Bite:        { none: 100, wood: 0,   light: 0,   heavy: 0,   concrete: 0 },
+  // Radiation: deadly to infantry, little use against anything with armour.
+  Rad:         { none: 140, wood: 15,  light: 25,  heavy: 10,  concrete: 10 },
+  // Chrono ray: erases anything, buildings more slowly.
+  Chrono:      { none: 100, wood: 70,  light: 100, heavy: 100, concrete: 50 },
+  // Mind control: living crews only (no buildings); the weapon does no damage.
+  Psi:         { none: 100, wood: 0,   light: 100, heavy: 100, concrete: 0 },
+  // Terror Drone claws: vehicles only.
+  Drone:       { none: 0,   wood: 0,   light: 100, heavy: 100, concrete: 0 },
 };
 
 /** Warheads whose damage prone infantry halve (section 9). */

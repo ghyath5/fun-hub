@@ -14,6 +14,15 @@ const MAX_PARTICLES = 500;
 const SCORCH_MS = 20000;
 
 /** Visual family of a weapon. @param {string} id */
+/** Beam colours by warhead. */
+const BEAMS = /** @type {Record<string, { color: number, ms: number, width: number, jagged: boolean }>} */ ({
+  Arc: { color: 0x9fd8ff, ms: 180, width: 2, jagged: true },
+  Laser: { color: 0xfff4d8, ms: 240, width: 2.6, jagged: false },
+  Rad: { color: 0x9cff4a, ms: 320, width: 3, jagged: false },
+  Chrono: { color: 0x7fe9ff, ms: 300, width: 2.4, jagged: false },
+  Psi: { color: 0xc58aff, ms: 260, width: 1.8, jagged: true },
+});
+
 export function lookOf(id) {
   const w = WEAPONS[id];
   if (!w.warhead) return 'heal';
@@ -96,9 +105,10 @@ export function createCombatFx() {
           lines.push({ x0: mx, y0: my, x1, y1, t0: now, ms: look === 'snipe' ? 140 : 70, color: look === 'snipe' ? 0xf4f4ea : 0xffe08a, width: look === 'snipe' ? 1 : 0.8, jagged: false });
           add({ x: mx, y: my, max: 60, color: 0xfff1c0, size: 1.6 });
         } else if (look === 'beam') {
-          // Arc weapons crackle; lasers are a straight, hotter beam.
-          const arc = WEAPONS[d.weapon].warhead === 'Arc';
-          lines.push({ x0, y0, x1, y1, t0: now, ms: arc ? 180 : 240, color: arc ? 0x9fd8ff : 0xfff4d8, width: arc ? 2 : 2.6, jagged: arc });
+          // Arc and psychic beams crackle; lasers, radiation and chrono rays are straight.
+          const wh = WEAPONS[d.weapon].warhead ?? '';
+          const style = BEAMS[wh] ?? BEAMS.Laser;
+          lines.push({ x0, y0, x1, y1, t0: now, ms: style.ms, color: style.color, width: style.width, jagged: style.jagged });
         } else if (look === 'flame') {
           for (let k = 0; k < 12; k++) {
             const f = Math.random();

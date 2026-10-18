@@ -14,6 +14,7 @@ import { isqrt, facingOf, facingDelta, turnToward, ticks } from '../../core/fixe
 import { weaponCanHit, effectiveness, layerOf, reachDist, weaponsOf } from '../targeting.js';
 import { stepSubmarine, subReady } from '../naval.js';
 import { combatDef } from '../defs.js';
+import { afterFiring, canControlMore } from '../unitPowers.js';
 
 /** @typedef {import('../entities/units.js').Unit} Unit */
 /** @typedef {import('../world.js').World} World */
@@ -97,6 +98,7 @@ function launch(w, u, k, aim, d) {
   w.projectiles.push(p);
   if (u.sub) u.sub.lastShot = w.tick;
   if (u.kind === 'structure') u.firedAt = w.tick; // a Camo Pillbox shows itself for 3 s after firing
+  else afterFiring(w, u); // Mirage Tanks show themselves; kamikaze units go up with their shot
   w.events.emit('shot', w.tick, { shooter: u.id, weapon: id, x: u.x, y: u.y, tx, ty, projectile: p.id });
 }
 
@@ -149,6 +151,7 @@ function fireUnit(w, u) {
     const st = states[k];
     if (st.cd > 0 || st.burst > 0 || (wd.ammo > 0 && st.ammo <= 0)) continue;
     if (wd.powered && w.players[u.owner].power.low) continue; // Arc Tower, AA Gun, SAM Site go dark at low power
+    if (wd.effect === 'mindControl' && !canControlMore(w, u)) continue; // a Psi Commander's mind is full
     if (!canShoot(w, u, wd, aim, d)) continue;
     const eff = aim.e ? effectiveness(wd, aim.e) : wd.damage;
     if (eff > bestEff) { bestEff = eff; best = k; }
