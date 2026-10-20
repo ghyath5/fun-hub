@@ -137,6 +137,12 @@ html.too-small .card.too-small { display: grid; }
   border: 1px solid var(--rule); font: 700 14px var(--mono); touch-action: none;
 }
 .group.empty { opacity: .45; }
+.group-toggle {
+  width: 40px; height: 24px; padding: 0; background: rgba(27, 29, 22, .6); color: var(--muted);
+  border: 1px solid var(--rule); font: 700 16px var(--mono); line-height: 1;
+}
+.groups.collapsed .group-toggle { height: 40px; color: var(--ink); }
+.hud.left .group-toggle { transform: scaleX(-1); }
 .g-count { position: absolute; right: 2px; bottom: 1px; font: 10px var(--mono); color: var(--accent); }
 
 /* Info card for a tapped enemy */
@@ -361,6 +367,10 @@ html.too-small .card.too-small { display: grid; }
 .end-table tr.out td { opacity: .55; }
 .sheet-row { display: flex; gap: 10px; }
 .sheet-row .btn { flex: 1; }
+.speed-pick { display: flex; flex-direction: column; gap: 6px; }
+.speed-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.speed-row .btn.speed { flex: 1 1 30%; min-width: 0; padding-inline: 6px; font-size: 13px; }
+.speed-row .btn.speed.on { border-color: var(--accent); color: var(--accent); }
 .hint { position: absolute; left: 50%; transform: translateX(-50%); top: calc(84px + var(--sat)); padding: 8px 14px; color: var(--ink);
   border-left: 3px solid var(--ok); font: 600 14px var(--font); letter-spacing: .04em; animation: pulse 1.2s ease-in-out infinite alternate; }
 .watch-tag, .ended-tag { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(8px + var(--sab)); padding: 4px 4px 4px 12px; display: flex; align-items: center; gap: 8px; }
@@ -385,6 +395,8 @@ html.too-small .card.too-small { display: grid; }
   .screen.menu .menu-mark { font-size: 28px; }
   .groups { gap: 4px; }
   .group { width: 38px; height: 36px; }
+  .group-toggle { width: 38px; }
+  .groups.collapsed .group-toggle { height: 36px; }
 }
 
 /* Two phones: link status (src/ui/linkCard.js) */

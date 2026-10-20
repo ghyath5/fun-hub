@@ -34,7 +34,10 @@ export function createLoop(hooks, env = {}) {
    * @param {number} dtMs
    */
   function frame(dtMs) {
-    const step = 1000 / hooks.ticksPerSecond();
+    const tps = hooks.ticksPerSecond();
+    const step = 1000 / tps;
+    // Fast speeds need more ticks per frame on a 30–60 Hz screen; the cap still stops a death spiral.
+    const cap = Math.max(SIM.maxCatchUpTicks, Math.ceil(tps / 20));
     if (skipNext) {
       skipNext = false;
       dtMs = 0;
@@ -44,13 +47,13 @@ export function createLoop(hooks, env = {}) {
     } else {
       acc += dtMs;
       let n = 0;
-      while (acc >= step && n < SIM.maxCatchUpTicks) {
+      while (acc >= step && n < cap) {
         if (hooks.ready && !hooks.ready()) { acc = Math.min(acc, step); break; } // waiting: no burst when it clears
         hooks.tick();
         acc -= step;
         n++;
       }
-      if (n === SIM.maxCatchUpTicks && acc >= step) acc = 0; // drop backlog: no spiral of death
+      if (n === cap && acc >= step) acc = 0; // drop backlog: no spiral of death
     }
     hooks.render(Math.min(1, acc / step), dtMs);
   }

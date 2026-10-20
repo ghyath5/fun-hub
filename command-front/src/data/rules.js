@@ -10,7 +10,7 @@ export const SIM = Object.freeze({
   leptonsPerCell: 256,
   facings: 256,
   facingTolerance: 8,          // must face next cell / target within ±8
-  maxCatchUpTicks: 4,          // per rendered frame
+  maxCatchUpTicks: 4,          // per rendered frame (more at the fastest speeds: ticks per second / 20)
   hashEveryTicks: 60,
 });
 
@@ -19,6 +19,8 @@ export const GAME_SPEEDS = Object.freeze({
   normal: { name: 'Normal', ticksPerSecond: 15 },
   fast: { name: 'Fast', ticksPerSecond: 20 },
   fastest: { name: 'Fastest', ticksPerSecond: 30 },
+  veryFast: { name: 'Very fast', ticksPerSecond: 45 },
+  superFast: { name: 'Super fast', ticksPerSecond: 75 },
 });
 
 export const RENDER = Object.freeze({
@@ -79,7 +81,7 @@ export const PRODUCTION = Object.freeze({
   bonusPerExtraFactory: 0.4,
   bonusMaxFactories: 4,
   minBuildSeconds: 2,
-  queueMax: 10,
+  queueMax: 50,
   lineOrder: ['structures', 'defenses', 'infantry', 'vehicles', 'aircraft', 'naval'],
   cancelRefund: 1,
   exitBlockedSwitchSeconds: 3,
@@ -129,8 +131,16 @@ export const COMBAT = Object.freeze({
   titanSelfRepairPerSecond: 0.01,
   healthGreenAbove: 0.5,
   healthAmberAbove: 0.25,
-  // Target acquisition score (section 9)
-  score: { canDamageMe: 6, multiplierWeight: 3, structurePenalty: 4, uselessPenalty: 10, uselessBelow: 0.1, stickiness: 2 },
+  // Target acquisition score (section 9), in cells of distance each factor is worth:
+  //   inRange     something the unit can shoot right now beats chasing a "better" one
+  //   wounded     finish what is nearly dead (× the share of HP it has lost)
+  //   focus       join allies already firing at it (per ally, up to focusMax) …
+  //   overkill    … unless they will kill it anyway (their damage ≥ its HP × overkillAt)
+  //   attackingMe answer whoever is shooting at this unit
+  score: {
+    canDamageMe: 6, multiplierWeight: 3, structurePenalty: 4, uselessPenalty: 10, uselessBelow: 0.1, stickiness: 3,
+    inRange: 6, wounded: 3, focus: 0.8, focusMax: 3, overkill: 4, overkillAt: 1.3, attackingMe: 2,
+  },
 });
 
 export const SPECIALS = Object.freeze({
@@ -161,8 +171,12 @@ export const TRANSPORT = Object.freeze({
 });
 
 export const AIRCRAFT = Object.freeze({
-  planeCircleSeconds: 30,
+  planeCircleSeconds: 12,       // a plane sent somewhere circles there this long, then flies home
   orphanPlaneCrashSeconds: 60,
+  planeTurnRate: 8,             // facing units per tick: planes bank round in arcs, never on the spot
+  heliAlignBefore: 24,          // helicopters turn on the spot until within this of their heading, then fly
+  planeHuntCells: 2,            // a circling plane with ammo attacks enemies this far beyond its sight
+  planeRetargetCells: 4,        // its target gone, a plane with ammo left strikes another this close to it
 });
 
 export const SUBMARINE = Object.freeze({
@@ -211,7 +225,7 @@ export const MOVEMENT = Object.freeze({
 });
 
 export const LIMITS = Object.freeze({
-  unitsPerPlayer: 150,
+  unitsPerPlayer: 300,
 });
 
 export const VICTORY = Object.freeze({

@@ -4,12 +4,18 @@
  * is linked to one parking slot of a pad (a Helipad holds one helicopter, an
  * Airfield four aircraft of any kind; see pads.js); there it rearms 1 ammo
  * per second and repairs 2% max HP per second (charged like a Service Depot). Out of ammo, it flies home.
- * Helicopters hover; planes never stop: an attack flies passes over the
- * target, a move circles the spot for 30 s, then they return. A lost pad is
- * replaced by a free one; with none, helicopters land near the base and
- * planes circle the old pad for 60 s, then crash.
+ * Helicopters hover; planes never stop (movement.js flies them in arcs).
+ * Like Red Alert 2's jets, an attack is a run at the target: the plane
+ * fires as it lines up, overflies, loops round and comes again until its
+ * ammo is spent, then flies home to rearm; if the target dies first it
+ * strikes another enemy close by, or goes home. A move (or attack-move)
+ * circles the spot for a while — hunting what comes near while it has
+ * ammo — then returns. A lost pad is replaced by a free one; with none,
+ * helicopters land near the base and planes circle the old pad for 60 s,
+ * then crash.
  */
 import { AIRCRAFT, REPAIR, SIM } from '../data/rules.js';
+import { canAttack, autoTargetable, reachDist } from './targeting.js';
 import { UNITS } from '../data/units.js';
 import { WEAPONS } from '../data/weapons.js';
 import { ticks } from '../core/fixed.js';
@@ -25,10 +31,8 @@ const L = SIM.leptonsPerCell;
 const SECOND = ticks(1);
 const CIRCLE_TICKS = ticks(AIRCRAFT.planeCircleSeconds);
 const CRASH_TICKS = ticks(AIRCRAFT.orphanPlaneCrashSeconds);
-/** Planes overfly their target by this many cells before turning for the next pass. */
-const OVERFLY = 3;
-/** Corners of the square a circling plane flies round its point. */
-const ORBIT = [[2, 0], [0, 2], [-2, 0], [0, -2]];
+/** How close (leptons, each axis) a plane must pass over its parking spot to land on it. */
+const LAND_REACH = (L * 3) >> 2;
 
 const tagsOf = (/** @type {any} */ u) => UNITS[u.type].tags;
 /** Aircraft that use pads: not support planes, and not jump-jet infantry (they fly like any foot soldier walks). */
@@ -122,29 +126,70 @@ function nearBase(w, u) {
   return best ?? { x: u.cx, y: u.cy };
 }
 
-/** Keep a plane moving round a point. @param {World} w @param {any} u @param {{x: number, y: number}} c */
-function orbit(w, u, c) {
-  if (u.order || u.next) return;
-  const k = (u.air.orbit = ((u.air.orbit ?? -1) + 1) % ORBIT.length);
-  const x = Math.max(0, Math.min(w.map.width - 1, c.x + ORBIT[k][0]));
-  const y = Math.max(0, Math.min(w.map.height - 1, c.y + ORBIT[k][1]));
-  setMove(w, u, x, y, { auto: true });
+/**
+ * Point an aircraft at an exact spot (leptons), retuning its one order as the
+ * spot moves — no path search, and never "already there": a plane over its
+ * target keeps the order and loops back.
+ * @param {World} w @param {any} u @param {number} x @param {number} y
+ */
+function steer(w, u, x, y) {
+  const dx = Math.max(0, Math.min(w.map.width - 1, Math.floor(x / L)));
+  const dy = Math.max(0, Math.min(w.map.height - 1, Math.floor(y / L)));
+  const at = { x, y };
+  if (u.order) { u.order.dx = dx; u.order.dy = dy; u.order.at = at; return; }
+  u.order = { type: 'move', dx, dy, spot: -1, attackMove: false, speedCap: 0, auto: true, at };
+  u.path = [];
+  u.pathReq = 0;
 }
 
-/** A plane's attack run: fly through the target and beyond, then come round again. @param {World} w @param {any} u @param {{x: number, y: number}} t leptons */
-function pass(w, u, t) {
-  if (u.order || u.next) return;
-  const dx = t.x - u.x;
-  const dy = t.y - u.y;
-  const d = Math.max(1, Math.abs(dx) + Math.abs(dy));
-  const bx = Math.floor((t.x + Math.trunc((dx * OVERFLY * L) / d)) / L);
-  const by = Math.floor((t.y + Math.trunc((dy * OVERFLY * L) / d)) / L);
-  setMove(w, u, Math.max(0, Math.min(w.map.width - 1, bx)), Math.max(0, Math.min(w.map.height - 1, by)), { auto: true });
+/** Has any ammo left? @param {any} u */
+const hasAmmo = (u) => !outOfAmmo(u);
+
+/**
+ * The nearest enemy within `cells` of a point that this plane can hit and
+ * its side can see, or null.
+ * @param {World} w @param {any} u @param {{x: number, y: number}} at @param {number} cells
+ */
+function enemyNear(w, u, at, cells) {
+  let best = null;
+  let bestD = Infinity;
+  for (const e of w.spatial.near(at.x, at.y, (cells + 1) * L)) {
+    if (e.dead || e.inside || e.owner < 0 || w.allied(e.owner, u.owner) || !canAttack(u, e)) continue;
+    if (!autoTargetable(e, u, (o) => w.visibleTo(u.owner, o))) continue;
+    const d = reachDist({ x: at.x, y: at.y }, e);
+    if (d > cells * L) continue;
+    if (d < bestD || (d === bestD && best && e.id < best.id)) { bestD = d; best = e; }
+  }
+  return best;
+}
+
+/** Start an attack run on an entity (the plane's own choice). @param {any} u @param {any} e */
+function strike(u, e) {
+  u.task = { type: 'attack', target: e.id, auto: true };
+  u.target = e.id;
+  u.air.last = { x: e.x, y: e.y };
+}
+
+/** A plane's attack run, one tick. @param {World} w @param {any} u */
+function attackRun(w, u) {
+  const t = u.task;
+  let e = t.target ? w.entities.get(t.target) : null;
+  if (e && (e.dead || e.inside)) e = null;
+  if (t.target && !e) {
+    // Target gone: another enemy close to where it was, while there is ammo; else home.
+    const next = u.air.last && hasAmmo(u) ? enemyNear(w, u, u.air.last, AIRCRAFT.planeRetargetCells) : null;
+    if (!next) { returnToPad(w, u); return; }
+    strike(u, next);
+    e = next;
+  }
+  if (e) u.air.last = { x: e.x, y: e.y };
+  const p = e ? { x: e.x, y: e.y } : { x: t.x * L + (L >> 1), y: t.y * L + (L >> 1) };
+  steer(w, u, p.x, p.y);
 }
 
 /** @param {World} w @param {any} u */
 function stepAircraft(w, u) {
-  u.air ??= { circle: null, orbit: -1, crashAt: 0, orphan: null };
+  u.air ??= { circle: null, crashAt: 0, orphan: null, last: null };
   // Pad upkeep: relink when it is gone.
   let pad = u.pad ? w.entities.get(u.pad) : null;
   if (!pad || pad.dead || pad.owner !== u.owner || !isActive(pad)) {
@@ -169,7 +214,12 @@ function stepAircraft(w, u) {
   if (u.task?.type === 'returnPad') {
     if (pad) {
       const c = padCell(pad, u);
-      if (u.cx === c.x && u.cy === c.y && !u.next) park(u, pad);
+      const p = slotPoint(pad, u.padSlot ?? 0);
+      if (isPlane(u)) {
+        // A plane touches down once it is over its spot (it cannot stop to hover onto it).
+        if (Math.abs(u.x - p.x) <= LAND_REACH && Math.abs(u.y - p.y) <= LAND_REACH) park(u, pad);
+        else steer(w, u, p.x, p.y);
+      } else if (u.cx === c.x && u.cy === c.y && !u.next) park(u, pad);
       else if (!u.order && !u.next) setMove(w, u, c.x, c.y, { auto: true });
     } else if (isHeli(u)) {
       const b = nearBase(w, u);
@@ -179,32 +229,35 @@ function stepAircraft(w, u) {
     } else u.task = null; // a plane with no pad circles (below)
   }
   if (u.landed) {
-    if (pad && u.cx === padCell(pad, u).x && u.cy === padCell(pad, u).y) service(w, u);
+    if (pad && u.x === slotPoint(pad, u.padSlot ?? 0).x && u.y === slotPoint(pad, u.padSlot ?? 0).y) service(w, u);
+    else if (pad && u.cx === padCell(pad, u).x && u.cy === padCell(pad, u).y) service(w, u);
     return;
   }
   if (!isPlane(u)) return; // helicopters hover where they are
 
   // Planes never stop.
   const t = u.task;
-  if (t && (t.type === 'attack' || t.type === 'forceFire')) {
-    const e = t.target ? w.entities.get(t.target) : null;
-    if (t.target && !e) { returnToPad(w, u); return; }
-    pass(w, u, e ? { x: e.x, y: e.y } : { x: t.x * L + L / 2, y: t.y * L + L / 2 });
-    return;
-  }
-  if (t && t.type === 'move' && !u.order && !u.next) {
-    u.task = null;
-    u.air.circle = { x: u.cx, y: u.cy, until: w.tick + CIRCLE_TICKS };
-  }
+  if (t && (t.type === 'attack' || t.type === 'forceFire')) { attackRun(w, u); return; }
   if (!pad) {
     if (!u.air.crashAt) u.air.crashAt = w.tick + CRASH_TICKS;
     if (w.tick >= u.air.crashAt) { w.damage.push({ victim: u.id, amount: u.maxHp, attacker: 0, owner: -1 }); return; }
-    orbit(w, u, u.air.orphan ?? { x: u.cx, y: u.cy });
+    const o = u.air.orphan ?? { x: u.cx, y: u.cy };
+    if (!u.order) steer(w, u, o.x * L + (L >> 1), o.y * L + (L >> 1));
     return;
   }
-  if (u.task?.type === 'returnPad') return;
+  if (t?.type === 'returnPad') return;
+  // Sent somewhere: fly there, then circle a while (flight circles a plane with no order).
+  if (t && (t.type === 'move' || t.type === 'attackMove' || t.type === 'guardArea') && !u.order) {
+    u.task = null;
+    u.air.circle = { x: u.cx, y: u.cy, until: w.tick + CIRCLE_TICKS };
+  }
   const c = u.air.circle;
-  if (c && w.tick < c.until) { orbit(w, u, c); return; }
+  const hunting = (t && (t.type === 'attackMove' || t.type === 'guardArea')) || (c && w.tick < c.until);
+  if (hunting && hasAmmo(u) && (w.tick + u.id) % 4 === 0) {
+    const e = enemyNear(w, u, { x: u.x, y: u.y }, UNITS[u.type].sight + AIRCRAFT.planeHuntCells);
+    if (e) { u.air.circle = null; strike(u, e); return; }
+  }
+  if (c && w.tick < c.until) return;
   if (!u.task) returnToPad(w, u);
 }
 

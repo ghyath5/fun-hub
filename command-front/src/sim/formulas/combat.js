@@ -52,8 +52,12 @@ export function healthBand(hp, maxHp) {
 /**
  * Target acquisition score (section 9). Lower is better. All inputs pre-computed
  * by the caller so the function stays pure and integer.
- * @param {{ distanceMilli: number, canDamageMe: boolean, isStructure: boolean, myMultVsThemPct: number, isCurrent: boolean }} c
- *   distanceMilli: distance in thousandths of a cell; myMultVsThemPct: my best warhead multiplier against its armour, 0–100
+ * @param {{ distanceMilli: number, canDamageMe: boolean, isStructure: boolean, myMultVsThemPct: number, isCurrent: boolean,
+ *   inRange?: boolean, hpPermille?: number, allies?: number, overkill?: boolean, attackingMe?: boolean }} c
+ *   distanceMilli: distance in thousandths of a cell; myMultVsThemPct: my best warhead multiplier against its armour, 0–100;
+ *   inRange: I can hit it from where I stand; hpPermille: its HP left, thousandths (default 1000);
+ *   allies: how many of my side already fire at it; overkill: they will kill it without me;
+ *   attackingMe: it is aiming at me
  * @returns {number} Score in thousandths
  */
 export function targetScore(c) {
@@ -64,5 +68,11 @@ export function targetScore(c) {
   if (c.isStructure) s += S.structurePenalty * 1000;
   if (c.myMultVsThemPct < Math.round(S.uselessBelow * 100)) s += S.uselessPenalty * 1000;
   if (c.isCurrent) s -= S.stickiness * 1000;
+  if (c.inRange) s -= S.inRange * 1000;
+  const hp = Math.max(0, Math.min(1000, c.hpPermille ?? 1000));
+  s -= Math.floor((S.wounded * 1000 * (1000 - hp)) / 1000);
+  if (c.overkill) s += S.overkill * 1000;
+  else if (c.allies) s -= Math.floor(S.focus * 1000) * Math.min(S.focusMax, c.allies);
+  if (c.attackingMe) s -= S.attackingMe * 1000;
   return s;
 }

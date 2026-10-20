@@ -46,14 +46,14 @@ function menuFor(it, line) {
   if (it.state === 'ready') opts.push({ id: 'cancelReady', label: t('Cancel (refund)') });
   else if (it.state === 'building') {
     // A tap on a unit queues another, so pausing a unit lives here instead.
-    if (unitLine) opts.push({ id: 'pause', label: t('Pause') }, { id: 'queue5', label: t('Queue ×5') });
+    if (unitLine) opts.push({ id: 'pause', label: t('Pause') }, { id: 'queue5', label: t('Queue ×5') }, { id: 'queue10', label: t('Queue ×10') });
     opts.push({ id: 'cancelActive', label: t('Cancel') });
   } else if (it.state === 'paused') {
     if (unitLine) opts.push({ id: 'resume', label: t('Resume') });
     opts.push({ id: 'cancelActive', label: t('Cancel') });
   }
   else if (it.queued) opts.push({ id: 'removeOne', label: t('Remove one') }, { id: 'removeAll', label: t('Remove all') });
-  else if (it.state === 'available' && unitLine) opts.push({ id: 'queue5', label: t('Queue ×5') });
+  else if (it.state === 'available' && unitLine) opts.push({ id: 'queue5', label: t('Queue ×5') }, { id: 'queue10', label: t('Queue ×10') });
   if (it.queued > 1 && it.state !== 'ready') opts.push({ id: 'removeAll', label: t('Cancel all') });
   opts.push({ id: 'info', label: t('Info') });
   return opts.filter((o, i) => opts.findIndex((x) => x.label === o.label) === i);
@@ -137,6 +137,7 @@ export function Sidebar({ model, icons, tab, collapsed, mode, act }) {
     if (!it) return;
     switch (id) {
       case 'queue5': act.build(it.type, 5); break;
+      case 'queue10': act.build(it.type, 10); break;
       case 'pause': act.setPaused(line, true); break;
       case 'resume': act.setPaused(line, false); break;
       case 'cancelActive': act.cancel(line, { active: true }); break;

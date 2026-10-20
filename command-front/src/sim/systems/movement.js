@@ -8,9 +8,14 @@
  * Blocked: wait up to 1 s, then ask an idle blocker to step aside, otherwise
  * re-path with that cell blocked for 2 s. No progress for 3 s re-paths; 8 s gives up.
  * Head-on in a 1-cell pass: the higher id backs up one cell after 1 s.
+ *
+ * Aircraft fly free of the grid (flyUnit): straight at their destination,
+ * helicopters turning on the spot first, planes always moving forward and
+ * banking round in arcs — so an attack run overflies the target and loops
+ * back, the way Red Alert 2's jets do.
  */
-import { facingOf, facingDelta, turnToward, isqrt, DIR8 } from '../../core/fixed.js';
-import { MOVEMENT, SIM, COMBAT } from '../../data/rules.js';
+import { facingOf, facingDelta, turnToward, isqrt, DIR8, stepAlong } from '../../core/fixed.js';
+import { MOVEMENT, SIM, COMBAT, AIRCRAFT } from '../../data/rules.js';
 import { TURN_RATE } from '../../data/units.js';
 import { ticks } from '../../core/fixed.js';
 import { defOf, isInfantry, isAir, canEnter, occupy, vacate, spotPos, isIdle } from '../entities/units.js';
@@ -93,8 +98,9 @@ export function requestPath(w, u) {
  * Give a unit a move order (used by commands and by the sim itself, e.g. step-aside).
  * A move to the cell it already stands in is a no-op with no path request.
  * @param {World} w @param {Unit} u @param {number} x @param {number} y
- * @param {{ spot?: number, attackMove?: boolean, speedCapK?: number, path?: number[], auto?: boolean }} [opts]
- *   path: precomputed route from the unit's origin (flat x, y list), skipping the A* request
+ * @param {{ spot?: number, attackMove?: boolean, speedCapK?: number, path?: number[], auto?: boolean, at?: { x: number, y: number } }} [opts]
+ *   path: precomputed route from the unit's origin (flat x, y list), skipping the A* request;
+ *   at: aircraft only, the exact point to fly to (leptons) instead of the cell's centre
  */
 export function setMove(w, u, x, y, opts = {}) {
   let spot = opts.spot ?? -1;
@@ -113,7 +119,7 @@ export function setMove(w, u, x, y, opts = {}) {
     else u.order = { type: 'move', dx: x, dy: y, spot, attackMove: !!opts.attackMove, speedCap: opts.speedCapK ?? 0 };
     return;
   }
-  u.order = { type: 'move', dx: x, dy: y, spot, attackMove: !!opts.attackMove, speedCap: opts.speedCapK ?? 0, auto: !!opts.auto };
+  u.order = { type: 'move', dx: x, dy: y, spot, attackMove: !!opts.attackMove, speedCap: opts.speedCapK ?? 0, auto: !!opts.auto, ...(opts.at ? { at: opts.at } : {}) };
   u.waited = 0;
   u.askedAside = false;
   u.sinceCell = 0;
@@ -380,6 +386,105 @@ function stepUnit(w, u) {
   checkStuck(w, u);
 }
 
+// ── Flight ──────────────────────────────────────────────────────
+
+const L = SIM.leptonsPerCell;
+
+/** Does this aircraft fly like a plane (always forward, banking)? @param {any} def */
+const fliesLikePlane = (def) => def.tags.includes('plane') || def.tags.includes('support');
+
+/** Radius of a plane's turning circle at a speed, leptons. @param {number} step @param {number} turn */
+const turnRadius = (step, turn) => Math.floor((step * 4074) / (100 * turn)); // step × 256 / (2π × turn)
+
+/** Keep an aircraft's cell in step with its position, inside the map. @param {World} w @param {Unit} u */
+function settle(w, u) {
+  u.x = Math.max(0, Math.min(w.map.width * L - 1, u.x));
+  u.y = Math.max(0, Math.min(w.map.height * L - 1, u.y));
+  u.cx = Math.floor(u.x / L);
+  u.cy = Math.floor(u.y / L);
+}
+
+/**
+ * Is a point inside the circle this plane would fly if it turned toward it
+ * at full rate? Then turning cannot reach it: the plane flies straight on
+ * until it can (overflying, then looping back).
+ * @param {Unit} u @param {number} tx @param {number} ty @param {number} R @param {number} side  +1 right, −1 left
+ */
+function insideTurn(u, tx, ty, R, side) {
+  const c = stepAlong(u.facing + side * 64, R);
+  const ex = tx - (u.x + c.dx);
+  const ey = ty - (u.y + c.dy);
+  return ex * ex + ey * ey < R * R;
+}
+
+/**
+ * One tick of flight. Helicopters (and jump-jets) turn toward the destination
+ * on the spot, then fly straight there and hover. Planes never stop: they
+ * bank toward it at their turn rate while moving forward, and with no order
+ * they circle where they are.
+ * @param {World} w @param {Unit} u
+ */
+function flyUnit(w, u) {
+  const def = defOf(u);
+  if (u.next) u.next = null; // flight is free of the grid
+  const plane = fliesLikePlane(def);
+  let k = Math.round(def.speed * 1000);
+  if (u.speedK) k = Math.floor((k * u.speedK) / 1000);
+  const step = stepLeptons(k, 100);
+  const turn = plane ? AIRCRAFT.planeTurnRate : def.turnRate;
+  const o = u.order;
+  if (!o) {
+    if (plane) {
+      // Loiter: a steady circle round where it is.
+      u.facing = (u.facing + turn) & 255;
+      const v = stepAlong(u.facing, step);
+      u.x += v.dx;
+      u.y += v.dy;
+      settle(w, u);
+    }
+    return;
+  }
+  const tx = o.at ? o.at.x : o.dx * L + (L >> 1);
+  const ty = o.at ? o.at.y : o.dy * L + (L >> 1);
+  const dx = tx - u.x;
+  const dy = ty - u.y;
+  const dist = isqrt(dx * dx + dy * dy);
+  if (plane ? dist <= Math.max(step, L >> 1) : dist <= step) {
+    // Helicopters settle exactly on the point; planes pass through it and fly on.
+    if (plane) {
+      const v = stepAlong(u.facing, step);
+      u.x += v.dx;
+      u.y += v.dy;
+    } else {
+      u.x = tx;
+      u.y = ty;
+    }
+    settle(w, u);
+    finish(w, u);
+    return;
+  }
+  const want = facingOf(dx, dy);
+  const delta = facingDelta(u.facing, want);
+  if (plane) {
+    // Too close to turn onto the point (it lies inside the turning circle):
+    // fly straight on until there is room for a full turn, then bank round.
+    const R = turnRadius(step, turn);
+    if (u.extend) { if (dist >= 2 * R + L) u.extend = false; }
+    else if (insideTurn(u, tx, ty, R, delta >= 0 ? 1 : -1)) u.extend = true;
+    if (!u.extend) u.facing = turnToward(u.facing, want, turn);
+    const v = stepAlong(u.facing, step);
+    u.x += v.dx;
+    u.y += v.dy;
+  } else {
+    u.facing = turnToward(u.facing, want, turn);
+    if (Math.abs(facingDelta(u.facing, want)) > AIRCRAFT.heliAlignBefore) return;
+    u.x += Math.trunc((dx * step) / dist);
+    u.y += Math.trunc((dy * step) / dist);
+  }
+  if (!def.turret) u.turret = u.facing;
+  settle(w, u);
+}
+
 /** @param {World} w */
 export function movementSystem(w) {
   airSystem(w);
@@ -387,7 +492,8 @@ export function movementSystem(w) {
   w.nav.calculate();
   for (const u of w.entities.all()) {
     if (u.dead || u.kind !== 'unit' || u.inside || u.landed) continue;
-    stepUnit(w, u);
+    if (isAir(u)) flyUnit(w, u);
+    else stepUnit(w, u);
   }
   specialsSystem(w);
   transportSystem(w);

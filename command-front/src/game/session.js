@@ -36,6 +36,9 @@ import { spawnUnit } from '../sim/entities/units.js';
 import { enterFullscreen } from '../ui/fullscreen.js';
 
 /** Why a full production queue is not moving, by line hold (sim/systems/production.js). */
+/** Remembers on this device whether the control-group column is folded. */
+const GROUPS_FOLDED_KEY = 'cf-groups-folded';
+
 const QUEUE_STUCK = Object.freeze({
   funds: 'waiting for money', exit: 'the factory exit is blocked', pad: 'no free pad', factory: 'no factory', paused: 'it is paused', requires: 'a required building is missing',
 });
@@ -58,6 +61,7 @@ const portraitPhone = () => matchMedia('(orientation: portrait) and (pointer: co
  * @property {() => void} [exit]       Leave the match for the main menu
  * @property {(result: any) => void} [ended]  The match is over
  * @property {() => void} [retry]     Two phones: try the lost connection again
+ * @property {(speed: string) => void} [speedChanged]  The player changed the game speed (saves keep it)
  */
 
 /**
@@ -89,11 +93,13 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
     powerPreview: 0,
     paused: false,
     mapName: map.name,
+    speed: /** @type {string} */ (speed),
     cellsVisible: cam.cellsVisible,
     toasts: /** @type {import('../ui/toasts.js').Toast[]} */ ([]),
     hash: debug ? hashWorld(world) : null,
     sel: /** @type {import('../ui/commandBar.js').SelectionInfo} */ ({ count: 0, types: [] }),
     groups: selection.groupSizes(),
+    groupsCollapsed: (() => { try { return localStorage.getItem(GROUPS_FOLDED_KEY) === '1'; } catch { return false; } })(),
     barTop: false,
     addMode: false,
     selectMode: false,
@@ -242,6 +248,17 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
   };
   const groupActs = {
     recall: (/** @type {number} */ n) => { selectStructure(0); selection.recall(n); voices.reply('select', ownSelected()); },
+    /** The on-screen number: select the group; an empty one takes the selection (or says how). @param {number} n */
+    tap: (n) => {
+      if (selection.groupSizes()[n] > 0) { groupActs.recall(n); return; }
+      if (selection.size) { groupActs.assign(n); return; }
+      toaster.show(t('Select units, then tap a number to save them as a group'));
+    },
+    toggle: () => {
+      const groupsCollapsed = !store.get().groupsCollapsed;
+      store.set({ groupsCollapsed });
+      try { localStorage.setItem(GROUPS_FOLDED_KEY, groupsCollapsed ? '1' : '0'); } catch { /* private mode: not remembered */ }
+    },
     centre: (/** @type {number} */ n) => { selectStructure(0); selection.recall(n); centreOnGroup(n); },
     assign: (/** @type {number} */ n) => {
       if (!selection.size) return;
@@ -339,6 +356,13 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
   const hud = mountHud(hudEl, store, {
     pause: () => pauseMatch(),
     resume: () => { userPaused = false; store.set({ paused: false, confirmSurrender: false }); net?.hold(false); loop.resetClock(); },
+    // Two phones share one speed, set before the match.
+    speed: net ? undefined : (/** @type {string} */ s) => {
+      if (!(s in GAME_SPEEDS)) return;
+      speed = /** @type {keyof typeof GAME_SPEEDS} */ (s);
+      store.set({ speed });
+      hooks.speedChanged?.(speed);
+    },
     save: () => hooks.save?.(),
     load: () => hooks.load?.(),
     exit: () => hooks.exit?.(),
