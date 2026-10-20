@@ -1,7 +1,7 @@
 /* Command Front service worker: cache-first, versioned. Hand-maintained list —
    add every file the game loads; ?debug warns at startup about any that are missing.
    Bump CACHE whenever a listed file changes. */
-const CACHE = 'command-front-v30';
+const CACHE = 'command-front-v31';
 
 const PRECACHE = [
   './',
@@ -15,11 +15,25 @@ const PRECACHE = [
   './assets/art/atlas-4.webp',
   './assets/art/atlas-5.webp',
   './assets/art/atlas.json',
+  './assets/art/decor-0.webp',
   './assets/art/ground-0.webp',
   './assets/art/ground-1.webp',
   './assets/icon-192.png',
   './assets/icon-512.png',
   './assets/icon.svg',
+  './assets/models/aegisProjector.webp',
+  './assets/models/arcTower.webp',
+  './assets/models/ballisticLauncher.webp',
+  './assets/models/beamTower.webp',
+  './assets/models/ifv.webp',
+  './assets/models/models.bin',
+  './assets/models/models.json',
+  './assets/models/powerPlant-union.webp',
+  './assets/models/refinery-union.webp',
+  './assets/models/rotaryTank.webp',
+  './assets/models/sensorArray.webp',
+  './assets/models/sentryGun.webp',
+  './assets/models/titanTank.webp',
   './assets/sound/s/bigBoom-0.mp3',
   './assets/sound/s/bigBoom-1.mp3',
   './assets/sound/s/bite-0.mp3',
@@ -573,6 +587,19 @@ const PRECACHE = [
   './src/render/terrainChunks.js',
   './src/render/terrainTiles.js',
   './src/render/units.js',
+  './src/render3d/app3d.js',
+  './src/render3d/icons3d.js',
+  './src/render3d/instances.js',
+  './src/render3d/kit.js',
+  './src/render3d/library.js',
+  './src/render3d/material.js',
+  './src/render3d/nature3d.js',
+  './src/render3d/scene.js',
+  './src/render3d/structures3d.js',
+  './src/render3d/units3d.js',
+  './src/render3d/view.js',
+  './src/render3d/models/structures.js',
+  './src/render3d/models/units.js',
   './src/save/serialize.js',
   './src/sim/air.js',
   './src/sim/baseCommands.js',
@@ -656,6 +683,9 @@ const PRECACHE = [
   './vendor/simplex-noise.mjs',
   './vendor/stats.min.js',
   './vendor/tweakpane.min.mjs',
+  './vendor/three-room-environment.mjs',
+  './vendor/three-rounded-box.mjs',
+  './vendor/three.module.min.mjs',
   './vendor/zzfx.mjs',
 ];
 

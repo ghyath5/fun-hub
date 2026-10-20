@@ -14,6 +14,7 @@ import { createStructureLayer } from './structures.js';
 import { loadArt } from './art.js';
 import { createPlacementOverlay } from './placementOverlay.js';
 import { createShroudLayer } from './shroud.js';
+import { makeIcons } from './icons.js';
 import { RENDER } from '../data/rules.js';
 import { PERF } from '../data/ui.js';
 
@@ -24,12 +25,42 @@ const C = RENDER.cellPx;
 /** Device pixel ratio, clamped (section 19). @param {boolean} lowEnd */
 export const renderResolution = (lowEnd) => Math.min(window.devicePixelRatio || 1, lowEnd ? PERF.dprCapLowEnd : PERF.dprCap);
 
+/** Can this browser draw the 3D battlefield (WebGL 2)? */
+function webgl2() {
+  try { return !!document.createElement('canvas').getContext('webgl2'); } catch { return false; }
+}
+
 /**
+ * The battlefield renderer: 3D (render3d/app3d.js) unless the player chose
+ * the classic 2D view, `?gfx=2d` asks for it, or the device cannot draw 3D.
+ * Both have the same interface.
  * @param {HTMLElement} host
  * @param {MapData} map
- * @param {{ lowEnd?: boolean, faction?: string }} [opts]  faction: the viewer's, for faction-specific building looks
+ * @param {{ lowEnd?: boolean, faction?: string, mode?: '3d' | '2d' }} [opts]  faction: the viewer's, for faction-specific building looks
  */
 export async function createRenderer(host, map, opts = {}) {
+  const forced = new URLSearchParams(location.search).get('gfx');
+  const mode = forced === '2d' ? '2d' : forced ? '3d' : opts.mode ?? '3d';
+  if (mode === '3d' && webgl2()) {
+    const before = new Set(host.children);
+    try {
+      const { createRenderer3D } = await import('../render3d/app3d.js');
+      return await createRenderer3D(host, map, opts);
+    } catch (e) {
+      console.warn('[render] 3D view unavailable, using the 2D one', e);
+      for (const el of [...host.children]) if (!before.has(el)) el.remove();
+    }
+  }
+  return createRenderer2D(host, map, opts);
+}
+
+/**
+ * The classic 2D renderer: pre-rendered sprites.
+ * @param {HTMLElement} host
+ * @param {MapData} map
+ * @param {{ lowEnd?: boolean, faction?: string }} [opts]
+ */
+async function createRenderer2D(host, map, opts = {}) {
   const app = new Application();
   await app.init({
     resizeTo: host,
@@ -80,6 +111,10 @@ export async function createRenderer(host, map, opts = {}) {
     app,
     camera,
     terrain,
+    /** Which renderer this is. */
+    kind: '2d',
+    /** Build-menu icons from the sprite art. @param {number} tint @param {string} faction */
+    makeIcons: (/** @type {number} */ tint, /** @type {string} */ faction) => makeIcons(app.renderer, units.textures, structures.textures, tint, faction),
     /** Outline one cell (inspect feedback). @param {{x: number, y: number} | null} cell @param {number} [color] */
     highlight(cell, color = 0xf0e6c8) {
       cursor.clear();

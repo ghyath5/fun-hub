@@ -31,7 +31,7 @@ const FIRST_HINT = 'Tap the truck, then Deploy';
 /** @typedef {import('../ui/screens.js').AppSettings} AppSettings */
 
 /** @returns {AppSettings} */
-const defaultSettings = () => ({ leftHanded: false, haptics: true, effects: 1, voice: 1, ui: 0.8, autoFullscreen: true, textLang: browserLang(), voiceLang: browserLang() });
+const defaultSettings = () => ({ leftHanded: false, haptics: true, effects: 1, voice: 1, ui: 0.8, autoFullscreen: true, textLang: browserLang(), voiceLang: browserLang(), graphics: /** @type {'3d' | '2d'} */ ('3d') });
 
 /**
  * @param {{ hudEl: HTMLElement, worldEl: HTMLElement, screensEl: HTMLElement, debug: boolean }} el
@@ -205,6 +205,7 @@ export async function startApp({ hudEl, worldEl, screensEl, debug }) {
     const human = m.me ?? HUMAN; // the player this phone controls
     session = await createSession({
       world, human, hudEl, worldEl, audio, speed: m.speed ?? 'normal', debug, hint, leftHanded: settings.leftHanded, net, edgePan: settings.edgePan !== false,
+      graphics: settings.graphics ?? '3d',
       hooks: online ?? {
         save: () => slots('save', () => showScreen(screensEl, null)),
         load: () => slots('load', () => showScreen(screensEl, null)),

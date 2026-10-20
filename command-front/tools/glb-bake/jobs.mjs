@@ -3,7 +3,8 @@
 // named nodes (`turret`) or a region cut out of the model (`split`).
 // Structures: `w` × `h` footprint in cells; `skin` makes it the look of one
 // faction only (atlas key `<id>@<faction>`). `team` picks the pixels that take
-// the player colour (hue in degrees ± tol, min saturation).
+// the player colour (hue in degrees ± tol, min saturation); `team3d`, when
+// given, replaces it for the 3D model (export.mjs), whose texels are unlit.
 // Sources: glb/<file> (not committed — the 3D files are large) or a
 // procedural model from models.js.
 
@@ -12,7 +13,7 @@ const BLUE = { hue: 218, tol: 22, sat: 0.3, val: 0.2 };
 
 export const JOBS = [
   // ── GLB units ──────────────────────────────────────────────
-  { id: 'titanTank', kind: 'unit', src: 'apocalypse.glb', rot: [0, -90, 0], r: 0.65, size: 1.2, split: { above: 0.34, box: [0.2, 0.8, 0, 0.66] }, pivot: [0.5, 0.5], team: [RED, { neutral: { maxSat: 0.34, minVal: 0.42 } }] },
+  { id: 'titanTank', kind: 'unit', src: 'apocalypse.glb', rot: [0, -90, 0], r: 0.65, size: 1.2, split: { above: 0.34, box: [0.2, 0.8, 0, 0.66] }, pivot: [0.5, 0.5], team: [RED, { neutral: { maxSat: 0.34, minVal: 0.42 } }], team3d: RED, look3d: { desaturate: 0.85 } },
   { id: 'rotaryTank', kind: 'unit', src: 'lowpoly_gatling_tank_-_rocket.glb', rot: [0, 0, 0], r: 0.48, size: 0.9, split: { above: 0.55 }, team: { neutral: { maxSat: 0.12, minVal: 0.62 } } },
   { id: 'ifv', kind: 'unit', src: 'ifv_vehicle_red_alert_2.glb', rot: [0, 0, 0], r: 0.45, size: 0.85, hide: ['^Object_2$'], split: { above: 0.6 }, team: BLUE },
   { id: 'ballisticLauncher', kind: 'unit', src: 'red_alert_2_-__soviet_v3_rocket_launcher.glb', rot: [0, 0, 0], r: 0.55, size: 1.05, team: RED },

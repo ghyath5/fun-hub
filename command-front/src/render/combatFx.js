@@ -40,7 +40,15 @@ export function lookOf(id) {
  * @typedef {{ x: number, y: number, vx: number, vy: number, life: number, max: number, color: number, size: number, grow: number, alpha: number }} Particle
  */
 
-export function createCombatFx() {
+/**
+ * @param {{ lift?: (e: any) => number }} [opts]  lift: how far above its ground
+ *   point an entity is drawn, in world px of the layer (3D view: muzzles on
+ *   turrets and towers, aircraft in flight); shots start and end there.
+ */
+export function createCombatFx(opts = {}) {
+  const liftOf = (/** @type {any} */ e) => (e && opts.lift ? opts.lift(e) : 0);
+  /** Start and end heights of projectiles in flight, by id. @type {Map<number, { a: number, b: number }>} */
+  const heights = new Map();
   const layer = new Container();
   const scorch = new Graphics();
   const live = new Graphics();
@@ -94,10 +102,15 @@ export function createCombatFx() {
       const now = performance.now();
       if (e.type === 'shot') {
         const look = lookOf(d.weapon);
+        const shooter = entity(d.shooter);
+        const target = shooter?.target ? entity(shooter.target) : null;
+        const la = liftOf(shooter);
+        const lb = liftOf(target);
+        if (opts.lift && d.projectile) heights.set(d.projectile, { a: la, b: lb });
         const x0 = d.x * PX;
-        const y0 = d.y * PX;
+        const y0 = d.y * PX - la;
         const x1 = d.tx * PX;
-        const y1 = d.ty * PX;
+        const y1 = d.ty * PX - lb;
         const len = Math.hypot(x1 - x0, y1 - y0) || 1;
         const mx = x0 + ((x1 - x0) / len) * 6;
         const my = y0 + ((y1 - y0) / len) * 6;
@@ -165,11 +178,21 @@ export function createCombatFx() {
       last = now;
 
       flying.clear();
+      if (heights.size > 200) {
+        const live = new Set(world.projectiles.map((/** @type {any} */ p) => p.id));
+        for (const id of heights.keys()) if (!live.has(id)) heights.delete(id);
+      }
       for (const p of world.projectiles) {
         const look = lookOf(p.weapon);
         if (look === 'tracer' || look === 'snipe' || look === 'beam' || look === 'flame' || look === 'heal' || look === 'bite') continue;
         const x = p.x * PX;
         let y = p.y * PX;
+        const hgt = heights.get(p.id);
+        if (hgt) {
+          const all = Math.hypot(p.tx - p.sx, p.ty - p.sy) || 1;
+          const done = 1 - Math.hypot(p.tx - p.x, p.ty - p.y) / all;
+          y -= hgt.a + (hgt.b - hgt.a) * Math.max(0, Math.min(1, done));
+        }
         if (look === 'arc') {
           const total = Math.hypot(p.tx - p.sx, p.ty - p.sy) || 1;
           const left = Math.hypot(p.tx - p.x, p.ty - p.y);

@@ -6,7 +6,6 @@
  */
 import { buzz } from '../lib/haptics.js';
 import { createRenderer, renderResolution } from '../render/app.js';
-import { makeIcons } from '../render/icons.js';
 import { createPerfMonitor } from '../render/perfMonitor.js';
 import { attachGestures } from '../input/gestures.js';
 import { createLoop } from '../core/loop.js';
@@ -66,12 +65,12 @@ const portraitPhone = () => matchMedia('(orientation: portrait) and (pointer: co
  *   world: any, human: number, hudEl: HTMLElement, worldEl: HTMLElement,
  *   audio: ReturnType<typeof import('../lib/audio.js').createAudio>,
  *   speed?: keyof typeof GAME_SPEEDS, debug?: boolean, hooks?: SessionHooks, hint?: string | null, leftHanded?: boolean,
- *   net?: import('../net/netMatch.js').NetPlay | null, edgePan?: boolean,
+ *   net?: import('../net/netMatch.js').NetPlay | null, edgePan?: boolean, graphics?: '3d' | '2d',
  * }} opts  net: a two-phone match — commands go through the lockstep and the pause is shared
  */
-export async function createSession({ world, human, hudEl, worldEl, audio, speed = 'normal', debug = false, hooks = {}, hint = null, leftHanded = false, net = null, edgePan = true }) {
+export async function createSession({ world, human, hudEl, worldEl, audio, speed = 'normal', debug = false, hooks = {}, hint = null, leftHanded = false, net = null, edgePan = true, graphics = '3d' }) {
   const map = world.map;
-  const view = await createRenderer(worldEl, map, { faction: world.players[human]?.faction ?? '' });
+  const view = await createRenderer(worldEl, map, { faction: world.players[human]?.faction ?? '', mode: graphics });
   const cam = view.camera;
   const me = world.players[human];
   const tint = PLAYER_COLORS[/** @type {keyof typeof PLAYER_COLORS} */ (me.color)].main;
@@ -211,6 +210,7 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
     scale: () => cam.scale,
     screen: () => ({ w: view.app.screen.width, h: view.app.screen.height }),
     radiusOf: (type) => view.units.radiusOf(type),
+    lift: (e) => view.liftOf?.(e) ?? 0,
     feedback: {
       pulse: (cell, kind) => {
         view.pulse(cell, kind);
@@ -620,7 +620,7 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
 
   // Icons are cut from baked art after the first frames, so the match appears at once.
   setTimeout(() => {
-    makeIcons(view.app.renderer, view.units.textures, view.structures.textures, tint, world.players[human]?.faction ?? '')
+    view.makeIcons(tint, world.players[human]?.faction ?? '')
       .then((icons) => store.set({ icons }))
       .catch((e) => console.warn('icons', e));
   }, 50);

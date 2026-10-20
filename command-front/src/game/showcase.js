@@ -3,8 +3,8 @@
  * Art and roster check (open the game with `?showcase`, or `?showcase=battle`):
  * every unit of both factions lined up on open ground next to each side's
  * base, with an Airfield whose four parking spots are full. `battle` lets
- * the two sides fight; otherwise everyone holds fire. Nothing here is part
- * of normal play.
+ * the two sides fight; otherwise everyone holds fire. `naval` puts both
+ * navies and their yards on Twin Rivers. Nothing here is part of normal play.
  */
 import { createMatch } from '../sim/setup.js';
 import { spawnUnit } from '../sim/entities/units.js';
@@ -14,6 +14,8 @@ import { UNITS } from '../data/units.js';
 import { STRUCTURES } from '../data/structures.js';
 import { SIM } from '../data/rules.js';
 import { createSession } from './session.js';
+import { loadMap } from '../map/loader.js';
+import { T } from '../data/terrain.js';
 
 const W = 64;
 const H = 52;
@@ -30,6 +32,7 @@ function openMap() {
 
 /** @param {{ hudEl: HTMLElement, worldEl: HTMLElement, screensEl: HTMLElement, audio: any, mode?: string }} el */
 export async function runShowcase({ hudEl, worldEl, screensEl, audio, mode }) {
+  if (mode === 'naval') return runNaval({ hudEl, worldEl, screensEl, audio });
   const map = /** @type {any} */ (openMap());
   const battle = mode === 'battle';
   const world = createMatch(map, {
@@ -84,6 +87,43 @@ export async function runShowcase({ hudEl, worldEl, screensEl, audio, mode }) {
   session.view.camera.home(ax, ay);
   const zoom = Number(q.get('zoom'));
   if (zoom) session.view.camera.zoomAt(zoom, innerWidth / 2, innerHeight / 2);
+  /** @type {any} */ (window).__cf = session;
+  return session;
+}
+
+/** Both navies afloat, each beside its yard. @param {{ hudEl: HTMLElement, worldEl: HTMLElement, screensEl: HTMLElement, audio: any }} el */
+async function runNaval({ hudEl, worldEl, screensEl, audio }) {
+  const map = await loadMap('twin-rivers');
+  const world = createMatch(map, {
+    seed: 7,
+    players: [
+      { faction: 'coalition', color: 'blue', human: true, start: 0 },
+      { faction: 'union', color: 'red', human: true, start: 1 },
+    ],
+    settings: { revealMap: true, victory: false, oreGrowthSeconds: 0 },
+  });
+  const water = (/** @type {number} */ x, /** @type {number} */ y) => map.terrain[y * map.width + x] === T.water;
+  /** Water cells, west to east along the map's middle rows. */
+  const wet = [];
+  for (let y = 2; y < map.height - 4; y++) for (let x = 2; x < map.width - 4; x++) {
+    if ([0, 1, 2].every((dy) => [0, 1, 2].every((dx) => water(x + dx, y + dy)))) wet.push({ x, y });
+  }
+  const yards = [['navalYard', 0, 'coalition'], ['subPen', 1, 'union']];
+  let at = { x: 0, y: 0 };
+  yards.forEach(([type, pid, faction], k) => {
+    const spot = wet[Math.floor((wet.length * (k + 1)) / 3)];
+    if (!spot) return;
+    placeStructure(world, /** @type {string} */ (type), /** @type {number} */ (pid), spot.x, spot.y, { buildUp: false });
+    const ships = Object.values(UNITS).filter((d) => d.loco === 'float' && (d.faction === faction || d.faction === 'both'));
+    const free = wet.filter((c) => Math.hypot(c.x - spot.x, c.y - spot.y) > 4 && Math.hypot(c.x - spot.x, c.y - spot.y) < 12);
+    ships.forEach((d, j) => { const c = free[(j * 7) % Math.max(1, free.length)]; if (c) spawnUnit(world, d.id, /** @type {number} */ (pid), c.x + 1, c.y + 1, { facing: 64 }); });
+    if (k === 0) at = spot;
+  });
+  for (const e of world.entities.all()) if (e.kind === 'unit') e.stance = 'holdFire';
+  screensEl.classList.remove('on');
+  const session = await createSession({ world, human: 0, hudEl, worldEl, audio, speed: 'normal' });
+  document.body.classList.add('ready');
+  session.view.camera.home(at.x + 1, at.y + 1);
   /** @type {any} */ (window).__cf = session;
   return session;
 }

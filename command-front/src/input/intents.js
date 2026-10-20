@@ -38,6 +38,8 @@ const NON_COMBAT_BOX = new Set(['harvester', 'mcv']);
  * @property {(menu: RadialMenu | null) => void} [radial]  Show or hide the radial menu
  * @property {(id: number) => void} [selectStructure]   Select an own structure (0 clears it)
  * @property {(e: any) => boolean} [visible]             Can the human see this entity (shroud / fog)?
+ * @property {(e: any) => number} [lift]                How far above its ground point an entity is drawn, screen px
+ *   (3D view: aircraft in flight, the middle of a unit, the roof of a building) — taps on the model hit it
  */
 
 /** @typedef {{ id: string, label: string }} RadialOption */
@@ -95,6 +97,7 @@ export function createIntents(ctx) {
       if (e.kind === 'unit') {
         if (e.owner !== ctx.human && ctx.world.allied(e.owner, ctx.human) && !(units.length && contextOrder(ctx.world, units, e))) continue;
         const p = ctx.toScreen(e.x * PX_PER_LEPTON, e.y * PX_PER_LEPTON);
+        p.y -= ctx.lift?.(e) ?? 0;
         const r = ctx.radiusOf(e.type) * s;
         if (p.x < -r || p.y < -r || p.x > w + r || p.y > h + r) continue;
         const cls = e.owner === ctx.human ? (units.length && contextOrder(ctx.world, units, e) ? 'context' : 'own') : 'enemy';
@@ -102,6 +105,7 @@ export function createIntents(ctx) {
       } else if (e.kind === 'structure') {
         const a = ctx.toScreen(e.cx * RENDER.cellPx, e.cy * RENDER.cellPx);
         const b = ctx.toScreen((e.cx + e.w) * RENDER.cellPx, (e.cy + e.h) * RENDER.cellPx);
+        a.y -= ctx.lift?.(e) ?? 0;
         if (b.x < 0 || b.y < 0 || a.x > w || a.y > h) continue;
         let cls = /** @type {import('./hitTest.js').HitClass} */ ('structure');
         if (units.length && contextOrder(ctx.world, units, e)) cls = 'context';

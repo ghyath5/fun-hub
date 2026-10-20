@@ -1,0 +1,467 @@
+{
+ "version": 1,
+ "models": {
+  "rotaryTank": {
+   "kind": "unit",
+   "atlas": "rotaryTank.webp",
+   "parts": {
+    "body": {
+     "pivot": [
+      0,
+      0,
+      0
+     ],
+     "min": [
+      -0.31015,
+      0,
+      -0.51073
+     ],
+     "max": [
+      0.31015,
+      0.29029,
+      0.38927
+     ],
+     "vertices": 4905,
+     "indices": 9039,
+     "wide": false,
+     "pos": 0,
+     "nrm": 39240,
+     "uv": 58860,
+     "col": 78480,
+     "mr": 98100,
+     "idx": 107912
+    },
+    "turret": {
+     "pivot": [
+      0,
+      0,
+      0
+     ],
+     "min": [
+      -0.21777,
+      0.28025,
+      -0.2758
+     ],
+     "max": [
+      0.21777,
+      0.5127,
+      0.26988
+     ],
+     "vertices": 2671,
+     "indices": 4440,
+     "wide": false,
+     "pos": 125992,
+     "nrm": 147360,
+     "uv": 158044,
+     "col": 168728,
+     "mr": 179412,
+     "idx": 184756
+    }
+   }
+  },
+  "ifv": {
+   "kind": "unit",
+   "atlas": "ifv.webp",
+   "parts": {
+    "body": {
+     "pivot": [
+      0,
+      0,
+      0
+     ],
+     "min": [
+      -0.29305,
+      0.00126,
+      -0.40179
+     ],
+     "max": [
+      0.29321,
+      0.40107,
+      0.44786
+     ],
+     "vertices": 4502,
+     "indices": 9042,
+     "wide": false,
+     "pos": 193636,
+     "nrm": 229652,
+     "uv": 247660,
+     "col": 265668,
+     "mr": 283676,
+     "idx": 292680
+    },
+    "turret": {
+     "pivot": [
+      0,
+      0,
+      0
+     ],
+     "min": [
+      -0.18569,
+      0.39468,
+      -0.19082
+     ],
+     "max": [
+      0.18569,
+      0.66996,
+      0.19082
+     ],
+     "vertices": 2228,
+     "indices": 4452,
+     "wide": false,
+     "pos": 310764,
+     "nrm": 328588,
+     "uv": 337500,
+     "col": 346412,
+     "mr": 355324,
+     "idx": 359780
+    }
+   }
+  },
+  "ballisticLauncher": {
+   "kind": "unit",
+   "atlas": "ballisticLauncher.webp",
+   "parts": {
+    "body": {
+     "pivot": [
+      0,
+      0,
+      0
+     ],
+     "min": [
+      -0.16109,
+      0,
+      -0.525
+     ],
+     "max": [
+      0.16109,
+      0.46594,
+      0.525
+     ],
+     "vertices": 8114,
+     "indices": 13323,
+     "wide": false,
+     "pos": 368684,
+     "nrm": 433596,
+     "uv": 466052,
+     "col": 498508,
+     "mr": 530964,
+     "idx": 547192
+    }
+   }
+  },
+  "arcTower": {
+   "kind": "structure",
+   "atlas": "arcTower.webp",
+   "parts": {
+    "body": {
+     "pivot": [
+      0,
+      0,
+      0
+     ],
+     "min": [
+      0.02,
+      0,
+      0.02
+     ],
+     "max": [
+      0.98,
+      1.89845,
+      0.98
+     ],
+     "vertices": 5586,
+     "indices": 14970,
+     "wide": false,
+     "pos": 573840,
+     "nrm": 618528,
+     "uv": 640872,
+     "col": 663216,
+     "mr": 685560,
+     "idx": 696732
+    }
+   }
+  },
+  "beamTower": {
+   "kind": "structure",
+   "atlas": "beamTower.webp",
+   "parts": {
+    "body": {
+     "pivot": [
+      0,
+      0,
+      0
+     ],
+     "min": [
+      0.02,
+      0,
+      0.02
+     ],
+     "max": [
+      0.98,
+      2.09636,
+      0.98
+     ],
+     "vertices": 6324,
+     "indices": 14997,
+     "wide": false,
+     "pos": 726672,
+     "nrm": 777264,
+     "uv": 802560,
+     "col": 827856,
+     "mr": 853152,
+     "idx": 865800
+    }
+   }
+  },
+  "sentryGun": {
+   "kind": "structure",
+   "atlas": "sentryGun.webp",
+   "parts": {
+    "body": {
+     "pivot": [
+      0,
+      0,
+      0
+     ],
+     "min": [
+      0.09346,
+      0,
+      0.02
+     ],
+     "max": [
+      0.90654,
+      0.57128,
+      0.98
+     ],
+     "vertices": 8725,
+     "indices": 14997,
+     "wide": false,
+     "pos": 895796,
+     "nrm": 965596,
+     "uv": 1000496,
+     "col": 1035396,
+     "mr": 1070296,
+     "idx": 1087748
+    }
+   }
+  },
+  "aegisProjector": {
+   "kind": "structure",
+   "atlas": "aegisProjector.webp",
+   "parts": {
+    "body": {
+     "pivot": [
+      0,
+      0,
+      0
+     ],
+     "min": [
+      0.14042,
+      0,
+      0.04
+     ],
+     "max": [
+      1.85958,
+      0.67044,
+      1.96
+     ],
+     "vertices": 9359,
+     "indices": 26997,
+     "wide": false,
+     "pos": 1117744,
+     "nrm": 1192616,
+     "uv": 1230052,
+     "col": 1267488,
+     "mr": 1304924,
+     "idx": 1323644
+    }
+   }
+  },
+  "powerPlant@union": {
+   "kind": "structure",
+   "atlas": "powerPlant-union.webp",
+   "parts": {
+    "body": {
+     "pivot": [
+      0,
+      0,
+      0
+     ],
+     "min": [
+      -0.08,
+      0,
+      0.49615
+     ],
+     "max": [
+      2.08,
+      0.92513,
+      1.50385
+     ],
+     "vertices": 9818,
+     "indices": 26997,
+     "wide": false,
+     "pos": 1377640,
+     "nrm": 1456184,
+     "uv": 1495456,
+     "col": 1534728,
+     "mr": 1574000,
+     "idx": 1593636
+    }
+   }
+  },
+  "refinery@union": {
+   "kind": "structure",
+   "atlas": "refinery-union.webp",
+   "parts": {
+    "body": {
+     "pivot": [
+      0,
+      0,
+      0
+     ],
+     "min": [
+      0.24993,
+      0,
+      0.06
+     ],
+     "max": [
+      2.75007,
+      1.52897,
+      2.94
+     ],
+     "vertices": 5278,
+     "indices": 10800,
+     "wide": false,
+     "pos": 1647632,
+     "nrm": 1689856,
+     "uv": 1710968,
+     "col": 1732080,
+     "mr": 1753192,
+     "idx": 1763748
+    }
+   }
+  },
+  "techCenter@union": {
+   "kind": "structure",
+   "atlas": null,
+   "parts": {
+    "body": {
+     "pivot": [
+      0,
+      0,
+      0
+     ],
+     "min": [
+      0.02,
+      0,
+      0.02
+     ],
+     "max": [
+      1.98,
+      3.3171,
+      1.98
+     ],
+     "vertices": 8889,
+     "indices": 23856,
+     "wide": false,
+     "pos": 1785348,
+     "nrm": 1856460,
+     "uv": 1892016,
+     "col": 1927572,
+     "mr": 1963128,
+     "idx": 1980908
+    }
+   }
+  },
+  "titanTank": {
+   "kind": "unit",
+   "atlas": "titanTank.webp",
+   "parts": {
+    "body": {
+     "pivot": [
+      0,
+      0,
+      0
+     ],
+     "min": [
+      -0.27522,
+      0.0019,
+      -0.43897
+     ],
+     "max": [
+      0.27522,
+      0.31051,
+      0.6
+     ],
+     "vertices": 6024,
+     "indices": 13170,
+     "wide": false,
+     "pos": 2028620,
+     "nrm": 2076812,
+     "uv": 2100908,
+     "col": 2125004,
+     "mr": 2149100,
+     "idx": 2161148
+    },
+    "turret": {
+     "pivot": [
+      0,
+      0,
+      0
+     ],
+     "min": [
+      -0.17929,
+      0.13614,
+      -0.6
+     ],
+     "max": [
+      0.17929,
+      0.31947,
+      0.29012
+     ],
+     "vertices": 2992,
+     "indices": 4452,
+     "wide": false,
+     "pos": 2187488,
+     "nrm": 2211424,
+     "uv": 2223392,
+     "col": 2235360,
+     "mr": 2247328,
+     "idx": 2253312
+    }
+   }
+  },
+  "sensorArray": {
+   "kind": "structure",
+   "atlas": "sensorArray.webp",
+   "parts": {
+    "body": {
+     "pivot": [
+      0,
+      0,
+      0
+     ],
+     "min": [
+      0.02,
+      0,
+      0.02
+     ],
+     "max": [
+      0.98,
+      2.32692,
+      0.98
+     ],
+     "vertices": 4646,
+     "indices": 10212,
+     "wide": false,
+     "pos": 2262216,
+     "nrm": 2299384,
+     "uv": 2317968,
+     "col": 2336552,
+     "mr": 2355136,
+     "idx": 2364428
+    }
+   }
+  }
+ }
+}

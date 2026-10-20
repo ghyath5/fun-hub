@@ -197,6 +197,7 @@ export function SlotsScreen({ title, slots, mode, onPick, onDelete, onBack }) {
  * @property {boolean} [edgePan]         Mouse at the screen edge scrolls the map
  * @property {'en' | 'ar'} textLang     Language of the text
  * @property {'en' | 'ar'} voiceLang    Language of the announcer and unit voices
+ * @property {'3d' | '2d'} [graphics]   The battlefield in 3D (default) or the classic 2D sprites
  */
 
 /**
@@ -243,6 +244,10 @@ export function SettingsScreen({ settings, onChange, onBack, sounds }) {
         options=${LANGS.map((l) => ({ value: l, label: LANG_NAMES[l] }))} /></${Row}>
       <${Row} label=${t('Voices')}><${Select} label=${t('Voice language')} value=${settings.voiceLang} onChange=${(v) => set({ voiceLang: v })}
         options=${LANGS.map((l) => ({ value: l, label: LANG_NAMES[l] }))} /></${Row}>
+      <h3>${t('Graphics')}</h3>
+      <${Row} label=${t('Battlefield view')}><${Select} label=${t('Battlefield view')} value=${settings.graphics ?? '3d'} onChange=${(v) => set({ graphics: v })}
+        options=${[{ value: '3d', label: t('3D') }, { value: '2d', label: t('Classic 2D') }]} /></${Row}>
+      <p class="muted">${t('Applies from the next match.')}</p>
       <h3>${t('Controls and sound')}</h3>
       <${Row} label=${t('Left-handed layout')}><${Toggle} label=${t('Left-handed layout')} checked=${settings.leftHanded} onChange=${(v) => set({ leftHanded: v })} /></${Row}>
       <${Row} label=${t('Haptics')}><${Toggle} label=${t('Haptics')} checked=${settings.haptics} onChange=${(v) => set({ haptics: v })} /></${Row}>

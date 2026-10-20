@@ -1,9 +1,10 @@
-// Tiny static server for the studio (three.js modules and the GLB sources).
+// Tiny static server for the studio and the exporter (three.js modules, the
+// GLB sources and the game's own procedural models).
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json', '.glb': 'model/gltf-binary', '.png': 'image/png', '.jpg': 'image/jpeg' };
+const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json', '.glb': 'model/gltf-binary', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp' };
 
 /** Serve `root` on a free port; resolves to { url, close }. @param {string} root */
 export function serve(root) {

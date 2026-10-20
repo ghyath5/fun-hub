@@ -16,14 +16,15 @@ fs.mkdirSync(out, { recursive: true });
 const only = new Set(process.argv.slice(2));
 const jobs = JOBS.filter((j) => !only.size || only.has(j.id));
 
-const srv = await serve(root);
+// Served from the game's folder: the procedural models live in src/render3d/.
+const srv = await serve(path.resolve(root, '../..'));
 const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM ?? '/opt/pw-browsers/chromium',
   args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
 });
 const page = await browser.newPage();
 page.on('pageerror', (e) => console.error('page:', e.message));
-await page.goto(srv.url + 'studio.html');
+await page.goto(srv.url + 'tools/glb-bake/studio.html');
 await page.waitForFunction(() => window.studio?.ready);
 
 const metaFile = path.join(out, 'meta.json');

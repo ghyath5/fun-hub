@@ -2,7 +2,14 @@
   "name": "command-front-glb-bake",
   "private": true,
   "type": "module",
-  "description": "Offline studio: renders GLB and procedural 3D models into Command Front's sprite atlas.",
-  "scripts": { "bake": "node bake.mjs" },
-  "dependencies": { "three": "0.169.0", "playwright-core": "1.56.0" }
+  "description": "Offline studio: turns GLB files into Command Front 3D models (export.mjs) and renders GLB and procedural models into the sprite atlas (bake.mjs).",
+  "scripts": {
+    "export": "node export.mjs",
+    "bake": "node bake.mjs"
+  },
+  "dependencies": {
+    "meshoptimizer": "^1.1.1",
+    "playwright-core": "1.56.0",
+    "three": "0.169.0"
+  }
 }

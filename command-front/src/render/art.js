@@ -49,8 +49,8 @@ const BASE = './assets/art/';
  * @property {Record<string, { tex: Texture, ox: number, oy: number }[]>} decor  variants; image offset from the cell corner, world px
  */
 
-/** @type {Promise<{ json: any, blobs: Blob[], groundBlobs: Blob[] } | null> | null} */
-let download = null;
+/** Downloads by kind ('all': every page; 'terrain': ground and flat decor only). @type {Map<string, Promise<{ json: any, blobs: Blob[], groundBlobs: Blob[], decorBlob: Blob | null } | null>>} */
+const downloads = new Map();
 
 /**
  * How much of the atlas resolution to keep on the GPU (1 = all of it). Every
@@ -71,9 +71,10 @@ export function artScale() {
   return 1;
 }
 
-/** Fetch the atlas index and pages once (the service worker keeps them offline). */
-function fetchArt() {
-  download ??= (async () => {
+/** Fetch the atlas index and pages once (the service worker keeps them offline). @param {boolean} terrainOnly */
+function fetchArt(terrainOnly) {
+  const kind = terrainOnly ? 'terrain' : 'all';
+  if (!downloads.has(kind)) downloads.set(kind, (async () => {
     try {
       const res = await fetch(`${BASE}atlas.json`);
       if (!res.ok) return null;
@@ -83,26 +84,32 @@ function fetchArt() {
         if (!r.ok) throw new Error(`${p}: ${r.status}`);
         return r.blob();
       };
-      const blobs = await Promise.all(json.pages.map(get));
+      const decorPage = json.terrain?.decorPage?.page;
+      if (terrainOnly && !decorPage) return null;
+      const blobs = terrainOnly ? [] : await Promise.all(json.pages.map(get));
       const groundBlobs = await Promise.all((json.terrain?.ground.pages ?? []).map(get));
-      return { json, blobs, groundBlobs };
+      const decorBlob = terrainOnly ? await get(decorPage) : null;
+      return { json, blobs, groundBlobs, decorBlob };
     } catch (e) {
       console.warn('[art] pre-rendered art unavailable, using code-drawn art', e);
       return null;
     }
-  })();
-  return download;
+  })());
+  return /** @type {Promise<any>} */ (downloads.get(kind));
 }
 
 /**
  * Textures for every structure and unit, or null when the art cannot be
- * loaded (the caller falls back to code-drawn art).
+ * loaded (the caller falls back to code-drawn art). `terrainOnly` (the 3D
+ * renderer, which draws models instead of sprites) loads just the ground and
+ * the flat decor; units and structures come back empty.
+ * @param {{ terrainOnly?: boolean }} [opts]
  * @returns {Promise<{ structures: Map<string, StructureArt>, units: Map<string, UnitArt>, terrain: TerrainArt | null, destroy: () => void } | null>}
  */
-export async function loadArt() {
-  const got = await fetchArt();
+export async function loadArt(opts = {}) {
+  const got = await fetchArt(!!opts.terrainOnly);
   if (!got) return null;
-  const { json, blobs, groundBlobs } = got;
+  const { json, blobs, groundBlobs, decorBlob } = got;
   const res = json.pxPerCell / json.cellPx; // atlas px per world px
   const gj = json.terrain?.ground;
   const gres = gj ? gj.pxPerCell / json.cellPx : 1;
@@ -133,9 +140,13 @@ export async function loadArt() {
   };
   let sources;
   let groundSources;
+  /** @type {ImageSource | null} */
+  let decorSource = null;
+  const dp = json.terrain?.decorPage;
   try {
     sources = await Promise.all(blobs.map((b) => source(b, res)));
     groundSources = await Promise.all(groundBlobs.map((b) => source(b, gres)));
+    if (decorBlob) decorSource = await source(decorBlob, res * dp.scale);
   } catch (e) {
     console.warn('[art] could not decode the atlas', e);
     return null;
@@ -143,7 +154,7 @@ export async function loadArt() {
   /** @param {any} frames @param {ImageSource[]} srcs @param {number} r @param {string} key */
   const cut = (frames, srcs, r, key) => {
     const f = /** @type {Frame} */ (frames[key]);
-    return new Texture({ source: srcs[f.page], frame: new Rectangle(f.x / r, f.y / r, f.w / r, f.h / r) });
+    return new Texture({ source: srcs[f.page ?? 0], frame: new Rectangle(f.x / r, f.y / r, f.w / r, f.h / r) });
   };
   /** @param {string} key */
   const tex = (key) => cut(json.frames, sources, res, key);
@@ -153,7 +164,7 @@ export async function loadArt() {
 
   /** @type {Map<string, StructureArt>} */
   const structures = new Map();
-  for (const [id, s] of Object.entries(json.structures)) {
+  if (!opts.terrainOnly) for (const [id, s] of Object.entries(json.structures)) {
     structures.set(id, {
       ...layers(s.layer),
       turret: null,
@@ -166,7 +177,7 @@ export async function loadArt() {
   }
   /** @type {Map<string, UnitArt>} */
   const units = new Map();
-  for (const [id, u] of Object.entries(json.units)) {
+  if (!opts.terrainOnly) for (const [id, u] of Object.entries(json.units)) {
     units.set(id, {
       ...layers(u.body),
       turret: u.turret ? layers(u.turret) : null,
@@ -184,7 +195,13 @@ export async function loadArt() {
     /** @type {TerrainArt['decor']} */
     const decor = {};
     for (const [set, list] of Object.entries(json.terrain.decor)) {
-      decor[set] = /** @type {any[]} */ (list).map((d) => ({ tex: tex(d.key), ox: -d.fx * C, oy: -d.fy * C }));
+      if (decorSource) {
+        // Only the flat decor is on the decor page; trees and boulders are 3D models.
+        if (!/** @type {any[]} */ (list).every((d) => dp.frames[d.key])) continue;
+        decor[set] = /** @type {any[]} */ (list).map((d) => ({ tex: cut(dp.frames, [/** @type {ImageSource} */ (decorSource)], res * dp.scale, d.key), ox: -d.fx * C, oy: -d.fy * C }));
+      } else {
+        decor[set] = /** @type {any[]} */ (list).map((d) => ({ tex: tex(d.key), ox: -d.fx * C, oy: -d.fy * C }));
+      }
     }
     terrain = { ground, decor, margin: gj.margin * C, repeat: gj.repeat };
   }
@@ -192,6 +209,6 @@ export async function loadArt() {
     structures,
     units,
     terrain,
-    destroy() { for (const s of [...sources, ...groundSources]) s.destroy(); },
+    destroy() { for (const s of [...sources, ...groundSources, ...(decorSource ? [decorSource] : [])]) s.destroy(); },
   };
 }

@@ -8,7 +8,12 @@ frame already in assets/art/atlas.json into as few 2048² pages as fit. Frames
 from the studio replace existing frames with the same key, so a re-run is
 safe. Writes atlas-N.webp and atlas.json in place, and a preview sheet.
 
-usage: python3 pack.py [--preview out/preview.png]
+Also writes decor-0.webp: the flat terrain decor (ore, gems, craters,
+rubble) at half resolution on a page of its own, so the 3D renderer — which
+draws units, buildings, trees and boulders as models — can load the ground
+without the sprite pages.
+
+usage: python3 pack.py [--preview out/preview.png] [--decor-only]
 """
 import argparse
 import colorsys
@@ -87,12 +92,50 @@ def radius_of(alpha, px_per_cell):
     return round(float(half) / px_per_cell * 0.88, 4)
 
 
+def write_decor_page(atlas, pages=None):
+    """Copy the flat decor frames onto decor-0.webp at half size; index it in atlas['terrain']['decorPage']."""
+    if pages is None:
+        pages = [Image.open(os.path.join(ART, p)).convert('RGBA') for p in atlas['pages']]
+    flat = ('ore', 'gem', 'crater', 'rubble')
+    keys = sorted({d['key'] for s, lst in atlas['terrain']['decor'].items() if s in flat for d in lst})
+    ims = {}
+    for k in keys:
+        f = atlas['frames'][k]
+        im = pages[f['page']].crop((f['x'], f['y'], f['x'] + f['w'], f['y'] + f['h']))
+        ims[k] = im.resize((round(f['w'] / 2), round(f['h'] / 2)), Image.LANCZOS)
+    order = sorted(keys, key=lambda k: (-ims[k].height, -ims[k].width, k))
+    x = y = shelf = GAP
+    shelf = 0
+    frames = {}
+    width = 512
+    for k in order:
+        w, h = ims[k].size
+        if x + w + GAP > width:
+            x, y, shelf = GAP, y + shelf + GAP, 0
+        frames[k] = {'x': x, 'y': y, 'w': w, 'h': h}
+        x += w + GAP
+        shelf = max(shelf, h)
+    height = 1 << (y + shelf + GAP - 1).bit_length()
+    page = Image.new('RGBA', (width, height), (0, 0, 0, 0))
+    for k, f in frames.items():
+        page.paste(ims[k], (f['x'], f['y']))
+    page.save(os.path.join(ART, 'decor-0.webp'), 'WEBP', quality=90, method=6, alpha_quality=100)
+    atlas['terrain']['decorPage'] = {'page': 'decor-0.webp', 'scale': 0.5, 'frames': frames}
+    print(f'decor-0.webp {width}x{height}, {len(frames)} frames')
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--preview', default=os.path.join(OUT, 'preview.png'))
+    ap.add_argument('--decor-only', action='store_true')
     args = ap.parse_args()
 
     atlas = json.load(open(os.path.join(ART, 'atlas.json')))
+    if args.decor_only:
+        write_decor_page(atlas)
+        with open(os.path.join(ART, 'atlas.json'), 'w') as f:
+            json.dump(atlas, f, separators=(',', ':'))
+        return
     ppc = atlas['pxPerCell']
     pages = [Image.open(os.path.join(ART, p)).convert('RGBA') for p in atlas['pages']]
     meta = json.load(open(os.path.join(OUT, 'meta.json')))
@@ -181,6 +224,7 @@ def main():
         names.append(name)
     atlas['pages'] = names
     atlas['frames'] = frames
+    write_decor_page(atlas, out_pages)
     with open(os.path.join(ART, 'atlas.json'), 'w') as f:
         json.dump(atlas, f, separators=(',', ':'))
     print(f'{len(frames)} frames on {len(names)} pages: ' + ', '.join(f'{n} {p.size[0]}×{p.size[1]}' for n, p in zip(names, out_pages)))
