@@ -46,6 +46,10 @@ export function createAiState(pid, difficulty) {
     naval: null,
     /** Round-robin position in the wave mix. */
     mixCursor: 0,
+    /** Where the base was last hit (planes strike there first), or null. @type {{x: number, y: number} | null} */
+    threatAt: null,
+    /** Earliest tick for the next air strike on the attack target. */
+    nextStrike: 0,
   };
 }
 
@@ -215,7 +219,8 @@ function manageProduction(w, ai) {
     issue(w, ai, 'build', [], { type: options[0], count: 1 });
   }
   // Hard keeps an Engineer around for captures.
-  if (ai.cfg.engineerCapture && countOwned(w, ai.pid, 'engineer') === 0 && startable(w, ai.pid, 'engineer')
+  const engineerQueued = (p.lines.infantry?.queue ?? []).some((/** @type {any} */ q) => q.type === 'engineer');
+  if (ai.cfg.engineerCapture && countOwned(w, ai.pid, 'engineer') === 0 && !engineerQueued && startable(w, ai.pid, 'engineer')
     && (p.lines.infantry?.queue.length ?? 0) < PRODUCTION.queueMax && ai.waveCount > 0) {
     issue(w, ai, 'build', [], { type: 'engineer', count: 1 });
   }

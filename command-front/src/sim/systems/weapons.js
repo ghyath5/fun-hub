@@ -7,7 +7,7 @@
  * weapons keep separate cooldowns. Bursts follow 0.2 s apart. Shots become
  * projectiles; nothing is damaged here.
  */
-import { TURN_RATE } from '../../data/units.js';
+import { TURN_RATE, UNITS } from '../../data/units.js';
 import { WEAPONS, PROJECTILE_SPEED } from '../../data/weapons.js';
 import { SIM, SPECIALS } from '../../data/rules.js';
 import { isqrt, facingOf, facingDelta, turnToward, ticks } from '../../core/fixed.js';
@@ -102,6 +102,18 @@ function launch(w, u, k, aim, d) {
   w.events.emit('shot', w.tick, { shooter: u.id, weapon: id, x: u.x, y: u.y, tx, ty, projectile: p.id });
 }
 
+/**
+ * Is this aircraft's heading the flight's to set? Planes always fly their
+ * own line (they fire when it lines up); a helicopter turns to aim only
+ * while it hovers.
+ * @param {any} u
+ */
+function steeredInFlight(u) {
+  if (u.kind !== 'unit' || UNITS[u.type].loco !== 'air') return false;
+  const tags = UNITS[u.type].tags;
+  return tags.includes('plane') || tags.includes('support') || !!u.order;
+}
+
 /** @param {World} w @param {any} u */
 function fireUnit(w, u) {
   const cdef = combatDef(u.type);
@@ -120,7 +132,7 @@ function fireUnit(w, u) {
   const d = aim.e ? reachDist(u, aim.e) : isqrt((aim.x - u.x) ** 2 + (aim.y - u.y) ** 2);
   const want = facingOf(aim.x - u.x, aim.y - u.y);
   if (cdef.turret) u.turret = turnToward(u.turret, want, TURN_RATE.turret);
-  else if (!structure && !u.next) u.facing = turnToward(u.facing, want, def.turnRate);
+  else if (!structure && !u.next && !steeredInFlight(u)) u.facing = turnToward(u.facing, want, def.turnRate);
   const aimFacing = cdef.turret ? u.turret : u.facing;
   // Defenses without a turret (pillboxes, towers) fire in any direction.
   const aligned = d === 0 || (structure && !cdef.turret) || Math.abs(facingDelta(aimFacing, want)) <= SIM.facingTolerance;

@@ -61,13 +61,20 @@ export function CommandBar({ sel, onTop, addMode, selectMode, targetMode, act })
 }
 
 /**
- * @param {{ sizes: number[], act: { recall: (n: number) => void, centre: (n: number) => void, assign: (n: number) => void } }} p
+ * Control groups (section 15) on the left edge: tap a number to select its
+ * units — or, when it is empty and units are selected, to save them as that
+ * group; double-tap to centre on them; hold to save the selection over it.
+ * The column folds away behind its toggle.
+ * @param {{ sizes: number[], collapsed: boolean, act: { recall: (n: number) => void, tap: (n: number) => void, centre: (n: number) => void,
+ *   assign: (n: number) => void, toggle: () => void } }} p
  */
-export function ControlGroups({ sizes, act }) {
-  return html`<nav class="groups" aria-label=${t('Control groups')}>
-    ${sizes.map((n, i) => html`<${PressButton} key=${i} class=${`group ${n ? '' : 'empty'}`}
-      aria-label=${n ? t('Group {g}, {n} units. Long-press to assign', { g: i + 1, n }) : t('Group {g}, empty. Long-press to assign', { g: i + 1 })}
-      tap=${() => act.recall(i)} doubleTap=${() => act.centre(i)} longPress=${() => act.assign(i)}>
+export function ControlGroups({ sizes, collapsed, act }) {
+  return html`<nav class=${`groups ${collapsed ? 'collapsed' : ''}`} aria-label=${t('Control groups')}>
+    <button class="group-toggle" dir="ltr" aria-expanded=${!collapsed} onClick=${act.toggle}
+      aria-label=${collapsed ? t('Show control groups') : t('Hide control groups')}>${collapsed ? '›' : '‹'}</button>
+    ${collapsed ? null : sizes.map((n, i) => html`<${PressButton} key=${i} class=${`group ${n ? '' : 'empty'}`}
+      aria-label=${n ? t('Group {g}, {n} units. Tap to select, hold to replace', { g: i + 1, n }) : t('Group {g}, empty. Select units, then tap to save them here', { g: i + 1 })}
+      tap=${() => act.tap(i)} doubleTap=${() => act.centre(i)} longPress=${() => act.assign(i)}>
       <span class="g-num">${i + 1}</span>${n ? html`<span class="g-count">${n}</span>` : null}
     </${PressButton}>`)}
   </nav>`;

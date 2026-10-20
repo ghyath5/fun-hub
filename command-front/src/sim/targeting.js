@@ -103,6 +103,22 @@ export function maxRange(e) {
   return r;
 }
 
+/**
+ * Damage one volley of an entity's best usable weapon does to a target
+ * (damage × burst × multiplier), for focus-fire bookkeeping. 0 for healers.
+ * @param {any} shooter @param {any} target
+ */
+export function volleyDamage(shooter, target) {
+  let best = 0;
+  const ws = weaponsOf(shooter);
+  for (const k of usableWeapons(shooter, target, false)) {
+    const w = WEAPONS[ws[k]];
+    if (!w.warhead || w.damage <= 0) continue;
+    best = Math.max(best, Math.floor(effectiveness(w, target) / 100));
+  }
+  return best;
+}
+
 /** Best warhead multiplier (0–100) any of `attacker`'s weapons has against `victim`. */
 export function bestMultiplierPct(attacker, victim) {
   let best = 0;

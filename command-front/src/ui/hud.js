@@ -12,6 +12,7 @@ import { Sidebar } from './sidebar.js';
 import { Minimap } from './minimap.js';
 import { LinkCard } from './linkCard.js';
 import { t, int } from '../lib/i18n.js';
+import { GAME_SPEEDS } from '../data/rules.js';
 
 /** A map's name in the current language ("Huge 128×128 #42": the size word is translated). @param {string} name */
 const mapLabel = (name) => name.replace(/^[A-Za-z][A-Za-z ]*?(?= \d|$)/, (w) => t(w));
@@ -29,6 +30,7 @@ const mapLabel = (name) => name.replace(/^[A-Za-z][A-Za-z ]*?(?= \d|$)/, (w) => 
  * @property {string | null} hash    Debug state hash
  * @property {import('./commandBar.js').SelectionInfo} sel
  * @property {number[]} groups        Units per control group
+ * @property {boolean} groupsCollapsed The control-group column is folded away
  * @property {boolean} barTop         Command bar moved to the top so it never covers the selection
  * @property {boolean} addMode
  * @property {boolean} selectMode
@@ -53,6 +55,7 @@ const mapLabel = (name) => name.replace(/^[A-Za-z][A-Za-z ]*?(?= \d|$)/, (w) => 
  * @property {string | null} hint    First-match hint
  * @property {boolean} ended
  * @property {boolean} online      Two-phone match: no saves, shared pause
+ * @property {string} speed         Game speed (a GAME_SPEEDS key)
  * @property {import('../net/netMatch.js').LinkCard} link  The other phone's state
  * @property {boolean} [linkDismissed]
  */
@@ -61,6 +64,7 @@ const mapLabel = (name) => name.replace(/^[A-Za-z][A-Za-z ]*?(?= \d|$)/, (w) => 
  * @typedef {object} HudActions
  * @property {() => void} pause
  * @property {() => void} resume
+ * @property {(speed: string) => void} [speed]  change the game speed (single player)
  * @property {(at: {x: number, y: number}) => void} jump
  * @property {() => void} fullscreen
  * @property {Parameters<typeof CommandBar>[0]['act']} cmd
@@ -127,7 +131,7 @@ function Hud({ store, actions }) {
       <button class="icon-btn" aria-label=${t('Pause')} onClick=${actions.pause}>❚❚</button>
     </header>
     <${Toasts} toasts=${s.toasts} onJump=${actions.jump} />
-    <${ControlGroups} sizes=${s.groups} act=${actions.groups} />
+    <${ControlGroups} sizes=${s.groups} collapsed=${s.groupsCollapsed} act=${actions.groups} />
     <${Minimap} radar=${s.radar} collapsed=${s.mapCollapsed} onCanvas=${actions.minimapCanvas} jump=${actions.minimapJump} toggle=${actions.minimapToggle} />
     <${Sidebar} model=${s.sidebar} icons=${s.icons} tab=${s.tab} collapsed=${s.collapsed || placing}
       mode=${s.targetMode} act=${actions.build} />
@@ -158,6 +162,11 @@ function Hud({ store, actions }) {
           <h2>${t('Paused')}</h2>
           <p class="muted">${s.online ? t('The other phone waits until you resume.') : mapLabel(s.mapName)}</p>
           <button class="btn primary" onClick=${actions.resume}>${t('Resume')}</button>
+          ${s.online || !actions.speed ? null : html`<div class="speed-pick" role="group" aria-label=${t('Game speed')}>
+            <span class="muted">${t('Game speed')}</span>
+            <div class="speed-row">${Object.entries(GAME_SPEEDS).map(([id, g]) => html`<button key=${id}
+              class=${`btn speed ${s.speed === id ? 'on' : ''}`} aria-pressed=${s.speed === id} onClick=${() => actions.speed?.(id)}>${t(g.name)}</button>`)}</div>
+          </div>`}
           ${s.online ? null : html`<div class="sheet-row">
             <button class="btn" disabled=${s.watching || s.ended} onClick=${actions.save}>${t('Save')}</button>
             <button class="btn" onClick=${actions.load}>${t('Load')}</button>

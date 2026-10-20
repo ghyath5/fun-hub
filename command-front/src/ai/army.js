@@ -4,10 +4,11 @@
  * that answers attacks within 15 cells of base, attack waves that gather 15
  * cells short of their target and then attack-move, retreat after losing
  * 70% of their value, unit micro by difficulty, Hard Engineers capturing
- * red buildings near the front, and support powers.
+ * red buildings near the front, air strikes, and support powers.
  */
 import { AI, SIM } from '../data/rules.js';
 import { UNITS } from '../data/units.js';
+import { WEAPONS } from '../data/weapons.js';
 import { structureDef, isActive } from '../sim/entities/structures.js';
 import { canAttack } from '../sim/targeting.js';
 import { SCOUTS, MIN_WAVE } from './buildOrders.js';
@@ -131,6 +132,7 @@ function defend(w, ai, army) {
     if (!threat && (ai.hp[e.id] ?? e.hp) > e.hp && dist2(at, base) <= r2) threat = at;
   }
   ai.hp = hp;
+  ai.threatAt = threat;
   if (!threat) return;
   // Aim at the nearest visible enemy round the spot, else the spot itself.
   let foe = null;
@@ -225,6 +227,59 @@ function micro(w, ai, army) {
   issue(w, ai, 'attack', able, { id: weak.id });
 }
 
+/** Every ammo weapon of an aircraft full? @param {any} u */
+const fullyArmed = (u) => UNITS[u.type].weapons.every((id, k) => WEAPONS[id].ammo === 0 || u.weapons[k].ammo >= WEAPONS[id].ammo);
+
+/** Seconds between strikes on the attack target when nothing more pressing calls the planes. */
+const STRIKE_GAP = ticks(45);
+
+/**
+ * Air strikes, as Red Alert 2's computer flies them: the rearmed planes
+ * waiting on their pads go together at one target — first whoever is hitting
+ * the base, then what the attack wave is fighting, then (once attacks have
+ * begun, every STRIKE_GAP) the defences and factories at the attack target.
+ * Within reach of the spot they pick the costliest enemy most of them can hurt.
+ * @param {World} w @param {AiState} ai @param {any[]} army
+ */
+function airStrikes(w, ai, army) {
+  const ready = army.filter((u) => isPlane(u) && u.landed && !u.task && fullyArmed(u));
+  if (!ready.length) return;
+  /** @type {{ at: {x: number, y: number}, timed: boolean }[]} */
+  const spots = [];
+  if (ai.threatAt) spots.push({ at: ai.threatAt, timed: false });
+  if (ai.wave?.stage === 'attack') {
+    const units = ai.wave.ids.map((id) => w.entities.get(id)).filter((u) => u && !u.dead);
+    if (units.length) {
+      spots.push({ at: {
+        x: Math.floor(units.reduce((a, u) => a + u.cx, 0) / units.length),
+        y: Math.floor(units.reduce((a, u) => a + u.cy, 0) / units.length),
+      }, timed: false });
+    }
+  }
+  if (w.tick >= ai.firstAttack && w.tick >= (ai.nextStrike ?? 0)) {
+    const t = chooseTarget(w, ai);
+    if (t) spots.push({ at: t, timed: true });
+  }
+  for (const spot of spots) {
+    let best = null;
+    let bestScore = -1;
+    for (const e of w.spatial.near(spot.at.x * L + L / 2, spot.at.y * L + L / 2, HUNT_RADIUS * L)) {
+      if (e.dead || e.inside || e.owner < 0 || w.allied(e.owner, ai.pid) || !w.visibleTo(ai.pid, e)) continue;
+      const able = ready.filter((u) => canAttack(u, e)).length;
+      if (!able) continue;
+      const def = e.kind === 'structure' ? structureDef(e.type) : UNITS[e.type];
+      if (e.kind === 'structure' && (def.wall || def.tags.includes('neutral'))) continue;
+      // Value × how many planes can join; defences count double (they are what shoots the army).
+      const score = (def.cost ?? 0) * able * (e.kind === 'structure' && def.line === 'defenses' ? 2 : 1);
+      if (score > bestScore || (score === bestScore && best && e.id < best.id)) { bestScore = score; best = e; }
+    }
+    if (!best) continue;
+    issue(w, ai, 'attack', ready.filter((u) => canAttack(u, best)).map((u) => u.id), { id: best.id });
+    if (spot.timed) ai.nextStrike = w.tick + STRIKE_GAP;
+    return;
+  }
+}
+
 /** Hard: Engineers take red-health enemy buildings near the front. @param {World} w @param {AiState} ai */
 function captures(w, ai) {
   if (!ai.cfg.engineerCapture) return;
@@ -299,6 +354,7 @@ export function thinkArmy(w, ai, baseGone) {
   defend(w, ai, army);
   if (w.tick >= ai.firstAttack) waves(w, ai, army, ai.cfg);
   micro(w, ai, army);
+  airStrikes(w, ai, army);
   captures(w, ai);
   powers(w, ai, army);
 }

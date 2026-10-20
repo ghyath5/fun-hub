@@ -97,6 +97,29 @@ export function turnToward(from, to, rate) {
   return (from + (d > 0 ? rate : -rate)) & 255;
 }
 
+/** sin(k · 2π / 256) × 4096 for k = 0..64, hard-coded so flight never depends on an engine's Math.sin. */
+const SIN_Q = [0, 101, 201, 301, 401, 501, 601, 700, 799, 897, 995, 1092, 1189, 1285, 1380, 1474, 1567, 1660, 1751, 1842,
+  1931, 2019, 2106, 2191, 2276, 2359, 2440, 2520, 2598, 2675, 2751, 2824, 2896, 2967, 3035, 3102, 3166, 3229, 3290, 3349,
+  3406, 3461, 3513, 3564, 3612, 3659, 3703, 3745, 3784, 3822, 3857, 3889, 3920, 3948, 3973, 3996, 4017, 4036, 4052, 4065,
+  4076, 4085, 4091, 4095, 4096];
+/** sin of a facing, ×4096. @param {number} f */
+const sin4096 = (f) => {
+  const a = f & 255;
+  if (a <= 64) return SIN_Q[a];
+  if (a <= 128) return SIN_Q[128 - a];
+  if (a <= 192) return -SIN_Q[a - 128];
+  return -SIN_Q[256 - a];
+};
+
+/**
+ * Move `len` leptons along a facing (0 = north, clockwise, y down): the
+ * integer step (dx, dy). Identical on every engine.
+ * @param {number} facing @param {number} len
+ */
+export function stepAlong(facing, len) {
+  return { dx: Math.trunc((sin4096(facing) * len) / 4096) || 0, dy: Math.trunc((-sin4096(facing + 64) * len) / 4096) || 0 };
+}
+
 /** Cell step (dx, dy) for each of 8 directions, index = facing >> 5 rounded. */
 export const DIR8 = Object.freeze([
   [0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1],

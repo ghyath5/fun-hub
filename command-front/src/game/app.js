@@ -212,6 +212,7 @@ export async function startApp({ hudEl, worldEl, screensEl, debug }) {
         autosave: () => { saveTo('auto'); },
         exit: () => { saveTo('auto').finally(() => { stopSession(); menu(); }); },
         ended: (/** @type {any} */ result) => ended(result),
+        speedChanged: (/** @type {string} */ s) => { meta = { ...meta, speed: s }; },
       },
     });
     if (hint) {

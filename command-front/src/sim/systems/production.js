@@ -21,6 +21,7 @@ import { checkPlacement, checkDeploy } from '../placement.js';
 import { setMove } from './movement.js';
 import { findSlot, reservedSlots, slotCell, slotHolders, slotPoint } from '../pads.js';
 import { DIR8 } from '../../core/fixed.js';
+import { spiral } from '../nav.js';
 import { priceFor, clones } from '../bonuses.js';
 
 /** @typedef {import('../world.js').World} World */
@@ -140,13 +141,43 @@ function cloneOf(w, pid, u, factory) {
   }
 }
 
-/** Walk a fresh unit one cell clear of its factory exit. @param {World} w @param {any} u @param {any} s */
-function stepOff(w, u, s) {
-  const x = u.cx;
-  const y = u.cy + 1;
-  if (canEnter(w, u, x, y).ok) {
+/** How far from its factory door a fresh unit looks for a free spot to wait on. */
+const MUSTER_RADIUS = 6;
+
+/**
+ * Walk a fresh unit (no rally point) clear of its factory: to the nearest
+ * empty cell at least two cells from the door that is not hugging a
+ * building (doors, docks and pads stay clear) and that no other unit is
+ * already heading for — so a long queue spreads out instead of jamming the
+ * exit. Falls back to one cell south of the door.
+ * @param {World} w @param {any} u @param {any} _s
+ */
+function stepOff(w, u, _s) {
+  const W = w.map.width;
+  const H = w.map.height;
+  const loco = UNITS[u.type].loco;
+  const taken = new Set();
+  for (const o of w.entities.all()) if (o.kind === 'unit' && o.owner === u.owner && o.order) taken.add(o.order.dy * W + o.order.dx);
+  const hugsBuilding = (/** @type {number} */ x, /** @type {number} */ y) => {
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const nx = x + dx, ny = y + dy;
+      if (nx >= 0 && ny >= 0 && nx < W && ny < H && w.occ.bld[ny * W + nx]) return true;
+    }
+    return false;
+  };
+  for (const [x, y] of spiral(u.cx, u.cy + 2, MUSTER_RADIUS)) {
+    if (x < 0 || y < 0 || x >= W || y >= H) continue;
+    if (Math.max(Math.abs(x - u.cx), Math.abs(y - u.cy)) < 2) continue;
+    const i = y * W + x;
+    if (taken.has(i) || w.occ.unitsIn(i).length || hugsBuilding(x, y)) continue;
+    if (!w.nav.passable(loco, x, y) || !w.nav.reachable(loco, u.cx, u.cy, x, y)) continue;
     u.task = { type: 'move' };
     setMove(w, u, x, y);
+    return;
+  }
+  if (canEnter(w, u, u.cx, u.cy + 1).ok) {
+    u.task = { type: 'move' };
+    setMove(w, u, u.cx, u.cy + 1);
   }
 }
 

@@ -163,7 +163,7 @@ export function SetupScreen({ form, maps, error, onChange, onStart, onBack, onli
         <${Row} label=${t('Crates')}><${Toggle} label=${t('Crates')} checked=${form.crates} onChange=${(v) => set({ crates: v })} /></${Row}>
         <${Row} label=${t('Short game')}><${Toggle} label=${t('Short game')} checked=${form.shortGame} onChange=${(v) => set({ shortGame: v })} /></${Row}>
         <${Row} label=${t('Game speed')}><${Select} label=${t('Game speed')} value=${form.speed} onChange=${(v) => set({ speed: v })}
-          options=${Object.keys(GAME_SPEEDS).map((s) => ({ value: s, label: cap(s) }))} /></${Row}>
+          options=${Object.entries(GAME_SPEEDS).map(([s, g]) => ({ value: s, label: t(g.name) }))} /></${Row}>
       </section>
     </div>
   </div>`;
