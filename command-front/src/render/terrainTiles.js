@@ -67,8 +67,9 @@ function createPool() {
  * @param {import('../types.js').MapData} map
  * @param {import('./art.js').TerrainArt} art
  * @param {() => { x0: number, y0: number, x1: number, y1: number }} visibleCells
+ * @param {{ scenery3d?: boolean }} [opts]  scenery3d: trees and boulders are 3D models, leave them out
  */
-export function createTerrainTiles(map, art, visibleCells) {
+export function createTerrainTiles(map, art, visibleCells, opts = {}) {
   const layer = new Container();
   layer.label = 'terrain';
   const ground = ORDER.map(() => createPool());
@@ -99,7 +100,7 @@ export function createTerrainTiles(map, art, visibleCells) {
           ground[k].put(tex, x * C - m, y * C - m);
         }
         const set = DECOR[t];
-        if (set && art.decor[set]?.length) {
+        if (set && art.decor[set]?.length && !(opts.scenery3d && (set === 'tree' || set === 'boulder'))) {
           const list = art.decor[set];
           const d = list[Math.floor(hash01(x, y, 3) * list.length)];
           decor.put(d.tex, x * C + d.ox, y * C + d.oy);

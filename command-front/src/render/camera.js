@@ -40,10 +40,20 @@ export function clampAxis(offset, mapPx, lo, hi) {
 /**
  * @param {{ width: number, height: number }} map  in cells
  * @param {{ width: number, height: number }} screenSize  CSS px
+ * @param {{ squash?: number, headroom?: number }} [opts]  squash: how much the 3D view's tilt
+ *   shortens the ground vertically (sin of the camera pitch; 1 = straight down).
+ *   The world containers are drawn squashed to match, so everything drawn on
+ *   the ground in 2D lines up with the 3D scene. headroom: extra world px the
+ *   view may scroll past the map's north edge (tall buildings rise into it).
  */
-export function createCamera(map, screenSize) {
+export function createCamera(map, screenSize, opts = {}) {
   const view = new Container();
   view.label = 'camera';
+  /** Ground layers drawn before the 3D scene (3D renderer only); same transform as `view`. */
+  const ground = new Container();
+  ground.label = 'camera-ground';
+  const k = opts.squash ?? 1;
+  const headroom = opts.headroom ?? 0;
   const worldW = map.width * C;
   const worldH = map.height * C;
   let W = screenSize.width;
@@ -64,29 +74,32 @@ export function createCamera(map, screenSize) {
   const area = () => ({ x0: insets.left, y0: insets.top, x1: W - insets.right, y1: H - insets.bottom });
   const areaH = () => Math.max(1, H - insets.top - insets.bottom);
   /** Zoomed right out: up to CAMERA.maxCellsVisible rows, but no point showing far more than the whole map. */
-  const maxCells = () => Math.min(CAMERA.maxCellsVisible, Math.max(CAMERA.defaultCellsVisible, map.height + 2));
+  const maxCells = () => Math.min(CAMERA.maxCellsVisible, Math.max(CAMERA.defaultCellsVisible, map.height * k + 2));
   const minScale = () => areaH() / (maxCells() * C);
   const maxScale = () => areaH() / (CAMERA.minCellsVisible * C);
 
   function apply() {
     const a = area();
     ox = clampAxis(ox, worldW * scale, a.x0, a.x1);
-    oy = clampAxis(oy, worldH * scale, a.y0, a.y1);
-    view.scale.set(scale);
+    const top = headroom * scale * k;
+    oy = clampAxis(oy - top, (worldH + headroom) * scale * k, a.y0, a.y1) + top;
+    view.scale.set(scale, scale * k);
     view.position.set(ox, oy);
+    ground.scale.set(scale, scale * k);
+    ground.position.set(ox, oy);
   }
 
   /** World point at the centre of the play area. */
   const centre = () => {
     const a = area();
-    return { x: ((a.x0 + a.x1) / 2 - ox) / scale, y: ((a.y0 + a.y1) / 2 - oy) / scale };
+    return { x: ((a.x0 + a.x1) / 2 - ox) / scale, y: ((a.y0 + a.y1) / 2 - oy) / (scale * k) };
   };
 
   /** Put world point (x, y) at the centre of the play area. @param {number} x @param {number} y */
   function centreOn(x, y) {
     const a = area();
     ox = (a.x0 + a.x1) / 2 - x * scale;
-    oy = (a.y0 + a.y1) / 2 - y * scale;
+    oy = (a.y0 + a.y1) / 2 - y * scale * k;
     apply();
   }
 
@@ -95,10 +108,10 @@ export function createCamera(map, screenSize) {
     const s = Math.min(maxScale(), Math.max(minScale(), next));
     if (s === scale) return;
     const wx = (sx - ox) / scale;
-    const wy = (sy - oy) / scale;
+    const wy = (sy - oy) / (scale * k);
     scale = s;
     ox = sx - wx * scale;
-    oy = sy - wy * scale;
+    oy = sy - wy * scale * k;
     apply();
     for (const f of zoomWatchers) f();
   }
@@ -106,13 +119,21 @@ export function createCamera(map, screenSize) {
   return {
     /** The container the world layers are added to. */
     view,
-    /** Screen CSS px → world px. @param {number} sx @param {number} sy */
-    toWorld: (sx, sy) => ({ x: (sx - ox) / scale, y: (sy - oy) / scale }),
-    /** World px → screen CSS px. @param {number} wx @param {number} wy */
-    toScreen: (wx, wy) => ({ x: wx * scale + ox, y: wy * scale + oy }),
+    /** The container for ground layers under the 3D scene. */
+    ground,
+    /** Vertical squash of the ground (1 in 2D). */
+    squash: k,
+    /** Screen CSS px → world px (on the ground). @param {number} sx @param {number} sy */
+    toWorld: (sx, sy) => ({ x: (sx - ox) / scale, y: (sy - oy) / (scale * k) }),
+    /** World px (on the ground) → screen CSS px. @param {number} wx @param {number} wy */
+    toScreen: (wx, wy) => ({ x: wx * scale + ox, y: wy * scale * k + oy }),
     /** Screen CSS px → cell. @param {number} sx @param {number} sy */
-    cellAt(sx, sy) { return { x: Math.floor((sx - ox) / scale / C), y: Math.floor((sy - oy) / scale / C) }; },
+    cellAt(sx, sy) { return { x: Math.floor((sx - ox) / scale / C), y: Math.floor((sy - oy) / (scale * k) / C) }; },
     get scale() { return scale; },
+    /** Screen position of the world origin, CSS px (the 3D camera follows it). */
+    get origin() { return { x: ox, y: oy }; },
+    /** Screen size, CSS px. */
+    get screen() { return { width: W, height: H }; },
     /** World point at the centre of the play area. */
     get centre() { return centre(); },
     /** Cells visible vertically in the play area. */
@@ -197,6 +218,8 @@ export function createCamera(map, screenSize) {
       zoomWatchers.clear();
       view.parent?.removeChild(view);
       view.destroy({ children: true });
+      ground.parent?.removeChild(ground);
+      ground.destroy({ children: true });
     },
   };
 }

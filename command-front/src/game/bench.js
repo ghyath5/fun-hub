@@ -44,6 +44,7 @@ export async function runBenchmark({ hudEl, worldEl, screensEl, audio, seconds }
   screensEl.classList.remove('on');
   const session = await createSession({ world, human: 0, hudEl, worldEl, audio, speed: 'normal' });
   document.body.classList.add('ready');
+  /** @type {any} */ (window).__cf = session;
   // Watch the middle of the map.
   session.view.camera.home(Math.floor(map.width / 2), Math.floor(map.height / 2));
 

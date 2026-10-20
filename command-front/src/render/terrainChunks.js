@@ -51,8 +51,9 @@ const at = (/** @type {MapData} */ m, x, y) => (x < 0 || y < 0 || x >= m.width |
 /**
  * Draw one cell into a Graphics at local pixel (px, py).
  * @param {Graphics} g @param {MapData} map @param {number} x @param {number} y @param {number} px @param {number} py
+ * @param {boolean} [trees]  false: trees are drawn elsewhere (3D)
  */
-function drawCell(g, map, x, y, px, py) {
+function drawCell(g, map, x, y, px, py, trees = true) {
   const i = y * map.width + x;
   const t = map.terrain[i];
   const def = TERRAIN[t];
@@ -103,6 +104,7 @@ function drawCell(g, map, x, y, px, py) {
       break;
     }
     case T.tree: {
+      if (!trees) break;
       const ox = (hash01(x, y, 4) - 0.5) * 4;
       const oy = (hash01(x, y, 5) - 0.5) * 4;
       g.circle(px + C / 2 + ox + 2, py + C / 2 + oy + 3, C * 0.42).fill({ color: 0x1c2412, alpha: 0.45 });
@@ -140,8 +142,9 @@ function drawCell(g, map, x, y, px, py) {
 /**
  * @param {import('pixi.js').Renderer} renderer
  * @param {MapData} map
+ * @param {{ scenery3d?: boolean }} [opts]  scenery3d: trees are 3D models, leave them out
  */
-export function createTerrain(renderer, map) {
+export function createTerrain(renderer, map, opts = {}) {
   const layer = new Container();
   layer.label = 'terrain';
   const cols = Math.ceil(map.width / CELLS_PER_CHUNK);
@@ -170,7 +173,7 @@ export function createTerrain(renderer, map) {
     const x0 = ch.cx * CELLS_PER_CHUNK;
     const y0 = ch.cy * CELLS_PER_CHUNK;
     for (let y = y0; y < Math.min(map.height, y0 + CELLS_PER_CHUNK); y++) {
-      for (let x = x0; x < Math.min(map.width, x0 + CELLS_PER_CHUNK); x++) drawCell(g, map, x, y, (x - x0) * C, (y - y0) * C);
+      for (let x = x0; x < Math.min(map.width, x0 + CELLS_PER_CHUNK); x++) drawCell(g, map, x, y, (x - x0) * C, (y - y0) * C, !opts.scenery3d);
     }
     renderer.render({ container: g, target: ch.tex, clear: true });
     g.destroy();
