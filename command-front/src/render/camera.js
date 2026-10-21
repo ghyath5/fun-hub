@@ -73,6 +73,8 @@ export function createCamera(map, screenSize, opts = {}) {
 
   const area = () => ({ x0: insets.left, y0: insets.top, x1: W - insets.right, y1: H - insets.bottom });
   const areaH = () => Math.max(1, H - insets.top - insets.bottom);
+  /** Rows shown at the default zoom: fewer on a small screen, so models stay big enough to read. */
+  const defaultCells = () => (H < CAMERA.smallScreenPx ? CAMERA.defaultCellsVisibleSmall : CAMERA.defaultCellsVisible);
   /** Zoomed right out: up to CAMERA.maxCellsVisible rows, but no point showing far more than the whole map. */
   const maxCells = () => Math.min(CAMERA.maxCellsVisible, Math.max(CAMERA.defaultCellsVisible, map.height * k + 2));
   const minScale = () => areaH() / (maxCells() * C);
@@ -144,7 +146,7 @@ export function createCamera(map, screenSize, opts = {}) {
     /** Centre on a cell at the default zoom. @param {number} cx @param {number} cy */
     home(cx, cy) {
       glide = null; vx = vy = 0;
-      scale = Math.min(maxScale(), Math.max(minScale(), areaH() / (CAMERA.defaultCellsVisible * C)));
+      scale = Math.min(maxScale(), Math.max(minScale(), areaH() / (defaultCells() * C)));
       centreOn((cx + 0.5) * C, (cy + 0.5) * C);
       for (const f of zoomWatchers) f();
     },

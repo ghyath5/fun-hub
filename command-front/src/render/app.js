@@ -161,7 +161,7 @@ async function createRenderer2D(host, map, opts = {}) {
     /**
      * Per-frame work before PixiJS draws.
      * @param {any} world @param {number} alpha @param {Set<number>} selected
-     * @param {{ selectedStructure?: number, placement?: any, viewer?: number }} [opts]  viewer: whose eyes the map is drawn through
+     * @param {{ selectedStructure?: number, placement?: any, viewer?: number, hover?: number }} [opts]  viewer: whose eyes the map is drawn through; hover: entity under the mouse
      */
     update(world, alpha, selected, opts = {}) {
       terrain.update();
@@ -173,9 +173,9 @@ async function createRenderer2D(host, map, opts = {}) {
       structures.sync(world, selected, opts.selectedStructure ?? 0, scale, see, viewer >= 0 ? {
         viewer, seen: (/** @type {number} */ x, /** @type {number} */ y) => world.cellVisible(viewer, x, y) && shroud.alphaAt(x, y) === 0,
         explored: (/** @type {number} */ x, /** @type {number} */ y) => world.isExplored(viewer, x, y),
-      } : undefined);
+      } : undefined, opts.hover ?? 0);
       placement.draw(opts.placement ?? null, scale);
-      units.sync(world, alpha, selected, scale, see, viewer);
+      units.sync(world, alpha, selected, scale, see ?? (() => true), viewer, opts.hover ?? 0);
       minesG.clear();
       for (const c of world.crates) {
         if (viewer >= 0 && !world.isExplored(viewer, c.x, c.y)) continue;

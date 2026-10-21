@@ -11,13 +11,13 @@ import { PLAYER_COLORS } from '../data/factions.js';
 import { RENDER, SIM, PRODUCTION, SELL } from '../data/rules.js';
 import { STRUCTURES } from '../data/structures.js';
 import { healthBand } from '../sim/formulas/combat.js';
+import { drawPips } from './healthPips.js';
 
 const C = RENDER.cellPx;
 const PX = C / SIM.leptonsPerCell;
 const TAU = Math.PI * 2;
 const BUILD_TICKS = Math.round(PRODUCTION.buildUpSeconds * SIM.ticksPerSecond);
 const SELL_TICKS = Math.round(SELL.seconds * SIM.ticksPerSecond);
-const BAND = { green: 0x7fd04a, amber: 0xe0a43a, red: 0xd0543a };
 const NEUTRAL_TINT = 0xb8b4a6;
 
 /** Radar dishes and other `spin` parts, radians per ms. */
@@ -103,7 +103,7 @@ export function createStructureLayer(renderer, art = null) {
      * @param {{ viewer: number, seen: (x: number, y: number) => boolean, explored: (x: number, y: number) => boolean }} [eyes]
      *   Fog mode: enemy structures out of sight stay drawn as last seen until their cells are seen again
      */
-    sync(world, selected, selectedStructure, viewScale, visible = () => true, eyes) {
+    sync(world, selected, selectedStructure, viewScale, visible = () => true, eyes, hover = 0) {
       const fog = !!eyes && world.settings.fog;
       const anyCell = (/** @type {{ cx: number, cy: number, w: number, h: number }} */ f, /** @type {(x: number, y: number) => boolean} */ test) => {
         for (let y = f.cy; y < f.cy + f.h; y++) for (let x = f.cx; x < f.cx + f.w; x++) if (test(x, y)) return true;
@@ -178,11 +178,9 @@ export function createStructureLayer(renderer, art = null) {
             marks.circle(rx, ry, 4).stroke({ width: w, color: 0x9fdc6a });
           }
         }
-        if (isSel || s.hp < s.maxHp) {
-          const bw = s.w * C - 4;
+        if (isSel || s.hp < s.maxHp || s.id === hover) {
           const bh = 2.6 / Math.max(viewScale, 0.6);
-          marks.rect(x0 + 2, y0 - 5, bw, bh).fill({ color: 0x0e0f0b, alpha: 0.8 });
-          marks.rect(x0 + 2, y0 - 5, (bw * s.hp) / s.maxHp, bh).fill(BAND[band]);
+          drawPips(marks, x0 + 3, y0 - 6, s.w * C - 6, bh, s.hp, s.maxHp);
         }
         if (s.primary && owner && def && ['barracks', 'factory', 'helipad', 'airfield', 'navalyard'].includes(def.role) && isSel) {
           marks.poly([x0 + 4, y0 + 3, x0 + 10, y0 + 3, x0 + 7, y0 + 8]).fill(0xe0a43a);

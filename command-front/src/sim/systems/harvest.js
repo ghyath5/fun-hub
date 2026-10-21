@@ -3,6 +3,8 @@
  * Harvesting and unloading (system 10, section 5). Each Harvester runs a
  * small state machine: SeekOre → MoveToOre → Harvesting → SeekRefinery →
  * QueueAtDock → Docking → Unloading → back to SeekOre near the last field.
+ * A Coalition harvester whose turn at the dock comes while it is far away
+ * warps there instead of driving (Chrono → Unloading).
  * A player move order switches automation off until a harvest or refinery
  * order turns it back on.
  */
@@ -16,11 +18,34 @@ import { deposit } from '../formulas/economy.js';
 import { setMove } from './movement.js';
 import { oreValueK } from '../bonuses.js';
 import { isActive, structureDef, cellAt, structuresWithRole } from '../entities/structures.js';
-import { canEnter } from '../entities/units.js';
+import { canEnter, spotPos, occupy, vacate } from '../entities/units.js';
 
 /** @typedef {import('../world.js').World} World */
 
 const CAPACITY = ECONOMY.harvesterCapacity;
+const CHRONO_TICKS = ticks(ECONOMY.chronoSeconds);
+
+/** Does this harvester warp home (the Coalition's)? @param {World} w @param {any} u */
+const chronoMiner = (w, u) => w.players[u.owner]?.faction === 'coalition';
+/** Bales a harvester carries when full. @param {World} w @param {any} u */
+const capacityOf = (w, u) => (chronoMiner(w, u) ? ECONOMY.chronoCapacity : CAPACITY);
+
+/** Is a cell free for a harvester to appear in (nothing standing there)? @param {World} w @param {any} u @param {{x: number, y: number}} c */
+const clearFor = (w, u, c) => canEnter(w, u, c.x, c.y).ok && w.occ.unitsIn(c.y * w.map.width + c.x).every((/** @type {number} */ id) => id === u.id);
+
+/** Lift a harvester off the map and put it down on a cell. @param {World} w @param {any} u @param {{x: number, y: number}} to */
+function warp(w, u, to) {
+  vacate(w, u, u.cx, u.cy, u.spot);
+  if (u.next) vacate(w, u, u.next.x, u.next.y, u.next.spot);
+  u.next = null;
+  u.order = null;
+  u.path = [];
+  u.pathReq = 0;
+  const pos = spotPos(to.x, to.y, -1);
+  u.x = pos.x; u.y = pos.y; u.px = pos.x; u.py = pos.y;
+  u.cx = to.x; u.cy = to.y;
+  occupy(w, u, to.x, to.y, -1);
+}
 const HARVEST_TICKS = Math.round(ECONOMY.harvestSecondsPerBale * SIM.ticksPerSecond);
 const UNLOAD_TICKS = Math.round(ECONOMY.unloadSecondsPerBale * SIM.ticksPerSecond);
 const RETRY_TICKS = ticks(2);
@@ -148,7 +173,7 @@ function refineryUsable(w, u, r) {
 
 const fsm = createFsm({
   seekOre(w, u, h) {
-    if (load(h) >= CAPACITY) return 'seekRefinery';
+    if (load(h) >= capacityOf(w, u)) return 'seekRefinery';
     if (h.timer > 0) { h.timer--; return 'seekOre'; }
     const i = findOre(w, u);
     if (i >= 0) {
@@ -194,7 +219,7 @@ const fsm = createFsm({
   harvesting(w, u, h) {
     const i = h.cell;
     if (i < 0) return 'seekOre';
-    if (load(h) >= CAPACITY) { release(w, u); return 'seekRefinery'; }
+    if (load(h) >= capacityOf(w, u)) { release(w, u); return 'seekRefinery'; }
     if (w.map.bales[i] === 0) {
       release(w, u);
       const next = nextNearby(w, u, i);
@@ -260,6 +285,16 @@ const fsm = createFsm({
     if (!refineryUsable(w, u, r)) { leaveDock(w, u); return 'seekRefinery'; }
     const dock = dockOf(r);
     if (r.docked === 0 && r.dockQueue[0] === u.id) {
+      // Far from home and the dock is clear: warp instead of driving.
+      if (chronoMiner(w, u) && chebyshev(u.cx, u.cy, dock.x, dock.y) >= ECONOMY.chronoMinCells && clearFor(w, u, dock)) {
+        r.docked = u.id; // hold the dock while charging
+        r.dockQueue = r.dockQueue.filter((/** @type {number} */ id) => id !== u.id);
+        u.order = null;
+        u.path = [];
+        h.timer = CHRONO_TICKS;
+        w.events.emit('chrono', w.tick, { id: u.id, x: u.x, y: u.y, phase: 'out' });
+        return 'chrono';
+      }
       setMove(w, u, dock.x, dock.y, { auto: true });
       return 'docking';
     }
@@ -272,6 +307,22 @@ const fsm = createFsm({
       }
     }
     return 'queueAtDock';
+  },
+
+  chrono(w, u, h) {
+    const r = w.entities.get(h.refinery);
+    if (!refineryUsable(w, u, r)) { leaveDock(w, u); return 'seekRefinery'; }
+    if (--h.timer > 0) return 'chrono';
+    const dock = dockOf(r);
+    if (!clearFor(w, u, dock)) {
+      // Someone drove onto the dock meanwhile: drive there after all.
+      setMove(w, u, dock.x, dock.y, { auto: true });
+      return 'docking';
+    }
+    warp(w, u, dock);
+    w.events.emit('chrono', w.tick, { id: u.id, x: u.x, y: u.y, phase: 'in' });
+    h.timer = UNLOAD_TICKS;
+    return 'unloading';
   },
 
   docking(w, u, h) {

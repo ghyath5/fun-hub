@@ -18,6 +18,8 @@ export const GESTURE = Object.freeze({
 
 export const CAMERA = Object.freeze({
   defaultCellsVisible: 15,
+  defaultCellsVisibleSmall: 11, // a phone-sized view (under smallScreenPx tall) starts closer, so units read clearly
+  smallScreenPx: 480,
   minCellsVisible: 5,          // zoomed in
   maxCellsVisible: 48,         // zoomed out (never more than the map's own height)
   zoomButtonStep: 1.4,         // the on-screen + and − buttons

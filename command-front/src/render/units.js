@@ -10,13 +10,12 @@ import { bakeUnits } from './spriteBaker.js';
 import { UNITS, FACING_FRAMES } from '../data/units.js';
 import { PLAYER_COLORS } from '../data/factions.js';
 import { RENDER, SIM } from '../data/rules.js';
-import { healthBand } from '../sim/formulas/combat.js';
+import { drawPips } from './healthPips.js';
 
 const PX_PER_LEPTON = RENDER.cellPx / SIM.leptonsPerCell;
 const TAU = Math.PI * 2;
 /** How high aircraft in flight are drawn above their shadow, world px. */
 const ALTITUDE_PX = 10;
-const BAND_COLOR = { green: 0x7fd04a, amber: 0xe0a43a, red: 0xd0543a };
 
 /** Facing (0–255) → rotation, snapped to `frames` directions. */
 function rotationOf(facing, frames) {
@@ -123,7 +122,7 @@ export function createUnitLayer(renderer, art = null) {
      * @param {(e: any) => boolean} [visible]  Hide what the player cannot see
      * @param {number} [viewer]  Whose eyes (disguises); -1 = see everything as it is
      */
-    sync(world, alpha, selected, viewScale, visible = () => true, viewer = -1) {
+    sync(world, alpha, selected, viewScale, visible = () => true, viewer = -1, hover = 0) {
       const seen = new Set();
       const now = performance.now();
       const dt = Math.min(100, now - lastFrame);
@@ -143,6 +142,16 @@ export function createUnitLayer(renderer, art = null) {
           views.set(e.id, v);
         }
         v.root.visible = true;
+        // A dug-in Rifleman sits in a ring of sandbags.
+        if (e.dug && !v.nest) {
+          v.nest = new Graphics();
+          for (let k = 0; k < 9; k++) {
+            const a = (k / 12) * Math.PI * 2 + Math.PI * 0.75;
+            v.nest.ellipse(Math.cos(a) * 8, Math.sin(a) * 8, 3, 2.2).fill(0xa59a78).stroke({ width: 0.6, color: 0x5d5642 });
+          }
+          v.root.addChildAt(v.nest, 0);
+        }
+        if (v.nest) { v.nest.visible = !!e.dug; v.nest.rotation = (e.facing / 256) * Math.PI * 2; }
         // Submerged subs and disguised Mirage Tanks show see-through to their own side.
         const hidden = e.submerged || (e.detect !== undefined && e.detect !== -1 && UNITS[e.type].tags.includes('disguise'));
         v.root.alpha = hidden ? 0.45 : 1;
@@ -183,12 +192,11 @@ export function createUnitLayer(renderer, art = null) {
             marks.stroke({ width: w, color: 0xf0f0e0, alpha: 0.95 });
           }
         }
-        if (isSel || hurt) {
-          const bw = Math.max(10, r * 2);
+        if (isSel || hurt || e.id === hover) {
+          const bw = Math.max(12, r * 2);
           const bh = 2.4 / Math.max(viewScale, 0.6);
           const by = y - r - 6 - (UNITS[e.type].loco === 'air' && !e.landed ? ALTITUDE_PX : 0);
-          marks.rect(x - bw / 2, by, bw, bh).fill({ color: 0x0e0f0b, alpha: 0.8 });
-          marks.rect(x - bw / 2, by, (bw * e.hp) / e.maxHp, bh).fill(BAND_COLOR[healthBand(e.hp, e.maxHp)]);
+          drawPips(marks, x - bw / 2, by, bw, bh, e.hp, e.maxHp);
         }
       }
       for (const [id, v] of views) {

@@ -40,6 +40,7 @@ export const WEAPONS = Object.freeze({
   rifle:        w('rifle', 'Rifle', { damage: 15, range: 3, cooldown: 1.2, warhead: 'SA', hits: GN }),
   heavyMg:      w('heavyMg', 'Heavy MG', { damage: 15, range: 4, cooldown: 0.8, warhead: 'SA', hits: GN }),
   pillboxMg:    w('pillboxMg', 'Pillbox MG', { damage: 25, range: 5, cooldown: 0.7, warhead: 'SA', hits: GN }),
+  nestMg:       w('nestMg', 'Nest MG', { damage: 20, range: 4.5, cooldown: 0.6, warhead: 'SA', hits: GN }),
   grenade:      w('grenade', 'Grenade', { damage: 50, range: 4, cooldown: 3.0, warhead: 'HE', splash: 1.0, projectile: 'arc', scatter: 0.75, hits: G }),
   flakGun:      w('flakGun', 'Flak Gun', { damage: 25, burst: 2, range: 5, cooldown: 1.2, warhead: 'AP', hits: A }),
   shockBolt:    w('shockBolt', 'Shock Bolt', { damage: 40, range: 3.5, cooldown: 2.5, warhead: 'Arc', projectile: 'beam', hits: GN }),

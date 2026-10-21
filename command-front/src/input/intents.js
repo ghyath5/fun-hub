@@ -12,6 +12,8 @@ import { canAttack } from '../sim/targeting.js';
 import { contextOrder } from './context.js';
 import { isTransport } from '../sim/transports.js';
 import { isAircraft } from '../sim/air.js';
+import { checkDeploy } from '../sim/placement.js';
+import { canDig } from '../sim/dig.js';
 
 /** @typedef {import('./gestures.js').Gesture} Gesture */
 /** @typedef {import('./hitTest.js').Candidate} Candidate */
@@ -38,6 +40,7 @@ const NON_COMBAT_BOX = new Set(['harvester', 'mcv']);
  * @property {(menu: RadialMenu | null) => void} [radial]  Show or hide the radial menu
  * @property {(id: number) => void} [selectStructure]   Select an own structure (0 clears it)
  * @property {(e: any) => boolean} [visible]             Can the human see this entity (shroud / fog)?
+ * @property {(x: number, y: number) => boolean} [explored]  Has the human explored this cell (shroud)?
  * @property {(e: any) => number} [lift]                How far above its ground point an entity is drawn, screen px
  *   (3D view: aircraft in flight, the middle of a unit, the roof of a building) — taps on the model hit it
  */
@@ -61,6 +64,8 @@ export function createIntents(ctx) {
   /** The move a first tap issued, so a double-tap can upgrade it to attack-move. */
   let lastMove = /** @type {{ cell: {x: number, y: number}, ids: number[] } | null} */ (null);
   let lastAck = 0;
+  /** The unit a click just selected, and when: a second click straight after is a double-click (select the type), not a deploy. */
+  let lastPick = /** @type {{ id: number, t: number } | null} */ (null);
 
   /** Orders that send units at something rather than somewhere: they answer with an attack line. */
   const ATTACKING = new Set(['attack', 'attackMove', 'forceFire', 'c4', 'enter']);
@@ -196,9 +201,34 @@ export function createIntents(ctx) {
     ctx.radial?.({ x: g.x, y: g.y, options });
   }
 
+  /**
+   * A click on this selected unit deploys (Red Alert 2): the MCV when it is
+   * the only one selected; Riflemen dig in or out, with every selected one
+   * a Rifleman. @param {any} e
+   */
+  const deployable = (e) => {
+    if (!e || e.kind !== 'unit' || e.owner !== ctx.human || !ctx.selection.has(e.id)) return false;
+    if (e.type === 'mcv') return !e.deploying && ctx.selection.size === 1;
+    return canDig(e) && selectedUnits().every(canDig);
+  };
+
+  /** Add to the selection instead of replacing it: the Add button, or Shift held (desktop). @param {Gesture} g */
+  const adding = (g) => ctx.modes.addMode() || !!g.shift;
+
+  /** Ctrl-click (desktop): fire at whatever is under the cursor, or at the ground. @param {Gesture} g */
+  function forceFireAt(g) {
+    const ids = selectedUnits().map((e) => e.id);
+    const hit = hitsAt(candidates(), g.x, g.y, true)[0];
+    const e = hit ? ctx.world.entities.get(hit.id) : null;
+    const cell = e ? (e.kind === 'structure' ? { x: e.cx + (e.w >> 1), y: e.cy + (e.h >> 1) } : { x: e.cx, y: e.cy }) : cellAt(g.x, g.y);
+    issueAt('forceFire', ids, e && e.owner !== ctx.human ? { id: e.id } : cell);
+    ctx.feedback.pulse(cell, 'attack');
+  }
+
   /** @param {Gesture} g */
   function tap(g) {
     const hasSel = selectedUnits().length > 0;
+    if (hasSel && g.ctrl) { forceFireAt(g); return; }
     if (ctx.modes.targetMode?.() === 'attackMove') {
       ctx.modes.setTargetMode?.(null);
       const ids = selectedUnits().map((e) => e.id);
@@ -217,11 +247,20 @@ export function createIntents(ctx) {
         return;
       }
     }
+    // Desktop, as in Red Alert 2: clicking the selected MCV (or Riflemen) again deploys.
+    const doubleClick = !!lastPick && lastPick.id === e?.id && g.t - lastPick.t <= GESTURE.doubleTapMs;
+    if (hit && g.mouse && !g.shift && !doubleClick && deployable(e)) {
+      // Riflemen follow the clicked one: all dig in, or all climb out.
+      const ids = e.type === 'mcv' ? [e.id] : selectedUnits().filter((u) => !!u.dug === !!e.dug).map((u) => u.id);
+      issueAt('deploy', ids, null);
+      return;
+    }
     if (hit && e.kind === 'unit' && e.owner === ctx.human) {
       ctx.selectStructure?.(0);
-      if (ctx.modes.addMode()) ctx.selection.toggle(hit.id);
+      if (adding(g)) ctx.selection.toggle(hit.id);
       else ctx.selection.set([hit.id]);
       lastTapUnit = hit.id;
+      lastPick = { id: hit.id, t: g.t };
       ctx.feedback.tap();
       pickedOnce();
       return;
@@ -240,18 +279,58 @@ export function createIntents(ctx) {
       return;
     }
     ctx.selectStructure?.(0);
+    // Shift-click on the ground (desktop) queues a waypoint after the current orders.
+    if (hasSel && g.shift) {
+      const cell = cellAt(g.x, g.y);
+      issueAt('waypoint', selectedUnits().map((u) => u.id), cell);
+      ctx.feedback.pulse(cell, 'move');
+      return;
+    }
     if (!moveTo(g.x, g.y)) ctx.selection.clear();
   }
 
-  /** Desktop right-click: attack an enemy under the cursor, otherwise move there. @param {Gesture} g */
-  function secondary(g) {
-    const hits = hitsAt(candidates(), g.x, g.y, true);
-    const ctxHit = hits.find((h) => h.cls === 'context');
-    const o = ctxHit ? contextOrder(ctx.world, selectedUnits(), ctx.world.entities.get(ctxHit.id)) : null;
-    if (o) { issueAt(o.type, o.ids, o.target); return; }
-    const hit = hits.find((h) => h.cls === 'enemy');
-    if (hit) attackWith(ctx.world.entities.get(hit.id));
-    else moveTo(g.x, g.y);
+  /**
+   * Desktop right-click, as in Red Alert 2's left-click scheme: orders are
+   * left clicks, a right click drops the selection (session cancels an
+   * active mode first). @param {Gesture} _g
+   */
+  function secondary(_g) {
+    lastTapUnit = null;
+    lastMove = null;
+    ctx.radial?.(null);
+    ctx.selectStructure?.(0);
+    ctx.selection.clear();
+  }
+
+  /**
+   * What a left click here would do, for the desktop cursor. Mirrors `tap`
+   * without changing anything.
+   * @param {number} x @param {number} y @param {{ shift?: boolean, ctrl?: boolean }} [mods]
+   * @returns {'default' | 'select' | 'move' | 'noMove' | 'attack' | 'noAttack' | 'enter' | 'attackMove' | 'forceFire' | 'waypoint' | 'deploy' | 'noDeploy'}
+   */
+  function hoverIntent(x, y, mods = {}) {
+    const units = selectedUnits();
+    const hasSel = units.length > 0;
+    if (hasSel && mods.ctrl) return 'forceFire';
+    if (hasSel && ctx.modes.targetMode?.() === 'attackMove') return 'attackMove';
+    const hit = hitsAt(candidates(), x, y, hasSel)[0];
+    const e = hit ? ctx.world.entities.get(hit.id) : null;
+    if (e && hit.cls === 'context') return 'enter';
+    if (!mods.shift && deployable(e)) return e.type !== 'mcv' || checkDeploy(ctx.world, e).ok ? 'deploy' : 'noDeploy';
+    if (e && e.kind === 'unit' && e.owner === ctx.human) return 'select';
+    if (e && hit.cls === 'enemy') {
+      if (!hasSel) return 'default';
+      return units.some((u) => canAttack(u, e)) ? 'attack' : 'noAttack';
+    }
+    if (e && e.kind === 'structure') return e.owner === ctx.human ? 'select' : 'default';
+    if (!hasSel) return 'default';
+    const c = cellAt(x, y);
+    const m = ctx.world.map;
+    if (c.x < 0 || c.y < 0 || c.x >= m.width || c.y >= m.height) return 'noMove';
+    // Unexplored ground gives nothing away: any order there is allowed.
+    const known = ctx.explored ? ctx.explored(c.x, c.y) : true;
+    if (known && !units.some((u) => ctx.world.nav.passable(UNITS[u.type].loco, c.x, c.y))) return 'noMove';
+    return mods.shift ? 'waypoint' : 'move';
   }
 
   /** @param {Gesture} g */
@@ -293,7 +372,7 @@ export function createIntents(ctx) {
       picked = inside.filter((e) => !NON_COMBAT_BOX.has(e.type));
     }
     const ids = picked.map((e) => e.id);
-    if (ctx.modes.addMode()) ctx.selection.set([...ctx.selection.ids, ...ids]);
+    if (adding(g)) ctx.selection.set([...ctx.selection.ids, ...ids]);
     else ctx.selection.set(ids);
     if (ids.length) pickedOnce();
   }
@@ -305,11 +384,12 @@ export function createIntents(ctx) {
         case 'tap': tap(g); break;
         case 'doubleTap': doubleTap(g); break;
         case 'boxEnd': box(g); break;
-        case 'secondary': secondary(g); break; // desktop right-click
+        case 'secondary': secondary(g); break; // desktop right-click: deselect
         case 'radial': radial(g); break;
         default: break;
       }
     },
+    hoverIntent,
     /** A radial option was chosen. @param {string} id */
     radialPick(id) {
       ctx.radial?.(null);
@@ -340,17 +420,17 @@ export function createIntents(ctx) {
     narrowTo(type) {
       ctx.selection.set(selectedUnits().filter((e) => e.type === type).map((e) => e.id));
     },
-    /** Select every own unit of the selected types on screen. */
-    selectSameType() {
+    /** Select every own unit of the selected types on screen (or anywhere on the map). @param {boolean} [everywhere] */
+    selectSameType(everywhere = false) {
       const types = new Set(selectedUnits().map((e) => e.type));
       const { w, h } = ctx.screen();
       const ids = [];
       for (const e of ctx.world.entities.all()) {
-        if (e.dead || e.kind !== 'unit' || e.owner !== ctx.human || !types.has(e.type)) continue;
+        if (e.dead || e.inside || e.kind !== 'unit' || e.owner !== ctx.human || !types.has(e.type)) continue;
         const p = ctx.toScreen(e.x * PX_PER_LEPTON, e.y * PX_PER_LEPTON);
-        if (p.x >= 0 && p.y >= 0 && p.x <= w && p.y <= h) ids.push(e.id);
+        if (everywhere || (p.x >= 0 && p.y >= 0 && p.x <= w && p.y <= h)) ids.push(e.id);
       }
-      ctx.selection.set(ids);
+      if (ids.length) ctx.selection.set(ids);
     },
     /** A command with no target (Stop, Scatter, Deploy) for the selection. @param {string} type @param {(u: any) => boolean} [only] */
     simple(type, only = () => true) {
@@ -384,7 +464,7 @@ export function createIntents(ctx) {
         .map(([type, count]) => ({ type, count, name: nameOf(type, UNITS[type].name) }));
       const stance = units.length ? units[0].stance : 'guard';
       const can = {
-        deploy: units.some((u) => u.type === 'mcv'),
+        deploy: units.some((u) => u.type === 'mcv' || canDig(u)),
         harvest: units.some((u) => u.harv),
         unload: units.some((u) => isTransport(u) && u.cargo?.length > 0),
         mines: units.some((u) => UNITS[u.type].tags.includes('mineLayer')),

@@ -17,10 +17,10 @@ const root = path.dirname(new URL(import.meta.url).pathname);
 const dest = path.resolve(root, '../../assets/models');
 fs.mkdirSync(dest, { recursive: true });
 const only = new Set(process.argv.slice(2));
-const jobs = JOBS.filter((j) => j.src && (!only.size || only.has(j.id)));
+const jobs = JOBS.filter((j) => (j.src || j.stl) && (!only.size || only.has(j.id)));
 
 /** Triangle budget for a whole model: what a phone can draw by the dozen. */
-const budget = (job) => (job.kind === 'unit' ? 4500 : job.w * job.h <= 1 ? 5000 : 9000);
+const budget = (job) => job.budget ?? (job.kind === 'unit' ? 4500 : job.w * job.h <= 1 ? 5000 : 9000);
 
 const b64 = (s, T) => { const b = Buffer.from(s, 'base64'); return new T(b.buffer, b.byteOffset, b.byteLength / T.BYTES_PER_ELEMENT); };
 

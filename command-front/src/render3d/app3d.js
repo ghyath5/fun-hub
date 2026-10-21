@@ -223,7 +223,7 @@ export async function createRenderer3D(host, map, opts = {}) {
     /**
      * Per-frame work before drawing.
      * @param {any} world @param {number} alpha @param {Set<number>} selected
-     * @param {{ selectedStructure?: number, placement?: any, viewer?: number }} [o]
+     * @param {{ selectedStructure?: number, placement?: any, viewer?: number, hover?: number }} [o]
      */
     update(world, alpha, selected, o = {}) {
       terrain.update();
@@ -238,11 +238,11 @@ export async function createRenderer3D(host, map, opts = {}) {
       structures.sync(world, selected, o.selectedStructure ?? 0, scale, see, viewer >= 0 ? {
         viewer, seen: (/** @type {number} */ x, /** @type {number} */ y) => world.cellVisible(viewer, x, y) && shroud.alphaAt(x, y) === 0,
         explored: (/** @type {number} */ x, /** @type {number} */ y) => world.isExplored(viewer, x, y),
-      } : undefined, vw);
+      } : undefined, vw, o.hover ?? 0);
       const p = o.placement ?? null;
       placement.draw(p, scale);
       if (p?.type && !p.wall) structures.ghost(p.type, opts.faction ?? '', p.cx, p.cy, p.tint);
-      units.sync(world, alpha, selected, scale, see, viewer, vw);
+      units.sync(world, alpha, selected, scale, see, viewer, vw, o.hover ?? 0);
       // Scenery: the cells on screen plus those just below it, whose trees reach up into view.
       nature.sync(world, { ...cells, y1: Math.min(map.height - 1, cells.y1 + 2) }, viewer);
       inst.end();

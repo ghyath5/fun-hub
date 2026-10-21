@@ -5,15 +5,16 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { buildProcedural } from './models.js';
+import { stlModel } from './stl.js';
 
 const loader = new GLTFLoader();
 /** @type {Map<string, THREE.Object3D>} */
 const cache = new Map();
 
 export async function source(job) {
-  const key = job.src ?? `proc:${job.proc}`;
+  const key = job.src ?? (job.stl ? `stl:${job.id}` : `proc:${job.proc}`);
   if (!cache.has(key)) {
-    const obj = job.src ? (await loader.loadAsync(`./glb/${job.src}`)).scene : buildProcedural(job.proc);
+    const obj = job.src ? (await loader.loadAsync(`./glb/${job.src}`)).scene : job.stl ? await stlModel(job) : buildProcedural(job.proc);
     cache.set(key, obj);
   }
   return cache.get(key).clone(true);

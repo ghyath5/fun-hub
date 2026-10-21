@@ -10,6 +10,8 @@
 
 const RED = { hue: 0, tol: 18, sat: 0.42, val: 0.18 };
 const BLUE = { hue: 218, tol: 22, sat: 0.3, val: 0.2 };
+/** STL paint: roofs and upper faces take the team colour. */
+const ROOFS = { team: [{ h: [0.45, 1], ny: [0.5, 1] }] };
 
 export const JOBS = [
   // ── GLB units ──────────────────────────────────────────────
@@ -27,6 +29,23 @@ export const JOBS = [
   { id: 'powerPlant@union', kind: 'structure', src: 'red_alert_2_-_soviet_tesla_reactor.glb', rot: [0, 90, 0], w: 2, h: 2, fill: 1.08, team: RED },
   { id: 'refinery@union', kind: 'structure', src: 'red_alert_2_russia_ore_refinery.glb', w: 3, h: 3, team: RED },
   { id: 'techCenter@union', kind: 'structure', src: 'lunar_command_base_yuris_revenge.glb', w: 2, h: 2, fill: 0.98, look: { set: '#7f8892', metalness: 0.5, roughness: 0.45 }, team: { neutral: { maxSat: 0.06, minVal: 0.8 } } },
+
+  // ── STL structures (stl.js): the Coalition's own looks, 3D view only ──
+  // Uncoloured print models: painted per vertex by rules (team / metal / dark /
+  // glow regions in the model's u, v, h fractions) with baked ambient occlusion;
+  // `budget` keeps the download small (they are detailed print models).
+  { id: 'constructionYard@coalition', kind: 'structure', stl: { file: 'Construction_Yard.stl', ...ROOFS }, w: 3, h: 3, budget: 7000 },
+  { id: 'powerPlant@coalition', kind: 'structure', stl: { file: 'Power_Plant.stl', ...ROOFS }, w: 2, h: 2, budget: 6000 },
+  { id: 'refinery@coalition', kind: 'structure', stl: { file: 'Refinery.stl', ...ROOFS }, w: 3, h: 3, budget: 7000 },
+  { id: 'barracks@coalition', kind: 'structure', stl: { file: 'Barracks.stl', ...ROOFS }, w: 2, h: 2, budget: 6000 },
+  { id: 'warFactory@coalition', kind: 'structure', stl: { file: 'War_Factory.stl', ...ROOFS }, w: 3, h: 3, budget: 7000 },
+  { id: 'radarDome@coalition', kind: 'structure', stl: { file: 'Airflied.stl', ...ROOFS }, w: 2, h: 2, budget: 6000 },
+  { id: 'serviceDepot@coalition', kind: 'structure', stl: { file: 'Service_Depot.stl', ...ROOFS }, w: 3, h: 3, budget: 7000 },
+  { id: 'techCenter@coalition', kind: 'structure', stl: { file: 'Battle_Lab.stl', ...ROOFS }, w: 2, h: 2, budget: 6000 },
+  { id: 'oreProcessor', kind: 'structure', stl: { file: 'Ore_Purifier.stl', ...ROOFS }, w: 2, h: 2, budget: 6000 },
+  { id: 'stormGenerator', kind: 'structure', stl: { file: 'Weather_Control.stl', ...ROOFS }, w: 2, h: 2, budget: 6000 },
+  { id: 'pillbox', kind: 'structure', stl: { file: 'Pillbox.stl', ...ROOFS }, w: 1, h: 1, budget: 3500 },
+  { id: 'aaGun', kind: 'structure', stl: { file: 'Patriot_Missile.stl', move: [{ box: [0, 1, 0, 0.45], turret: true, to: [113, 4.6, 144.8], rotX: -40 }], ...ROOFS }, turret: ['^turret$'], w: 1, h: 1, budget: 3500 },
 
   // ── Procedural units (models.js) ───────────────────────────
   { id: 'tankDestroyer', kind: 'unit', proc: 'tankDestroyer', r: 0.5, size: 0.94, team: RED },

@@ -1,7 +1,7 @@
 /* Command Front service worker: cache-first, versioned. Hand-maintained list —
    add every file the game loads; ?debug warns at startup about any that are missing.
    Bump CACHE whenever a listed file changes. */
-const CACHE = 'command-front-v32';
+const CACHE = 'command-front-v33';
 
 const PRECACHE = [
   './',
@@ -547,6 +547,7 @@ const PRECACHE = [
   './src/game/twoPhones.js',
   './src/input/cameraInput.js',
   './src/input/context.js',
+  './src/input/cursors.js',
   './src/input/desktop.js',
   './src/input/gestures.js',
   './src/input/hitTest.js',
@@ -587,6 +588,7 @@ const PRECACHE = [
   './src/render/terrainChunks.js',
   './src/render/terrainTiles.js',
   './src/render/units.js',
+  './src/render/healthPips.js',
   './src/render3d/app3d.js',
   './src/render3d/icons3d.js',
   './src/render3d/instances.js',
@@ -602,6 +604,7 @@ const PRECACHE = [
   './src/render3d/models/units.js',
   './src/save/serialize.js',
   './src/sim/air.js',
+  './src/sim/dig.js',
   './src/sim/baseCommands.js',
   './src/sim/bonuses.js',
   './src/sim/capture.js',

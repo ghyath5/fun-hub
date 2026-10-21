@@ -35,6 +35,20 @@ function cab(g, w, h, z, y0, mat = M.team) {
 export const UNIT_MODELS = {
   // ── Infantry ───────────────────────────────────────────────
   rifleman: { size: 0.46, build(g) { soldier(g, { helmet: M.olive, weapon: 'rifle', pack: M.khaki }); } },
+  // The sandbag ring round a dug-in Rifleman (drawn with him, not a unit of its own); open at the back.
+  sandbagNest: {
+    size: 0.62,
+    build(g) {
+      for (let k = 0; k < 11; k++) {
+        const a = (k / 14) * Math.PI * 2 + Math.PI * 0.72;
+        for (const [y, r] of [[0.04, 0.27], [0.11, 0.26]]) {
+          if (y > 0.1 && k % 2) continue;
+          const b = box(g, 0.14, 0.07, 0.08, M.sand, Math.cos(a) * r, y, Math.sin(a) * r, 0.03);
+          b.rotation.y = -a + Math.PI / 2;
+        }
+      }
+    },
+  },
   rocketTrooper: { size: 0.5, build(g) { soldier(g, { helmet: M.olive, weapon: 'tube', pack: M.khaki }); } },
   engineer: {
     size: 0.42,

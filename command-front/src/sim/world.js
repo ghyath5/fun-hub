@@ -193,7 +193,7 @@ export function hashWorld(w) {
     h.int(e.id).str(e.type).int(e.owner).int(e.hp).int(e.x).int(e.y).int(e.facing).int(e.turret).int(e.cx).int(e.cy).int(e.spot)
       .int(e.path.length).int(e.order ? 1 : 0).int(e.next ? e.next.x * 4096 + e.next.y : -1)
       .int(e.target).int(e.proneUntil).str(e.task ? e.task.type : '-')
-      .int(e.harv ? e.harv.ore * 100 + e.harv.gem : -1).str(e.harv ? e.harv.state : '');
+      .int(e.harv ? e.harv.ore * 100 + e.harv.gem : -1).str(e.harv ? e.harv.state : '').int(e.dug ? 1 : 0);
     for (const st of e.weapons) h.int(st.cd).int(st.burst).int(st.ammo);
   }
   for (const p of w.projectiles) h.int(p.id).int(p.x).int(p.y).int(p.tx).int(p.ty);

@@ -39,7 +39,9 @@ body { overflow: hidden; overscroll-behavior: none; -webkit-tap-highlight-color:
   display: flex; align-items: center; gap: 12px;
   border-width: 0 0 1px;
 }
-.credits { font-family: var(--mono); font-size: 15px; color: var(--accent); letter-spacing: .02em; min-width: 7ch; }
+.credits { font-family: var(--mono); font-size: 15px; color: var(--accent); letter-spacing: .02em; min-width: 7ch; transition: color .15s; }
+.credits.up { color: #8fe06a; }
+.credits.down { color: #f0b04a; }
 .spacer { flex: 1; }
 .power { position: relative; width: 120px; height: 14px; border: 1px solid var(--rule); background: #0e0f0b; }
 .power-fill { position: absolute; inset: 0 auto 0 0; background: var(--ok); }
@@ -500,3 +502,10 @@ html.lang-ar .bicon-cost, html.lang-ar .bicon-hold, html.lang-ar .tab { font-siz
 /* The camera could not start: why, and Try again. */
 .cam.cam-error { display: grid; place-content: center; gap: 12px; padding: 16px; text-align: center; background: rgba(0,0,0,.35); border: 1px dashed var(--rule); min-height: 160px; }
 .cam.cam-error p { margin: 0; line-height: 1.5; }
+/* Mouse and keyboard help in the pause menu: only where there is a mouse. */
+.keys-help { border: 1px solid var(--rule); padding: 0 12px; }
+.keys-help summary { min-height: 40px; display: flex; align-items: center; cursor: pointer; font: 600 13px var(--font); letter-spacing: .08em; text-transform: uppercase; }
+.keys-help dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; margin: 0 0 12px; font-size: 13px; }
+.keys-help dt { color: var(--accent); font-weight: 600; white-space: nowrap; }
+.keys-help dd { margin: 0; color: var(--ink); }
+@media (hover: none), (pointer: coarse) { .keys-help { display: none; } }

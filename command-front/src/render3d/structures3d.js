@@ -13,6 +13,7 @@ import { createFlagpole } from '../render/flagpole.js';
 import { RENDER, SIM, PRODUCTION, SELL } from '../data/rules.js';
 import { STRUCTURES } from '../data/structures.js';
 import { healthBand } from '../sim/formulas/combat.js';
+import { drawPips } from '../render/healthPips.js';
 import { CELL, LIFT, SQUASH } from './view.js';
 import { teamColor } from './units3d.js';
 
@@ -20,7 +21,6 @@ const C = RENDER.cellPx;
 const TAU = Math.PI * 2;
 const BUILD_TICKS = Math.round(PRODUCTION.buildUpSeconds * SIM.ticksPerSecond);
 const SELL_TICKS = Math.round(SELL.seconds * SIM.ticksPerSecond);
-const BAND = { green: 0x7fd04a, amber: 0xe0a43a, red: 0xd0543a };
 const NEUTRAL = new THREE.Color(0xb8b4a6);
 /** Radar dishes and other `spin` parts, radians per ms. */
 const SPIN_SPEED = 0.0012;
@@ -94,8 +94,9 @@ export function createStructures3D(lib, inst) {
      * @param {(e: any) => boolean} visible
      * @param {{ viewer: number, seen: (x: number, y: number) => boolean, explored: (x: number, y: number) => boolean } | undefined} eyes
      * @param {{ x0: number, y0: number, x1: number, y1: number }} view  world px on screen (with margin)
+     * @param {number} [hover]  the entity under the mouse: its health shows
      */
-    sync(world, selected, selectedStructure, viewScale, visible, eyes, view) {
+    sync(world, selected, selectedStructure, viewScale, visible, eyes, view, hover = 0) {
       const fog = !!eyes && world.settings.fog;
       const anyCell = (/** @type {{ cx: number, cy: number, w: number, h: number }} */ f, /** @type {(x: number, y: number) => boolean} */ test) => {
         for (let y = f.cy; y < f.cy + f.h; y++) for (let x = f.cx; x < f.cx + f.w; x++) if (test(x, y)) return true;
@@ -165,11 +166,9 @@ export function createStructures3D(lib, inst) {
             marks.circle(rx, ry, 4).stroke({ width: w, color: 0x9fdc6a });
           }
         }
-        if (isSel || s.hp < s.maxHp) {
-          const bw = s.w * C - 4;
-          const bh = 2.6 / Math.max(viewScale, 0.6) / SQUASH;
-          marks.rect(x0 + 2, top - 7, bw, bh).fill({ color: 0x0e0f0b, alpha: 0.8 });
-          marks.rect(x0 + 2, top - 7, (bw * s.hp) / s.maxHp, bh).fill(BAND[band]);
+        if (isSel || s.hp < s.maxHp || s.id === hover) {
+          const bh = 2.8 / Math.max(viewScale, 0.6) / SQUASH;
+          drawPips(marks, x0 + 3, top - 8, s.w * C - 6, bh, s.hp, s.maxHp);
         }
         if (s.primary && owner && sd && ['barracks', 'factory', 'helipad', 'airfield', 'navalyard'].includes(sd.role) && isSel) {
           marks.poly([x0 + 4, top - 2, x0 + 10, top - 2, x0 + 7, top + 5]).fill(0xe0a43a);

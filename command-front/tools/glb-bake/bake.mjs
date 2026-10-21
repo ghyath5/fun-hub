@@ -14,7 +14,8 @@ const root = path.dirname(new URL(import.meta.url).pathname);
 const out = path.join(root, 'out');
 fs.mkdirSync(out, { recursive: true });
 const only = new Set(process.argv.slice(2));
-const jobs = JOBS.filter((j) => !only.size || only.has(j.id));
+// STL models are 3D-only (export.mjs): the Classic 2D view keeps its sprites for those buildings.
+const jobs = JOBS.filter((j) => !j.stl && (!only.size || only.has(j.id)));
 
 // Served from the game's folder: the procedural models live in src/render3d/.
 const srv = await serve(path.resolve(root, '../..'));

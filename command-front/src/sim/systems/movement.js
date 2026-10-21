@@ -19,6 +19,7 @@ import { MOVEMENT, SIM, COMBAT, AIRCRAFT } from '../../data/rules.js';
 import { TURN_RATE } from '../../data/units.js';
 import { ticks } from '../../core/fixed.js';
 import { defOf, isInfantry, isAir, canEnter, occupy, vacate, spotPos, isIdle } from '../entities/units.js';
+import { digOut } from '../dig.js';
 import { spiral } from '../nav.js';
 import { triggerMine } from '../mines.js';
 import { collectCrate } from './crates.js';
@@ -103,6 +104,8 @@ export function requestPath(w, u) {
  *   at: aircraft only, the exact point to fly to (leptons) instead of the cell's centre
  */
 export function setMove(w, u, x, y, opts = {}) {
+  // Anything that moves a dug-in Rifleman digs him out first.
+  if (u.dug) digOut(w, u);
   let spot = opts.spot ?? -1;
   const from = origin(u);
   // Never search for an impassable or unreachable cell: aim for the nearest reachable one instead.

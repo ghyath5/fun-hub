@@ -4,7 +4,7 @@
  * toasts, mode banners, placement controls, radial menu and the pause sheet.
  * Renders a snapshot; every action goes through the callbacks it is given.
  */
-import { html, render } from 'htm/preact';
+import { html, render, useEffect, useRef, useState } from 'htm/preact';
 import { useSnapshot } from './store.js';
 import { Toasts } from './toasts.js';
 import { CommandBar, ControlGroups, InfoCard, RadialMenu, TargetBanner, StructureBar, PlaceControls } from './commandBar.js';
@@ -113,6 +113,32 @@ function PowerBar({ produced, drain, preview }) {
 }
 
 /**
+ * The money counter rolls to its new value, as Red Alert 2's does: green
+ * while it counts up, amber while it counts down.
+ * @param {{ value: number }} props
+ */
+function Credits({ value }) {
+  const [shown, setShown] = useState(value);
+  const at = useRef(value);
+  useEffect(() => {
+    let raf = 0;
+    const tick = () => {
+      const diff = value - at.current;
+      if (diff === 0) { setShown(value); return; }
+      // About a third of a second for any change, at least $1 a frame.
+      const step = Math.sign(diff) * Math.max(1, Math.ceil(Math.abs(diff) * 0.16));
+      at.current = Math.abs(step) >= Math.abs(diff) ? value : at.current + step;
+      setShown(at.current);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [value]);
+  const dir = shown < value ? 'up' : shown > value ? 'down' : '';
+  return html`<span class=${`credits ${dir}`} aria-label=${t('Credits')}>$ ${int(shown)}</span>`;
+}
+
+/**
  * @param {{ store: ReturnType<typeof import('./store.js').createStore<HudState>>, actions: HudActions }} props
  */
 function Hud({ store, actions }) {
@@ -120,7 +146,7 @@ function Hud({ store, actions }) {
   const placing = s.targetMode === 'place' || s.targetMode === 'walls' || s.targetMode === 'mines' || s.targetMode === 'power';
   return html`
     <header class="topbar panel">
-      <span class="credits" aria-label=${t('Credits')}>$ ${int(s.credits)}</span>
+      <${Credits} value=${s.credits} />
       <${PowerBar} produced=${s.powerProduced} drain=${s.powerDrain} preview=${s.powerPreview} />
       ${s.powers.map((p) => html`<${PowerButton} key=${p.id} p=${p} fire=${actions.power} />`)}
       ${s.intel ? html`<span class="intel" title=${t('Spy intelligence')}>${s.intel}</span>` : null}
@@ -171,6 +197,7 @@ function Hud({ store, actions }) {
             <button class="btn" disabled=${s.watching || s.ended} onClick=${actions.save}>${t('Save')}</button>
             <button class="btn" onClick=${actions.load}>${t('Load')}</button>
           </div>`}
+          <${KeysHelp} />
           <div class="sheet-row">
             <button class="btn" onClick=${actions.fullscreen}>${t('Fullscreen')}</button>
             <button class=${`btn ${s.confirmSurrender ? 'danger' : ''}`} disabled=${s.watching || s.ended} onClick=${actions.surrender}>
@@ -181,6 +208,35 @@ function Hud({ store, actions }) {
       </div>` : null}
     ${s.online && actions.link ? html`<${LinkCard} card=${s.link} dismissed=${!!s.linkDismissed} act=${actions.link} />` : null}
   `;
+}
+
+/** Mouse and keyboard, as listed in the pause menu (shown only with a mouse). Mouse rows have words to translate. */
+const MOUSE = /** @type {const} */ ([
+  ['Left click', 'Select, move, attack'],
+  ['Right click', 'Cancel, then deselect'],
+  ['Right drag', 'Move the view'],
+  ['Shift + click', 'Add to selection · waypoint'],
+  ['Ctrl + click', 'Force fire'],
+]);
+const KEYS = /** @type {const} */ ([
+  ['Ctrl + 1–5', 'Save a group'],
+  ['1–5', 'Select group (twice: go there)'],
+  ['Shift + 1–5', 'Add group to selection'],
+  ['A', 'Attack-Move'],
+  ['S · X · G', 'Stop · Scatter · Stance'],
+  ['T', 'Same type (twice: whole map)'],
+  ['D · U', 'Deploy · Unload'],
+  ['R · Delete', 'Repair mode · Sell building'],
+  ['H · Space', 'Back to base'],
+  ['Esc', 'Cancel'],
+]);
+
+function KeysHelp() {
+  return html`<details class="keys-help">
+    <summary>${t('Mouse and keyboard')}</summary>
+    <dl>${MOUSE.map(([k, v]) => html`<dt key=${k}>${t(k)}</dt><dd>${t(v)}</dd>`)}
+      ${KEYS.map(([k, v]) => html`<dt key=${k} dir="ltr">${k}</dt><dd>${t(v)}</dd>`)}</dl>
+  </details>`;
 }
 
 /**

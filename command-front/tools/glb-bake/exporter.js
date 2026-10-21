@@ -181,7 +181,8 @@ async function exportJob(job) {
   const nm = new THREE.Matrix3();
   for (const [name, list] of Object.entries(named)) {
     let pivot = [0, 0, 0];
-    if (name.startsWith('rotor')) {
+    // Rotors, and a structure's turret (its footprint is not centred on it), turn about their own middle.
+    if (name.startsWith('rotor') || (name === 'turret' && job.kind === 'structure')) {
       const b = new THREE.Box3();
       for (const m of list) b.expandByObject(m, true);
       const c = b.getCenter(new THREE.Vector3());
@@ -208,11 +209,15 @@ async function exportJob(job) {
       const solid = mat.color ?? new THREE.Color(1, 1, 1);
       const [metal, rough] = metalRough(mat);
       const solidTeam = teamWeight(srgbByte(solid.r) / 255, srgbByte(solid.g) / 255, srgbByte(solid.b) / 255, team);
+      // Painted per vertex (STL sources, stl.js): linear colour, alpha = team weight; metalness, roughness.
+      const vcol = mat.vertexColors ? geo.attributes.color : null;
+      const vpbr = geo.attributes.pbr;
       const v = new THREE.Vector3();
       for (let i = 0; i < pos.count; i++) {
         v.fromBufferAttribute(pos, i).applyMatrix4(m.matrixWorld);
         P.push(v.x - pivot[0], v.y - pivot[1], v.z - pivot[2]);
-        R.push(metal, rough);
+        if (vpbr) R.push(Math.round(255 * vpbr.getX(i)), Math.round(255 * Math.max(0.05, vpbr.getY(i))));
+        else R.push(metal, rough);
         if (nor) { v.fromBufferAttribute(nor, i).applyMatrix3(nm).normalize(); N.push(v.x, v.y, v.z); } else N.push(0, 1, 0);
         if (tile && uv && !tiled) {
           const u = Math.min(1, Math.max(0, uv.getX(i) - off[0]));
@@ -226,6 +231,10 @@ async function exportJob(job) {
           const r = px.data[k] * solid.r, g2 = px.data[k + 1] * solid.g, b = px.data[k + 2] * solid.b;
           U.push(...whiteUV);
           C.push(Math.round(r), Math.round(g2), Math.round(b), Math.round(255 * teamWeight(r / 255, g2 / 255, b / 255, team)));
+        } else if (vcol) {
+          U.push(...whiteUV);
+          const a = vcol.itemSize === 4 ? vcol.getW(i) : solidTeam;
+          C.push(srgbByte(vcol.getX(i) * solid.r), srgbByte(vcol.getY(i) * solid.g), srgbByte(vcol.getZ(i) * solid.b), Math.round(255 * a));
         } else {
           U.push(...whiteUV);
           C.push(srgbByte(solid.r), srgbByte(solid.g), srgbByte(solid.b), Math.round(255 * solidTeam));

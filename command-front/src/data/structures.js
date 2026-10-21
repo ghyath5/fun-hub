@@ -71,7 +71,7 @@ export const STRUCTURES = Object.freeze({
   pillbox:          s({ id: 'pillbox', name: 'Pillbox', role: 'defense', faction: 'coalition', line: DEF, cost: 400, power: -15, hp: 400, w: 1, h: 1, requires: ['barracks'], weapon: 'pillboxMg' }),
   camoPillbox:      s({ id: 'camoPillbox', name: 'Camo Pillbox', role: 'defense', faction: 'coalition', line: DEF, cost: 600, power: -15, hp: 400, w: 1, h: 1, requires: ['radar'], weapon: 'pillboxMg', tags: ['camo'] }),
   gunTurret:        s({ id: 'gunTurret', name: 'Gun Turret', role: 'defense', faction: 'coalition', line: DEF, cost: 600, power: -40, hp: 400, w: 1, h: 1, requires: ['factory'], weapon: 'turretCannon', tags: ['turret'] }),
-  aaGun:            s({ id: 'aaGun', name: 'AA Gun', role: 'defense', faction: 'coalition', line: DEF, cost: 600, power: -50, hp: 400, w: 1, h: 1, requires: ['radar'], weapon: 'flak', tags: ['powered'] }),
+  aaGun:            s({ id: 'aaGun', name: 'AA Gun', role: 'defense', faction: 'coalition', line: DEF, cost: 600, power: -50, hp: 400, w: 1, h: 1, requires: ['radar'], weapon: 'flak', tags: ['powered', 'turret'] }),
   beamTower:        s({ id: 'beamTower', name: 'Beam Tower', role: 'defense', faction: 'coalition', line: DEF, cost: 1500, power: -75, hp: 500, w: 1, h: 1, requires: ['factory'], weapon: 'towerBeam', tags: ['powered'] }),
   shroudGenerator:  s({ id: 'shroudGenerator', name: 'Shroud Generator', role: 'defense', faction: 'coalition', line: DEF, cost: 500, power: -60, hp: 500, w: 1, h: 1, requires: ['tech'], tags: ['powered', 'shroudGen'] }),
   flameTower:       s({ id: 'flameTower', name: 'Flame Tower', role: 'defense', faction: 'union', line: DEF, cost: 600, power: -15, hp: 400, w: 1, h: 1, requires: ['barracks'], weapon: 'towerFlame' }),
