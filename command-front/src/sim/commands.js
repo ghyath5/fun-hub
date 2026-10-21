@@ -18,6 +18,7 @@ import { WEAPONS } from '../data/weapons.js';
 import { harvesterManual, harvestAt, unloadAt } from './systems/harvest.js';
 import { BASE_COMMANDS, applyBaseCommand } from './baseCommands.js';
 import { startDeploy } from './systems/production.js';
+import { canDig, digIn, digOut } from './dig.js';
 import { enterEffect, canC4, isMineLayer } from './specials.js';
 import { slotsFor, isTransport } from './transports.js';
 import { isAircraft, returnToPad, linkPad, freePad } from './air.js';
@@ -280,7 +281,11 @@ export function applyCommand(w, c) {
     }
     case 'deploy': {
       ok = false;
-      for (const u of units) if (u.type === 'mcv') { clearIntent(w, u); ok = startDeploy(w, u) || ok; }
+      for (const u of units) {
+        if (u.type === 'mcv') { clearIntent(w, u); ok = startDeploy(w, u) || ok; }
+        // Riflemen: dig in, or climb out if already dug in.
+        else if (canDig(u)) { clearIntent(w, u); ok = (u.dug ? digOut(w, u) : digIn(w, u, stopUnit)) || ok; }
+      }
       break;
     }
     case 'enter': {

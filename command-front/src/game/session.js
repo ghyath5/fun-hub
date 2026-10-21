@@ -14,6 +14,8 @@ import { createSelection } from '../input/selection.js';
 import { createIntents } from '../input/intents.js';
 import { createModes } from '../input/modes.js';
 import { attachDesktop } from '../input/desktop.js';
+import { createCursor } from '../input/cursors.js';
+import { canDig } from '../sim/dig.js';
 import { createCameraInput } from '../input/cameraInput.js';
 import { createStore } from '../ui/store.js';
 import { mountHud } from '../ui/hud.js';
@@ -236,6 +238,7 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
     radial: (menu) => store.set({ radial: menu }),
     selectStructure,
     visible: (e) => world.visibleTo(human, e),
+    explored: (x, y) => world.isExplored(human, x, y),
   });
 
   // ---- HUD actions.
@@ -260,6 +263,8 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
       try { localStorage.setItem(GROUPS_FOLDED_KEY, groupsCollapsed ? '1' : '0'); } catch { /* private mode: not remembered */ }
     },
     centre: (/** @type {number} */ n) => { selectStructure(0); selection.recall(n); centreOnGroup(n); },
+    /** Shift + number (desktop): add the group to the selection. @param {number} n */
+    add: (n) => { selectStructure(0); selection.set([...selection.ids, ...selection.group(n)]); },
     assign: (/** @type {number} */ n) => {
       if (!selection.size) return;
       const count = selection.assign(n);
@@ -281,7 +286,7 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
     },
     stance: () => { if (intents.cycleStance()) setTimeout(refreshSelection, 120); },
     attackMove: () => enterTarget(intentTarget === 'attackMove' ? null : 'attackMove'),
-    deploy: () => intents.simple('deploy', (u) => u.type === 'mcv'),
+    deploy: () => intents.simple('deploy', (u) => u.type === 'mcv' || canDig(u)),
     harvest: () => intents.harvestHere(),
     unload: () => intents.simple('unloadCargo', (u) => isTransport(u) && u.cargo?.length > 0),
     mines: () => {
@@ -445,25 +450,53 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
     world.events.on('deployed', (e) => { if (e.data.owner === human && store.get().hint) store.set({ hint: null }); }),
   ];
 
+  // ---- Desktop: hotkeys, the hover cursor and the health of what is under the mouse.
+  const cursor = createCursor(view.app.canvas);
+  /** Where the mouse rests over the battlefield (desktop only), with Shift / Ctrl. */
+  let pointer = /** @type {{ x: number, y: number, mods: { shift: boolean, ctrl: boolean } } | null} */ (null);
+  /** The entity under the mouse: its health bar shows, as in Red Alert 2. */
+  let hoverId = 0;
+  /** Cursor for each input mode; the attack-move target and the rest come from the intents. */
+  const MODE_CURSOR = /** @type {Record<string, string>} */ ({ sell: 'sell', repair: 'repair', rally: 'move', power: 'attack', mines: 'move' });
+  const refreshHover = () => {
+    if (!pointer) { hoverId = 0; cursor.set('default'); return; }
+    const e = intents.entityAt(pointer.x, pointer.y);
+    hoverId = e && !e.dead ? e.id : 0;
+    cursor.set(modes.mode ? MODE_CURSOR[modes.mode.kind] ?? 'default' : intents.hoverIntent(pointer.x, pointer.y, pointer.mods));
+  };
+  /** Right click and Escape: leave a mode or target pick; false when there was none. */
+  const cancelModes = () => {
+    if (!modes.mode && !intentTarget) return false;
+    enterTarget(null);
+    modes.cancel();
+    return true;
+  };
+  const offHoverSel = selection.subscribe(() => { if (pointer) refreshHover(); });
   const desktop = attachDesktop({
     canvas: view.app.canvas, groups: groupActs,
     commands: {
       ...cmdActs,
       escape: () => {
-        if (!modes.mode && !intentTarget) return false;
-        enterTarget(null);
-        modes.cancel();
-        return true;
+        if (store.get().radial) { store.set({ radial: null }); return true; }
+        return cancelModes();
       },
-      hotkey: (key) => {
+      hotkey: (key, double) => {
         if (key === 'a' && selection.size) { cmdActs.attackMove(); return true; }
         if (key === 'd' && selection.size) { cmdActs.deploy(); return true; }
         if (key === 'enter' && modes.mode) { modes.confirm(); return true; }
         if (key === 'u' && selection.size) { cmdActs.unload(); return true; }
+        // T: the same type on screen; T twice: across the whole map.
+        if (key === 't' && selection.size) { intents.selectSameType(double); return true; }
+        if (key === 'h') { goHome(); return true; }
+        if (key === 'g' && selection.size) { cmdActs.stance(); return true; }
+        // R: Repair mode (Shift-free, like the sidebar's wrench); Delete: sell the selected building (press twice).
+        if (key === 'r') { buildActs.repair(); return true; }
+        if (key === 'delete' && selectedStructure) { structureActs.sell(); return true; }
         return false;
       },
     },
-    hover: (x, y) => modes.hover(x, y),
+    hover: (x, y, mods) => { modes.hover(x, y); pointer = { x, y, mods }; refreshHover(); },
+    leave: () => { pointer = null; refreshHover(); },
   });
 
   // ---- Per-frame HUD upkeep.
@@ -577,7 +610,9 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
       perf.frame(dtMs);
       cameraInput.update(dtMs);
       const overlay = modes.overlay(tint, view.visibleCells());
-      view.update(world, alpha, selection.ids, { selectedStructure, placement: overlay, viewer: watching ? -1 : human });
+      // The world moves under a still mouse: re-read what is under it now and then.
+      if (pointer && frameNo % 4 === 0) refreshHover();
+      view.update(world, alpha, selection.ids, { selectedStructure, placement: overlay, viewer: watching ? -1 : human, hover: hoverId });
       placeControls(overlay);
       world.events.flush();
       battle.flush();
@@ -601,6 +636,15 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
     // Two fingers always move the view, whatever mode is on; a one-finger
     // drag pans unless a mode (placing, walls, mines) wants it first.
     if (g.type.startsWith('pinch') && cameraInput.handle(g)) return;
+    // Right click (desktop): leave the current mode first; with none, drop the selection.
+    if (g.type === 'secondary') {
+      view.box(null);
+      if (store.get().radial) store.set({ radial: null });
+      else if (!cancelModes()) intents.handle(g);
+      restorePan();
+      if (pointer) refreshHover();
+      return;
+    }
     if (modes.mode && modes.handle(g)) return;
     if (g.type.startsWith('pan') && cameraInput.handle(g)) return;
     switch (g.type) {
@@ -662,6 +706,8 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
     /** Issue a command the way the player's input does (through the lockstep on two phones). */
     submit,
     alpha: () => lastAlpha, gestures: gestureLog, recognizer: gestures.recognizer,
+    /** Desktop: the cursor showing and the entity under the mouse. */
+    hover: () => ({ cursor: cursor.kind, id: hoverId }),
     selectStructure, get selectedStructure() { return selectedStructure; },
     /** Debug: put a unit or a finished structure on the map. */
     spawn: (/** @type {string} */ type, /** @type {number} */ owner, /** @type {number} */ x, /** @type {number} */ y) => spawnUnit(world, type, owner, x, y),
@@ -687,6 +733,7 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
       view.app.ticker.remove(onTick);
       gestures.detach();
       desktop.detach();
+      offHoverSel();
       cameraInput.detach();
       offZoom();
       battle.detach();

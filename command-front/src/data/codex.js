@@ -14,7 +14,7 @@
 /** @type {Readonly<Record<string, CodexText>>} */
 export const CODEX = Object.freeze({
   // ── Infantry ──────────────────────────────────────────────
-  rifleman: { about: 'Cheap, quick to train foot soldier with a rifle.', bestFor: 'Massing early, shooting other infantry and guarding against anti-tank troopers.', weakTo: 'Tanks (they run him over), Grenadiers, Flame Troopers and flame towers.' },
+  rifleman: { about: 'Cheap, quick to train foot soldier with a rifle. Deploy digs him in behind sandbags with a heavier machine gun and more range; any move order brings him out.', bestFor: 'Massing early, shooting other infantry and guarding against anti-tank troopers.', weakTo: 'Tanks (they run him over), Grenadiers, Flame Troopers and flame towers.' },
   rocketTrooper: { about: 'Soldier with a guided rocket launcher that can also shoot at aircraft.', bestFor: 'Killing tanks and helicopters from behind a screen of riflemen.', weakTo: 'Riflemen, machine guns and anything that splashes infantry.' },
   engineer: { about: 'Unarmed specialist who walks into a building to work on it. Used up on entry.', bestFor: 'Capturing enemy or neutral buildings (enemy ones must be at a quarter health or less; above that he damages them by a third instead), fully repairing your own, and fixing broken bridges at their repair hut.', weakTo: 'Everything — escort him.' },
   grenadier: { about: 'Lobs grenades in an arc; the blast hurts everything near where it lands.', bestFor: 'Breaking clumps of infantry and hitting buildings.', weakTo: 'Tanks and fast units that close in; grenades can scatter and miss moving targets.' },
@@ -37,7 +37,7 @@ export const CODEX = Object.freeze({
   commando: { about: 'Elite soldier: a long-range rifle that kills infantry in one shot, and C4 that destroys any enemy building 3 s after he plants it. Only one at a time.', bestFor: 'Raids — slip into the enemy base and blow up key buildings one by one.', weakTo: 'Vehicles, defenses and Hounds. An Aegis Field stops his C4.' },
 
   // ── Vehicles ──────────────────────────────────────────────
-  harvester: { about: 'Armoured truck that gathers ore and gems and brings them to your Refinery. Unarmed.', bestFor: 'Your income — more Harvesters means more money.', weakTo: 'Any attacker. Keep fields near defended ground, and protect them.' },
+  harvester: { about: 'Armoured truck that gathers ore and gems and brings them to your Refinery. Unarmed. The Coalition\'s carries less but warps straight home to the Refinery when full.', bestFor: 'Your income — more Harvesters means more money.', weakTo: 'Any attacker. Keep fields near defended ground, and protect them.' },
   mcv: { about: 'Mobile Construction Vehicle. Deploys into a new Construction Yard.', bestFor: 'Starting a second base near distant ore fields, or rebuilding after losing your Yard.', weakTo: 'Anything — it is slow and unarmed. Escort it.' },
   mineLayer: { about: 'Lays mines (5 per trip, refilled at a Service Depot). Coalition mines stop vehicles; Union mines stop infantry.', bestFor: 'Sealing chokepoints and ore fields against raids.', weakTo: 'It is unarmed — keep it out of fights.' },
   ranger: { about: 'Very fast armoured car with a machine gun. Sees far.', bestFor: 'Scouting, chasing infantry and raiding harvesters.', weakTo: 'Tanks and anti-tank infantry.' },

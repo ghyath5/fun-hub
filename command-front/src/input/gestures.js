@@ -15,7 +15,8 @@
 import { GESTURE } from '../data/ui.js';
 
 /**
- * @typedef {{ type: string, x: number, y: number, x0?: number, y0?: number, t: number, d?: number, mouse?: boolean }} Gesture  d: finger spread (pinch)
+ * @typedef {{ type: string, x: number, y: number, x0?: number, y0?: number, t: number, d?: number, mouse?: boolean, shift?: boolean, ctrl?: boolean }} Gesture
+ *   d: finger spread (pinch); mouse: made with a mouse; shift / ctrl: keyboard modifiers held (desktop)
  * @typedef {{ id: number, x: number, y: number, t: number, h?: number, mouse?: boolean }} Sample  t: input time; h: when it was handled (defaults to t)
  */
 
@@ -163,7 +164,12 @@ export function createRecognizer(emit, opts = GESTURE) {
  * @param {{ dragIsBox?: () => boolean }} [opts]  Select mode: a finger drag box-selects like a mouse drag
  */
 export function attachGestures(el, emit, opts = {}) {
-  const rec = createRecognizer(emit);
+  /** Keyboard modifiers of the latest pointer event (desktop): Shift adds to the selection, Ctrl forces fire. */
+  const mods = { shift: false, ctrl: false, mouse: false };
+  const readMods = (/** @type {PointerEvent} */ e) => { mods.shift = e.shiftKey; mods.ctrl = e.ctrlKey || e.metaKey; mods.mouse = e.pointerType === 'mouse'; };
+  /** Gestures made with a real mouse say so (desktop-only conveniences), with the modifiers held. */
+  const send = (/** @type {Gesture} */ g) => emit(mods.mouse ? { ...g, shift: mods.shift, ctrl: mods.ctrl, mouse: true } : g);
+  const rec = createRecognizer(send);
   /**
    * When the input happened: the event's own timestamp, so a busy frame cannot
    * stretch a tap into a long-press — unless it is on a different clock
@@ -179,7 +185,8 @@ export function attachGestures(el, emit, opts = {}) {
   };
   /**
    * Right or middle mouse button held: a drag past a few pixels pans the map
-   * (with the button that started it); a right click that never moved is an order.
+   * (with the button that started it); a right click that never moved is
+   * `secondary` (cancel / deselect, as in Red Alert 2's left-click scheme).
    * @type {{ button: number, x0: number, y0: number, panning: boolean } | null}
    */
   let mouseDrag = null;
@@ -194,28 +201,29 @@ export function attachGestures(el, emit, opts = {}) {
     const s = sample(e);
     if (!mouseDrag.panning && Math.hypot(s.x - mouseDrag.x0, s.y - mouseDrag.y0) >= MOUSE_DRAG_PX) {
       mouseDrag.panning = true;
-      emit({ type: 'panStart', x: s.x, y: s.y, x0: mouseDrag.x0, y0: mouseDrag.y0, t: s.t, mouse: true });
+      send({ type: 'panStart', x: s.x, y: s.y, x0: mouseDrag.x0, y0: mouseDrag.y0, t: s.t, mouse: true });
     }
-    if (mouseDrag.panning) emit({ type: 'panMove', x: s.x, y: s.y, t: s.t, mouse: true });
+    if (mouseDrag.panning) send({ type: 'panMove', x: s.x, y: s.y, t: s.t, mouse: true });
     return true;
   };
   const mouseUp = (/** @type {PointerEvent} */ e) => {
     if (!mouseDrag || e.button !== mouseDrag.button) return false;
     const s = sample(e);
-    if (mouseDrag.panning) emit({ type: 'panEnd', x: s.x, y: s.y, t: s.t, mouse: true });
-    else if (mouseDrag.button === 2) emit({ type: 'secondary', x: mouseDrag.x0, y: mouseDrag.y0, t: s.t });
+    if (mouseDrag.panning) send({ type: 'panEnd', x: s.x, y: s.y, t: s.t, mouse: true });
+    else if (mouseDrag.button === 2) send({ type: 'secondary', x: mouseDrag.x0, y: mouseDrag.y0, t: s.t });
     mouseDrag = null;
     return true;
   };
   /** @type {[string, (e: any) => void][]} */
   const handlers = [
     ['pointerdown', (e) => {
+      readMods(e);
       if (e.pointerType === 'mouse' && (e.button === 1 || e.button === 2)) { e.preventDefault(); mouseDown(e); return; }
       if (e.pointerType === 'mouse' && e.button !== 0) return;
       rec.down(sample(e));
     }],
-    ['pointermove', (e) => { if (!mouseMove(e)) rec.move(sample(e)); }],
-    ['pointerup', (e) => { if (!mouseUp(e)) rec.up(sample(e)); }],
+    ['pointermove', (e) => { readMods(e); if (!mouseMove(e)) rec.move(sample(e)); }],
+    ['pointerup', (e) => { readMods(e); if (!mouseUp(e)) rec.up(sample(e)); }],
     ['pointercancel', () => { mouseDrag = null; rec.cancel(); }],
     ['auxclick', (e) => e.preventDefault()],
     ['contextmenu', (e) => e.preventDefault()],

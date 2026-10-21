@@ -462,6 +462,416 @@
      "idx": 2364428
     }
    }
+  },
+  "constructionYard@coalition": {
+   "kind": "structure",
+   "atlas": null,
+   "parts": {
+    "body": {
+     "pivot": [
+      0,
+      0,
+      0
+     ],
+     "min": [
+      0.06,
+      0,
+      0.17394
+     ],
+     "max": [
+      2.94,
+      1.27271,
+      2.82606
+     ],
+     "vertices": 11044,
+     "indices": 21000,
+     "wide": false,
+     "pos": 2384852,
+     "nrm": 2473204,
+     "uv": 2517380,
+     "col": 2561556,
+     "mr": 2605732,
+     "idx": 2627820
+    }
+   }
+  },
+  "powerPlant@coalition": {
+   "kind": "structure",
+   "atlas": null,
+   "parts": {
+    "body": {
+     "pivot": [
+      0,
+      0,
+      0
+     ],
+     "min": [
+      0.04,
+      0,
+      0.10567
+     ],
+     "max": [
+      1.96,
+      1.81532,
+      1.89433
+     ],
+     "vertices": 8197,
+     "indices": 18000,
+     "wide": false,
+     "pos": 2669820,
+     "nrm": 2735396,
+     "uv": 2768184,
+     "col": 2800972,
+     "mr": 2833760,
+     "idx": 2850156
+    }
+   }
+  },
+  "refinery@coalition": {
+   "kind": "structure",
+   "atlas": null,
+   "parts": {
+    "body": {
+     "pivot": [
+      0,
+      0,
+      0
+     ],
+     "min": [
+      0.06,
+      0,
+      0.20197
+     ],
+     "max": [
+      2.94,
+      1.31831,
+      2.79803
+     ],
+     "vertices": 11582,
+     "indices": 20988,
+     "wide": false,
+     "pos": 2886156,
+     "nrm": 2978812,
+     "uv": 3025140,
+     "col": 3071468,
+     "mr": 3117796,
+     "idx": 3140960
+    }
+   }
+  },
+  "barracks@coalition": {
+   "kind": "structure",
+   "atlas": null,
+   "parts": {
+    "body": {
+     "pivot": [
+      0,
+      0,
+      0
+     ],
+     "min": [
+      0.04,
+      0,
+      0.50024
+     ],
+     "max": [
+      1.96,
+      0.54401,
+      1.49976
+     ],
+     "vertices": 7680,
+     "indices": 18000,
+     "wide": false,
+     "pos": 3182936,
+     "nrm": 3244376,
+     "uv": 3275096,
+     "col": 3305816,
+     "mr": 3336536,
+     "idx": 3351896
+    }
+   }
+  },
+  "warFactory@coalition": {
+   "kind": "structure",
+   "atlas": null,
+   "parts": {
+    "body": {
+     "pivot": [
+      0,
+      0,
+      0
+     ],
+     "min": [
+      0.06,
+      0,
+      0.66032
+     ],
+     "max": [
+      2.94,
+      0.71378,
+      2.33968
+     ],
+     "vertices": 11800,
+     "indices": 20982,
+     "wide": false,
+     "pos": 3387896,
+     "nrm": 3482296,
+     "uv": 3529496,
+     "col": 3576696,
+     "mr": 3623896,
+     "idx": 3647496
+    }
+   }
+  },
+  "radarDome@coalition": {
+   "kind": "structure",
+   "atlas": null,
+   "parts": {
+    "body": {
+     "pivot": [
+      0,
+      0,
+      0
+     ],
+     "min": [
+      0.04,
+      0,
+      0.45134
+     ],
+     "max": [
+      1.96,
+      1.46978,
+      1.54866
+     ],
+     "vertices": 6603,
+     "indices": 18000,
+     "wide": false,
+     "pos": 3689460,
+     "nrm": 3742284,
+     "uv": 3768696,
+     "col": 3795108,
+     "mr": 3821520,
+     "idx": 3834728
+    }
+   }
+  },
+  "serviceDepot@coalition": {
+   "kind": "structure",
+   "atlas": null,
+   "parts": {
+    "body": {
+     "pivot": [
+      0,
+      0,
+      0
+     ],
+     "min": [
+      0.06,
+      0,
+      0.1569
+     ],
+     "max": [
+      2.94,
+      1.69371,
+      2.84342
+     ],
+     "vertices": 9333,
+     "indices": 20982,
+     "wide": false,
+     "pos": 3870728,
+     "nrm": 3945392,
+     "uv": 3982724,
+     "col": 4020056,
+     "mr": 4057388,
+     "idx": 4076056
+    }
+   }
+  },
+  "techCenter@coalition": {
+   "kind": "structure",
+   "atlas": null,
+   "parts": {
+    "body": {
+     "pivot": [
+      0,
+      0,
+      0
+     ],
+     "min": [
+      0.34196,
+      0,
+      0.04
+     ],
+     "max": [
+      1.65773,
+      1.60413,
+      1.96
+     ],
+     "vertices": 7929,
+     "indices": 18000,
+     "wide": false,
+     "pos": 4118020,
+     "nrm": 4181452,
+     "uv": 4213168,
+     "col": 4244884,
+     "mr": 4276600,
+     "idx": 4292460
+    }
+   }
+  },
+  "oreProcessor": {
+   "kind": "structure",
+   "atlas": null,
+   "parts": {
+    "body": {
+     "pivot": [
+      0,
+      0,
+      0
+     ],
+     "min": [
+      0.04,
+      0,
+      0.10439
+     ],
+     "max": [
+      1.96,
+      1.1505,
+      1.89555
+     ],
+     "vertices": 7947,
+     "indices": 17982,
+     "wide": false,
+     "pos": 4328460,
+     "nrm": 4392036,
+     "uv": 4423824,
+     "col": 4455612,
+     "mr": 4487400,
+     "idx": 4503296
+    }
+   }
+  },
+  "stormGenerator": {
+   "kind": "structure",
+   "atlas": null,
+   "parts": {
+    "body": {
+     "pivot": [
+      0,
+      0,
+      0
+     ],
+     "min": [
+      0.04,
+      0,
+      0.04
+     ],
+     "max": [
+      1.95974,
+      1.8224,
+      1.96
+     ],
+     "vertices": 7710,
+     "indices": 17988,
+     "wide": false,
+     "pos": 4539260,
+     "nrm": 4600940,
+     "uv": 4631780,
+     "col": 4662620,
+     "mr": 4693460,
+     "idx": 4708880
+    }
+   }
+  },
+  "pillbox": {
+   "kind": "structure",
+   "atlas": null,
+   "parts": {
+    "body": {
+     "pivot": [
+      0,
+      0,
+      0
+     ],
+     "min": [
+      0.0213,
+      0,
+      0.02001
+     ],
+     "max": [
+      0.97875,
+      0.40251,
+      0.97991
+     ],
+     "vertices": 4035,
+     "indices": 10476,
+     "wide": false,
+     "pos": 4744856,
+     "nrm": 4777136,
+     "uv": 4793276,
+     "col": 4809416,
+     "mr": 4825556,
+     "idx": 4833628
+    }
+   }
+  },
+  "aaGun": {
+   "kind": "structure",
+   "atlas": null,
+   "parts": {
+    "body": {
+     "pivot": [
+      0,
+      0,
+      0
+     ],
+     "min": [
+      0.08013,
+      0,
+      0.13995
+     ],
+     "max": [
+      0.92007,
+      0.42662,
+      0.97992
+     ],
+     "vertices": 1608,
+     "indices": 7035,
+     "wide": false,
+     "pos": 4854580,
+     "nrm": 4867444,
+     "uv": 4873876,
+     "col": 4880308,
+     "mr": 4886740,
+     "idx": 4889956
+    },
+    "turret": {
+     "pivot": [
+      0.50238,
+      0,
+      0.43343
+     ],
+     "min": [
+      -0.38321,
+      0.07958,
+      -0.41343
+     ],
+     "max": [
+      0.38321,
+      0.88585,
+      0.4122
+     ],
+     "vertices": 1724,
+     "indices": 3465,
+     "wide": false,
+     "pos": 4904028,
+     "nrm": 4917820,
+     "uv": 4924716,
+     "col": 4931612,
+     "mr": 4938508,
+     "idx": 4941956
+    }
+   }
   }
  }
 }

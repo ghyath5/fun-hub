@@ -35,6 +35,17 @@ rebuilds creased normals, quantises (positions 16-bit, normals 8-bit) and
 writes the blob, the index and the WebP atlases (Pillow, `exact` so the colour
 under transparent texels survives).
 
+**STL sources** (`stl: { file, … }` jobs, files in `stl/`, not committed):
+3D-print models are one bare solid with no colour, so `stl.js` paints them
+per vertex — concrete, a darker base plate, and the regions its rules name
+(`team`, `metal`, `dark`, `glow`, by position in the model's bounds and by
+which way the surface faces) — and bakes ambient occlusion into the colours
+(three-mesh-bvh ray casts), so seams and floor tiles read on a phone. A
+print layout that put a part beside its base is re-assembled with `move`
+(a moved region can become the turret). `budget` sets the triangle count.
+These are 3D-only: `bake.mjs` skips them and the Classic 2D view keeps its
+sprites.
+
 Job options for the 3D model only: `team3d` (team surfaces, when the sprite's
 rule — tuned on lit renders — does not suit unlit texels) and
 `look3d: { desaturate }` (grey what is not team paint, e.g. camouflage).
@@ -61,8 +72,8 @@ sprite pages.
 ## Run
 
 ```sh
-npm install                      # three, playwright-core, meshoptimizer
-# put the GLB files in glb/ (names as in jobs.mjs)
+npm install                      # three, playwright-core, meshoptimizer, three-mesh-bvh
+# put the GLB files in glb/ and the STL files in stl/ (names as in jobs.mjs)
 node export.mjs                  # 3D models, or: node export.mjs titanTank
 node bake.mjs                    # sprites, or: node bake.mjs titanTank airfield
 python3 pack.py                  # needs Pillow + numpy; writes ../../assets/art/

@@ -52,9 +52,14 @@ export function createScene(map, quality) {
   models.name = 'models';
   scene.add(models);
 
-  const hemi = new THREE.HemisphereLight(0xe8eeff, 0x5a5040, 1.9);
+  // Three tones, as on Red Alert 2's art: tops lit by the sun, faces toward
+  // the viewer by a soft fill from the south-west, the east sides darker.
+  const hemi = new THREE.HemisphereLight(0xe8eeff, 0x4a4436, 1.25);
   scene.add(hemi);
-  const sun = new THREE.DirectionalLight(0xfff1dc, 2.7);
+  const fill = new THREE.DirectionalLight(0xdfe8ff, 1.0);
+  fill.position.set(-0.45, 0.55, 1).normalize();
+  scene.add(fill);
+  const sun = new THREE.DirectionalLight(0xfff1dc, 3.3);
   sun.castShadow = quality.shadows;
   sun.shadow.mapSize.set(quality.shadowSize, quality.shadowSize);
   sun.shadow.bias = -0.0006;

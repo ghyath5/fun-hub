@@ -117,7 +117,7 @@ function steeredInFlight(u) {
 /** @param {World} w @param {any} u */
 function fireUnit(w, u) {
   const cdef = combatDef(u.type);
-  const def = { weapons: cdef.weapons, turnRate: cdef.turnRate };
+  const def = { weapons: weaponsOf(u), turnRate: cdef.turnRate };
   const structure = cdef.structure;
   const states = u.weapons;
   for (const st of states) {

@@ -41,7 +41,8 @@ const NAV = /** @type {const} */ ('naval');
 /** @type {Record<string, UnitDef>} */
 export const UNITS = Object.freeze({
   // Infantry
-  rifleman:      u({ id: 'rifleman', name: 'Rifleman', faction: 'both', line: INF, cost: 100, hp: 50, armor: 'none', loco: 'foot', speed: 1.0, sight: 4, weapons: ['rifle'], requires: ['barracks'] }),
+  // Deploy digs a Rifleman in behind sandbags with a heavier gun (sim/dig.js).
+  rifleman:      u({ id: 'rifleman', name: 'Rifleman', faction: 'both', line: INF, cost: 100, hp: 50, armor: 'none', loco: 'foot', speed: 1.0, sight: 4, weapons: ['rifle'], requires: ['barracks'], dug: { weapons: ['nestMg'] } }),
   rocketTrooper: u({ id: 'rocketTrooper', name: 'Rocket Trooper', faction: 'both', line: INF, cost: 300, hp: 45, armor: 'none', loco: 'foot', speed: 0.9, sight: 4, weapons: ['rocket'], requires: ['barracks'], tags: ['antiAir'] }),
   engineer:      u({ id: 'engineer', name: 'Engineer', faction: 'both', line: INF, cost: 500, hp: 25, armor: 'none', loco: 'foot', speed: 1.0, sight: 3, requires: ['barracks'], tags: ['engineer', 'noAutoAcquire'] }),
   grenadier:     u({ id: 'grenadier', name: 'Grenadier', faction: 'union', line: INF, cost: 250, hp: 50, armor: 'none', loco: 'foot', speed: 1.0, sight: 4, weapons: ['grenade'], requires: ['barracks'] }),

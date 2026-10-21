@@ -9,6 +9,7 @@ import { WEAPONS } from '../data/weapons.js';
 import { WARHEADS } from '../data/warheads.js';
 import { SIM } from '../data/rules.js';
 import { combatDef } from './defs.js';
+import { dugWeapons } from './dig.js';
 import { isqrt } from '../core/fixed.js';
 
 /** @typedef {import('../types.js').WeaponDef} WeaponDef */
@@ -36,8 +37,8 @@ export const armorOf = (e) => combatDef(e.type).armor;
 /** @param {any} e */
 export const isInfantryEntity = (e) => e.kind === 'unit' && UNITS[e.type]?.loco === 'foot';
 
-/** Weapon ids of an entity (a defense has one, most structures none). @param {any} e */
-export const weaponsOf = (e) => combatDef(e.type).weapons;
+/** Weapon ids of an entity (a defense has one, most structures none; a dug-in Rifleman his nest gun). @param {any} e */
+export const weaponsOf = (e) => dugWeapons(e) ?? combatDef(e.type).weapons;
 
 /**
  * Distance in leptons from a's centre to b: to b's centre for units, to the

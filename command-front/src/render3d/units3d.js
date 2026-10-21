@@ -11,12 +11,11 @@ import { Graphics } from 'pixi.js';
 import { UNITS } from '../data/units.js';
 import { PLAYER_COLORS } from '../data/factions.js';
 import { RENDER, SIM } from '../data/rules.js';
-import { healthBand } from '../sim/formulas/combat.js';
+import { drawPips } from '../render/healthPips.js';
 import { CELL, LIFT, ALTITUDE, SQUASH } from './view.js';
 
 const PX_PER_LEPTON = RENDER.cellPx / SIM.leptonsPerCell;
 const TAU = Math.PI * 2;
-const BAND_COLOR = { green: 0x7fd04a, amber: 0xe0a43a, red: 0xd0543a };
 /** Rotor speed, radians per ms. */
 const ROTOR_SPEED = 0.03;
 
@@ -64,8 +63,9 @@ export function createUnits3D(lib, inst) {
      * @param {Set<number>} selected @param {number} viewScale
      * @param {(e: any) => boolean} visible @param {number} viewer
      * @param {{ x0: number, y0: number, x1: number, y1: number }} view  world px on screen (with margin)
+     * @param {number} [hover]  the entity under the mouse: its health shows, as in Red Alert 2
      */
-    sync(world, alpha, selected, viewScale, visible, viewer, view) {
+    sync(world, alpha, selected, viewScale, visible, viewer, view, hover = 0) {
       const now = performance.now();
       const dt = Math.min(100, now - lastFrame);
       lastFrame = now;
@@ -88,6 +88,11 @@ export function createUnits3D(lib, inst) {
         st.rotor += dt * ROTOR_SPEED * (flying ? 1 : 0.12);
         base.makeTranslation(x, y, z);
         const facing = (-e.facing / 256) * TAU;
+        // A dug-in Rifleman sits in a sandbag ring that faces where he looks.
+        if (e.dug) for (const p of lib.get('sandbagNest').parts) {
+          m.copy(base).multiply(rot.makeRotationY(facing)).multiply(S).multiply(part.makeTranslation(p.pivot.x, p.pivot.y, p.pivot.z));
+          inst.add(p, m, color, 1, ghost);
+        }
         for (const p of def.parts) {
           const turn = p.role === 'turret' ? (-(e.turret ?? e.facing) / 256) * TAU : facing;
           m.copy(base).multiply(rot.makeRotationY(turn)).multiply(S).multiply(part.makeTranslation(p.pivot.x, p.pivot.y, p.pivot.z));
@@ -98,7 +103,7 @@ export function createUnits3D(lib, inst) {
 
         const isSel = selected.has(e.id);
         const hurt = e.hp < e.maxHp;
-        if (!isSel && !hurt) continue;
+        if (!isSel && !hurt && e.id !== hover) continue;
         const r = Math.max(5, def.radius * CELL * 0.9);
         const top = z - (y + def.height * CELL) * LIFT;
         if (isSel) {
@@ -116,11 +121,9 @@ export function createUnits3D(lib, inst) {
             marks.stroke({ width: w, color: 0xf0f0e0, alpha: 0.95 });
           }
         }
-        const bw = Math.max(10, r * 2);
+        const bw = Math.max(12, r * 2);
         const bh = 2.6 / Math.max(viewScale, 0.6) / SQUASH;
-        const by = top - 6;
-        marks.rect(x - bw / 2, by, bw, bh).fill({ color: 0x0e0f0b, alpha: 0.8 });
-        marks.rect(x - bw / 2, by, (bw * e.hp) / e.maxHp, bh).fill(BAND_COLOR[healthBand(e.hp, e.maxHp)]);
+        drawPips(marks, x - bw / 2, top - 6, bw, bh, e.hp, e.maxHp);
       }
       if (state.size > 64 && Math.random() < 0.02) for (const id of state.keys()) if (!world.entities.get(id)) state.delete(id);
     },
