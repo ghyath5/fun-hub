@@ -84,6 +84,8 @@ export function restore(s) {
   w.nav.rebuild();
   for (const u of w.entities.all()) {
     if (u.kind !== 'unit' || u.inside) continue;
+    // Saves from the build where Coalition harvesters charged before warping: drive to the held dock instead.
+    if (u.harv?.state === 'chrono') u.harv.state = 'docking';
     occupy(w, u, u.cx, u.cy, u.spot);
     if (u.next) occupy(w, u, u.next.x, u.next.y, u.next.spot);
   }

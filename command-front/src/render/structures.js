@@ -40,8 +40,6 @@ export function createStructureLayer(renderer, art = null) {
   const views = new Map();
   /** @type {{ x: number, y: number, vx: number, vy: number, life: number, max: number, fire: boolean }[]} */
   let puffs = [];
-  /** Fog of war: enemy structures as last seen, by id (section 12). @type {Map<number, { cx: number, cy: number, w: number, h: number }>} */
-  const memory = new Map();
   let last = performance.now();
 
   /** @param {any} s @param {number} tint */
@@ -100,15 +98,9 @@ export function createStructureLayer(renderer, art = null) {
     /**
      * @param {any} world @param {Set<number>} selected @param {number} selectedStructure @param {number} viewScale
      * @param {(e: any) => boolean} [visible]  Hide structures the player cannot see (shroud)
-     * @param {{ viewer: number, seen: (x: number, y: number) => boolean, explored: (x: number, y: number) => boolean }} [eyes]
-     *   Fog mode: enemy structures out of sight stay drawn as last seen until their cells are seen again
+     * @param {number} [hover]  the entity under the mouse: its health shows
      */
-    sync(world, selected, selectedStructure, viewScale, visible = () => true, eyes, hover = 0) {
-      const fog = !!eyes && world.settings.fog;
-      const anyCell = (/** @type {{ cx: number, cy: number, w: number, h: number }} */ f, /** @type {(x: number, y: number) => boolean} */ test) => {
-        for (let y = f.cy; y < f.cy + f.h; y++) for (let x = f.cx; x < f.cx + f.w; x++) if (test(x, y)) return true;
-        return false;
-      };
+    sync(world, selected, selectedStructure, viewScale, visible = () => true, hover = 0) {
       const now = performance.now();
       const dt = Math.min(100, now - last);
       last = now;
@@ -117,16 +109,7 @@ export function createStructureLayer(renderer, art = null) {
       for (const s of world.entities.all()) {
         if (s.dead || s.kind !== 'structure') continue;
         let v = views.get(s.id);
-        const vis = visible(s);
-        if (vis && fog && eyes && !world.allied(s.owner, eyes.viewer)) memory.set(s.id, { cx: s.cx, cy: s.cy, w: s.w, h: s.h });
-        if (!vis) {
-          if (!(fog && eyes && v && memory.has(s.id) && anyCell(s, eyes.explored))) { if (v) v.root.visible = false; continue; }
-          // Remembered: drawn dimmed, frozen as last seen.
-          seen.add(s.id);
-          v.root.visible = true;
-          v.root.alpha = 0.5;
-          continue;
-        }
+        if (!visible(s)) { if (v) v.root.visible = false; continue; }
         seen.add(s.id);
         const owner = s.owner >= 0 ? world.players[s.owner] : null;
         const tint = owner ? PLAYER_COLORS[/** @type {keyof typeof PLAYER_COLORS} */ (owner.color)].main : NEUTRAL_TINT;
@@ -194,15 +177,7 @@ export function createStructureLayer(renderer, art = null) {
         }
       }
       for (const [id, v] of views) {
-        if (seen.has(id)) continue;
-        const ghost = fog && eyes ? memory.get(id) : undefined;
-        if (ghost && !world.entities.get(id)) {
-          // Destroyed out of sight: the ghost stays until its cells are seen again.
-          if (!anyCell(ghost, eyes.seen)) { v.root.visible = true; v.root.alpha = 0.5; continue; }
-          memory.delete(id);
-        }
-        if (world.entities.get(id)) continue;
-        memory.delete(id);
+        if (seen.has(id) || world.entities.get(id)) continue;
         v.root.destroy({ children: true });
         views.delete(id);
       }

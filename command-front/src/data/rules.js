@@ -58,12 +58,11 @@ export const ECONOMY = Object.freeze({
   refineryDetourCells: 10,
   dockQueueRadius: 3,
   freeHarvesterSpawnRadius: 3,
-  // Coalition harvesters warp back to the refinery when full (Red Alert 2's
-  // Chrono Miner) — from at least chronoMinCells away, after chronoSeconds of
-  // charging — and carry less to make up for it.
+  // Coalition harvesters reappear on the refinery dock when full (Red Alert
+  // 2's Chrono Miner) — from at least chronoMinCells away — and carry less
+  // to make up for it.
   chronoCapacity: 20,
   chronoMinCells: 6,
-  chronoSeconds: 1.2,
 });
 
 /** What the support buildings do (sim/bonuses.js). */
@@ -315,7 +314,6 @@ export const SETUP_DEFAULTS = Object.freeze({
   startingUnits: 'mcv',
   techLevel: 10,
   oreGrowthSeconds: 90,
-  fog: false,
   crates: false,
   shortGame: false,
   speed: 'normal',
