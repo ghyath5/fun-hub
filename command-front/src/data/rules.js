@@ -314,6 +314,7 @@ export const SETUP_DEFAULTS = Object.freeze({
   startingUnits: 'mcv',
   techLevel: 10,
   oreGrowthSeconds: 90,
+  fog: false,              // Fog of war (optional): explored ground out of sight dims and hides what moves there
   crates: false,
   shortGame: false,
   speed: 'normal',

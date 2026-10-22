@@ -235,7 +235,10 @@ export async function createRenderer3D(host, map, opts = {}) {
       shroud.layer.visible = viewer >= 0 && shroud.anyIn(cells);
       const see = viewer >= 0 ? (/** @type {any} */ e) => world.visibleTo(viewer, e) : () => true;
       inst.begin();
-      structures.sync(world, selected, o.selectedStructure ?? 0, scale, see, vw, o.hover ?? 0);
+      structures.sync(world, selected, o.selectedStructure ?? 0, scale, see, viewer >= 0 ? {
+        viewer, seen: (/** @type {number} */ x, /** @type {number} */ y) => world.cellVisible(viewer, x, y) && shroud.alphaAt(x, y) === 0,
+        explored: (/** @type {number} */ x, /** @type {number} */ y) => world.isExplored(viewer, x, y),
+      } : undefined, vw, o.hover ?? 0);
       const p = o.placement ?? null;
       placement.draw(p, scale);
       if (p?.type && !p.wall) structures.ghost(p.type, opts.faction ?? '', p.cx, p.cy, p.tint);

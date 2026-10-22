@@ -2,8 +2,8 @@
 /**
  * Structures in 3D: models on their footprints, rising out of the ground as
  * they are built and sinking as they are sold, turrets aiming, dishes
- * turning, dimmed when the power is low; walls joining their neighbours.
- * Selection outlines, health bars,
+ * turning, dimmed when the power is low; walls joining their neighbours;
+ * enemy buildings remembered under the fog. Selection outlines, health bars,
  * rally lines, the repair wrench, smoke and the yard's flag are 2D overlays.
  * Reads the world; never writes it.
  */
@@ -37,6 +37,8 @@ export function createStructures3D(lib, inst) {
   const flags = new Container();
   /** @type {Map<number, { spin: number, flag?: ReturnType<typeof createFlagpole> | null, flagId?: string }>} */
   const state = new Map();
+  /** Fog of war: enemy structures as last seen (section 12). @type {Map<number, { type: string, key: string, cx: number, cy: number, w: number, h: number, color: THREE.Color }>} */
+  const memory = new Map();
   /** @type {{ x: number, y: number, vx: number, vy: number, life: number, max: number, fire: boolean }[]} */
   let puffs = [];
   let last = performance.now();
@@ -89,11 +91,17 @@ export function createStructures3D(lib, inst) {
     heightOf: (key) => lib.get(key).height * CELL,
     /**
      * @param {any} world @param {Set<number>} selected @param {number} selectedStructure @param {number} viewScale
-     * @param {(e: any) => boolean} visible  explored ground shows what stands on it (Red Alert 2: no fog of war)
+     * @param {(e: any) => boolean} visible
+     * @param {{ viewer: number, seen: (x: number, y: number) => boolean, explored: (x: number, y: number) => boolean } | undefined} eyes
      * @param {{ x0: number, y0: number, x1: number, y1: number }} view  world px on screen (with margin)
      * @param {number} [hover]  the entity under the mouse: its health shows
      */
-    sync(world, selected, selectedStructure, viewScale, visible, view, hover = 0) {
+    sync(world, selected, selectedStructure, viewScale, visible, eyes, view, hover = 0) {
+      const fog = !!eyes && world.settings.fog;
+      const anyCell = (/** @type {{ cx: number, cy: number, w: number, h: number }} */ f, /** @type {(x: number, y: number) => boolean} */ test) => {
+        for (let y = f.cy; y < f.cy + f.h; y++) for (let x = f.cx; x < f.cx + f.w; x++) if (test(x, y)) return true;
+        return false;
+      };
       const onScreen = (/** @type {{ cx: number, cy: number, w: number, h: number }} */ f) => (f.cx + f.w) * C >= view.x0 && f.cx * C <= view.x1 && (f.cy + f.h) * C >= view.y0 && f.cy * C <= view.y1;
       const now = performance.now();
       const dt = Math.min(100, now - last);
@@ -106,7 +114,10 @@ export function createStructures3D(lib, inst) {
         alive.add(s.id);
         const owner = s.owner >= 0 ? world.players[s.owner] : null;
         const color = owner ? teamColor(owner.color) : NEUTRAL;
-        if (!visible(s) || !onScreen(s)) continue;
+        const vis = visible(s);
+        if (vis && fog && eyes && !world.allied(s.owner, eyes.viewer)) memory.set(s.id, { type: s.type, key: keyOf(s), cx: s.cx, cy: s.cy, w: s.w, h: s.h, color });
+        if (!vis) continue; // remembered ones are drawn below
+        if (!onScreen(s)) continue;
         let st = state.get(s.id);
         if (!st) { st = { spin: Math.random() * TAU }; state.set(s.id, st); }
         const def = lib.get(keyOf(s));
@@ -169,6 +180,16 @@ export function createStructures3D(lib, inst) {
           marks.rect(cx - 3, cy - 0.8 / SQUASH, 6, 1.6 / SQUASH).fill(0x9fdc6a);
           marks.rect(cx - 0.8, cy - 3 / SQUASH, 1.6, 6 / SQUASH).fill(0x9fdc6a);
         }
+      }
+      // Remembered enemy buildings: drawn see-through, frozen as last seen,
+      // until their cells are seen again (destroyed or not).
+      for (const [id, g] of memory) {
+        const live = world.entities.get(id);
+        if (live && !live.dead && visible(live)) continue;
+        if (!fog || !eyes) { memory.delete(id); continue; }
+        if (!live || live.dead) { if (anyCell(g, eyes.seen)) { memory.delete(id); continue; } }
+        if (!anyCell(g, eyes.explored) || !onScreen(g)) continue;
+        place(lib.get(g.key), g.cx, g.cy, g.color, { ghost: true });
       }
       for (const [id, st] of state) {
         if (alive.has(id)) continue;

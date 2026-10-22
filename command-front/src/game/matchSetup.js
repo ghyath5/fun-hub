@@ -32,6 +32,7 @@ import { playersForSize } from '../map/generator.js';
  * @property {'mcv' | 'force'} startingUnits
  * @property {number} techLevel
  * @property {number} oreGrowthSeconds  0 = off
+ * @property {boolean} fog
  * @property {boolean} crates
  * @property {boolean} shortGame
  * @property {keyof typeof GAME_SPEEDS} speed
@@ -57,6 +58,7 @@ export function defaultForm() {
     startingUnits: /** @type {'mcv'} */ (SETUP_DEFAULTS.startingUnits),
     techLevel: SETUP_DEFAULTS.techLevel,
     oreGrowthSeconds: SETUP_DEFAULTS.oreGrowthSeconds,
+    fog: SETUP_DEFAULTS.fog,
     crates: SETUP_DEFAULTS.crates,
     shortGame: SETUP_DEFAULTS.shortGame,
     speed: /** @type {'normal'} */ (SETUP_DEFAULTS.speed),
@@ -119,6 +121,7 @@ export function matchOptions(f, map, seed) {
     startingCredits: f.startingCredits,
     settings: {
       oreGrowthSeconds: f.oreGrowthSeconds,
+      fog: f.fog,
       crates: f.crates,
       shortGame: f.shortGame,
       techLevel: f.techLevel,
