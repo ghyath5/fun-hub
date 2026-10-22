@@ -5,7 +5,7 @@
  * structures go through the same helpers via `combatDef`.
  */
 import { UNITS } from '../data/units.js';
-import { WEAPONS } from '../data/weapons.js';
+import { WEAPONS, reachCells } from '../data/weapons.js';
 import { WARHEADS } from '../data/warheads.js';
 import { SIM } from '../data/rules.js';
 import { combatDef } from './defs.js';
@@ -93,14 +93,14 @@ export const canAttack = (shooter, target, friendly = false) => usableWeapons(sh
 export function maxRangeVs(shooter, target, friendly = false) {
   const ws = weaponsOf(shooter);
   let r = 0;
-  for (const k of usableWeapons(shooter, target, friendly)) r = Math.max(r, Math.round(WEAPONS[ws[k]].range * L));
+  for (const k of usableWeapons(shooter, target, friendly)) r = Math.max(r, Math.round(reachCells(WEAPONS[ws[k]]) * L));
   return r;
 }
 
 /** Longest range of any weapon, leptons (Hold Position acquisition radius). @param {any} e */
 export function maxRange(e) {
   let r = 0;
-  for (const id of weaponsOf(e)) r = Math.max(r, Math.round(WEAPONS[id].range * L));
+  for (const id of weaponsOf(e)) r = Math.max(r, Math.round(reachCells(WEAPONS[id]) * L));
   return r;
 }
 

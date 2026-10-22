@@ -417,6 +417,11 @@ function clearReservedCells(w) {
   }
 }
 
+/** A vehicle this close to the depot's pad (cells) may take its turn on it. */
+const DEPOT_CLAIM_CELLS = 4;
+/** A vehicle whose turn it is but that cannot reach the pad gives it up after this long. */
+const DEPOT_GIVE_UP_TICKS = ticks(20);
+
 /**
  * Service Depot (section 6): one vehicle at a time on the centre pad,
  * +5% max HP a second for unit cost × 0.0125 a step, and +1 mine per 2 s for
@@ -429,15 +434,20 @@ function depotService(w) {
     const d = w.entities.get(u.task.depot);
     if (!d || !isActive(d) || d.owner !== u.owner) { u.task = null; continue; }
     const pad = cellAt(d, structureDef(d.type).pad);
-    if (d.servicing && d.servicing !== u.id && !w.entities.get(d.servicing)) d.servicing = 0;
-    if (!d.servicing) d.servicing = u.id;
+    const holder = d.servicing ? w.entities.get(d.servicing) : null;
+    if (d.servicing && (!holder || holder.dead || holder.task?.type !== 'depot' || holder.task.depot !== d.id)) d.servicing = 0;
+    // The pad goes to whoever is waiting at the depot, not to a vehicle still crossing the map.
+    const close = Math.max(Math.abs(u.cx - pad.x), Math.abs(u.cy - pad.y)) <= DEPOT_CLAIM_CELLS;
+    if (!d.servicing && close) { d.servicing = u.id; u.depotWait = 0; }
     if (d.servicing !== u.id) {
-      // Queue beside the depot.
-      if (!u.order && !u.next && Math.max(Math.abs(u.cx - pad.x), Math.abs(u.cy - pad.y)) > 3) setMove(w, u, pad.x, pad.y + 3, { auto: true });
+      // Come and wait beside the depot's entrance, clear of the lane in.
+      if (!u.order && !u.next && !close) setMove(w, u, pad.x + 2, d.cy + d.h + 1, { auto: true });
       continue;
     }
     if (u.cx !== pad.x || u.cy !== pad.y) {
       if (!u.order && !u.next) setMove(w, u, pad.x, pad.y, { auto: true });
+      // Cannot get onto the pad (blocked lane): let the next one try, and wait again.
+      if (++u.depotWait > DEPOT_GIVE_UP_TICKS) { d.servicing = 0; u.depotWait = 0; }
       continue;
     }
     if (u.next || (w.tick + u.id) % SECOND !== 0) continue;
@@ -455,13 +465,23 @@ function depotService(w) {
         u.hp = Math.min(u.maxHp, u.hp + Math.max(1, Math.floor(u.maxHp * REPAIR.depotHpFractionPerSecond)));
       }
     }
-    if (needsMines && (w.tick / SECOND) % Math.round(REPAIR.depotMineReloadSeconds) === 0) u.mines++;
+    if (needsMines && Math.floor(w.tick / SECOND) % Math.round(REPAIR.depotMineReloadSeconds) === 0) u.mines++;
     if (u.hp >= u.maxHp && !(def.tags.includes('mineLayer') && (u.mines ?? 0) < (u.maxMines ?? 0))) {
       u.task = null;
       d.servicing = 0;
-      scatterOne(w, u);
+      leaveDepot(w, u, d);
     }
   }
+}
+
+/** Drive a serviced vehicle out of the depot, to a free cell past its entrance. @param {World} w @param {any} u @param {any} d */
+function leaveDepot(w, u, d) {
+  const pad = cellAt(d, structureDef(d.type).pad);
+  for (const [x, y] of spiral(pad.x, d.cy + d.h + 1, 3)) {
+    if (x === pad.x && y === d.cy + d.h) continue; // not in the doorway
+    if (canEnter(w, u, x, y).ok && !w.occ.bld[y * w.map.width + x]) { setMove(w, u, x, y, { auto: true }); return; }
+  }
+  scatterOne(w, u);
 }
 
 /** System 3. @param {World} w */

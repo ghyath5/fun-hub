@@ -65,11 +65,19 @@ export function footprint(s) {
   return out;
 }
 
-/** Cells of the footprint that block movement (a Service Depot's pad stays drivable). @param {Structure} s */
+/**
+ * Footprint cells a vehicle can drive on: a Service Depot's pad and the lane
+ * from it out through the south side (otherwise the pad would be walled in).
+ * @param {Structure} s @param {number} x @param {number} y
+ */
+export function drivable(s, x, y) {
+  const pad = structureDef(s.type).pad;
+  return !!pad && x === s.cx + pad.x && y >= s.cy + pad.y && y < s.cy + s.h;
+}
+
+/** Cells of the footprint that block movement. @param {Structure} s */
 function blockingCells(s) {
-  const def = structureDef(s.type);
-  const pad = def.pad;
-  return footprint(s).filter(([x, y]) => !(pad && x === s.cx + pad.x && y === s.cy + pad.y));
+  return footprint(s).filter(([x, y]) => !drivable(s, x, y));
 }
 
 /** Working: built up, not being sold. @param {Structure} s */
