@@ -4,7 +4,7 @@
  * small state machine: SeekOre → MoveToOre → Harvesting → SeekRefinery →
  * QueueAtDock → Docking → Unloading → back to SeekOre near the last field.
  * A Coalition harvester whose turn at the dock comes while it is far away
- * warps there instead of driving (Chrono → Unloading).
+ * vanishes and reappears on the dock instead of driving (straight to Unloading).
  * A player move order switches automation off until a harvest or refinery
  * order turns it back on.
  */
@@ -23,7 +23,6 @@ import { canEnter, spotPos, occupy, vacate } from '../entities/units.js';
 /** @typedef {import('../world.js').World} World */
 
 const CAPACITY = ECONOMY.harvesterCapacity;
-const CHRONO_TICKS = ticks(ECONOMY.chronoSeconds);
 
 /** Does this harvester warp home (the Coalition's)? @param {World} w @param {any} u */
 const chronoMiner = (w, u) => w.players[u.owner]?.faction === 'coalition';
@@ -285,15 +284,13 @@ const fsm = createFsm({
     if (!refineryUsable(w, u, r)) { leaveDock(w, u); return 'seekRefinery'; }
     const dock = dockOf(r);
     if (r.docked === 0 && r.dockQueue[0] === u.id) {
-      // Far from home and the dock is clear: warp instead of driving.
+      // Far from home and the dock is clear: vanish and reappear on the dock.
       if (chronoMiner(w, u) && chebyshev(u.cx, u.cy, dock.x, dock.y) >= ECONOMY.chronoMinCells && clearFor(w, u, dock)) {
-        r.docked = u.id; // hold the dock while charging
+        warp(w, u, dock);
+        r.docked = u.id;
         r.dockQueue = r.dockQueue.filter((/** @type {number} */ id) => id !== u.id);
-        u.order = null;
-        u.path = [];
-        h.timer = CHRONO_TICKS;
-        w.events.emit('chrono', w.tick, { id: u.id, x: u.x, y: u.y, phase: 'out' });
-        return 'chrono';
+        h.timer = UNLOAD_TICKS;
+        return 'unloading';
       }
       setMove(w, u, dock.x, dock.y, { auto: true });
       return 'docking';
@@ -307,22 +304,6 @@ const fsm = createFsm({
       }
     }
     return 'queueAtDock';
-  },
-
-  chrono(w, u, h) {
-    const r = w.entities.get(h.refinery);
-    if (!refineryUsable(w, u, r)) { leaveDock(w, u); return 'seekRefinery'; }
-    if (--h.timer > 0) return 'chrono';
-    const dock = dockOf(r);
-    if (!clearFor(w, u, dock)) {
-      // Someone drove onto the dock meanwhile: drive there after all.
-      setMove(w, u, dock.x, dock.y, { auto: true });
-      return 'docking';
-    }
-    warp(w, u, dock);
-    w.events.emit('chrono', w.tick, { id: u.id, x: u.x, y: u.y, phase: 'in' });
-    h.timer = UNLOAD_TICKS;
-    return 'unloading';
   },
 
   docking(w, u, h) {

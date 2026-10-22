@@ -159,7 +159,6 @@ export function SetupScreen({ form, maps, error, onChange, onStart, onBack, onli
           onInput=${(/** @type {any} */ e) => set({ techLevel: e.target.value | 0 })} /></${Row}>
         <${Row} label=${t('Ore regrowth')}><${Select} label=${t('Ore regrowth')} value=${form.oreGrowthSeconds} onChange=${(v) => set({ oreGrowthSeconds: v })}
           options=${ORE_GROWTH_OPTIONS.map((s) => ({ value: s, label: s ? t('{n} s', { n: s }) : t('Off') }))} /></${Row}>
-        <${Row} label=${t('Fog of war')}><${Toggle} label=${t('Fog of war')} checked=${form.fog} onChange=${(v) => set({ fog: v })} /></${Row}>
         <${Row} label=${t('Crates')}><${Toggle} label=${t('Crates')} checked=${form.crates} onChange=${(v) => set({ crates: v })} /></${Row}>
         <${Row} label=${t('Short game')}><${Toggle} label=${t('Short game')} checked=${form.shortGame} onChange=${(v) => set({ shortGame: v })} /></${Row}>
         <${Row} label=${t('Game speed')}><${Select} label=${t('Game speed')} value=${form.speed} onChange=${(v) => set({ speed: v })}

@@ -81,7 +81,6 @@ const ui = {
   'Ore regrowth': 'نمو الخام من جديد',
   '{n} s': '{n} ث',
   Off: 'متوقف',
-  'Fog of war': 'ضباب الحرب',
   Crates: 'الصناديق',
   'Short game': 'مباراة قصيرة',
   'Game speed': 'سرعة اللعب',

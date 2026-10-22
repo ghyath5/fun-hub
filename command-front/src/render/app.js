@@ -170,10 +170,7 @@ async function createRenderer2D(host, map, opts = {}) {
       if (viewer >= 0 && frame++ % 4 === 0) shroud.update(world, viewer);
       shroud.layer.visible = viewer >= 0 && shroud.anyIn(visibleCells());
       const see = viewer >= 0 ? (/** @type {any} */ e) => world.visibleTo(viewer, e) : undefined;
-      structures.sync(world, selected, opts.selectedStructure ?? 0, scale, see, viewer >= 0 ? {
-        viewer, seen: (/** @type {number} */ x, /** @type {number} */ y) => world.cellVisible(viewer, x, y) && shroud.alphaAt(x, y) === 0,
-        explored: (/** @type {number} */ x, /** @type {number} */ y) => world.isExplored(viewer, x, y),
-      } : undefined, opts.hover ?? 0);
+      structures.sync(world, selected, opts.selectedStructure ?? 0, scale, see, opts.hover ?? 0);
       placement.draw(opts.placement ?? null, scale);
       units.sync(world, alpha, selected, scale, see ?? (() => true), viewer, opts.hover ?? 0);
       minesG.clear();

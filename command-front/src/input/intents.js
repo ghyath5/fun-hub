@@ -39,7 +39,7 @@ const NON_COMBAT_BOX = new Set(['harvester', 'mcv']);
  * @property {{ addMode: () => boolean, smartBox: () => boolean, targetMode?: () => string | null, setTargetMode?: (m: string | null) => void }} modes
  * @property {(menu: RadialMenu | null) => void} [radial]  Show or hide the radial menu
  * @property {(id: number) => void} [selectStructure]   Select an own structure (0 clears it)
- * @property {(e: any) => boolean} [visible]             Can the human see this entity (shroud / fog)?
+ * @property {(e: any) => boolean} [visible]             Can the human see this entity (shroud, stealth)?
  * @property {(x: number, y: number) => boolean} [explored]  Has the human explored this cell (shroud)?
  * @property {(e: any) => number} [lift]                How far above its ground point an entity is drawn, screen px
  *   (3D view: aircraft in flight, the middle of a unit, the roof of a building) — taps on the model hit it

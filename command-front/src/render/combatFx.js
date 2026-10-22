@@ -160,15 +160,6 @@ export function createCombatFx(opts = {}) {
           explosion(x, y, 12);
           addScorch(x, y, 9);
         }
-      } else if (e.type === 'chrono') {
-        // A harvester warping: a burst of blue sparks where it leaves and where it lands.
-        const x = d.x * PX;
-        const y = d.y * PX;
-        add({ x, y, max: 260, color: 0xcfeeff, size: 9, grow: 14, alpha: 0.8 });
-        for (let k = 0; k < 16; k++) {
-          const a = (k / 16) * Math.PI * 2;
-          add({ x, y, vx: Math.cos(a) * 0.05, vy: Math.sin(a) * 0.035 - 0.01, max: 450 + Math.random() * 250, color: k % 2 ? 0x7fd0ff : 0xe8f8ff, size: 1.6 });
-        }
       } else if (e.type === 'charge') {
         const s = entity(d.shooter);
         if (s) for (let k = 0; k < 6; k++) add({ x: s.x * PX + (Math.random() - 0.5) * 10, y: s.y * PX + (Math.random() - 0.5) * 10, max: 700, color: 0x9fd8ff, size: 1.3 });

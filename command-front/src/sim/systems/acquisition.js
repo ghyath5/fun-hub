@@ -68,7 +68,7 @@ function updateTask(w, u) {
       if (t.target && !e) { setTarget(u, 0); u.fireCell = null; becomeIdle(w, u); }
       else if (t.type === 'attack' && e && w.allied(e.owner, u.owner)) { setTarget(u, 0); becomeIdle(w, u); }
       else if (t.type === 'attack' && e && !w.visibleTo(u.owner, e)) {
-        // Lost from sight (shroud, fog, submerged, inside a transport): go where it was last seen, then idle.
+        // Lost from sight (shroud, submerged, inside a transport): go where it was last seen, then idle.
         setTarget(u, 0);
         u.task = { type: 'move' };
         setMove(w, u, cellOf(e.x), cellOf(e.y));

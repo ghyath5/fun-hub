@@ -42,7 +42,6 @@ import { SETUP_DEFAULTS } from '../data/rules.js';
 /**
  * @typedef {object} MatchSettings
  * @property {number} oreGrowthSeconds  0 = off
- * @property {boolean} fog
  * @property {boolean} crates
  * @property {boolean} shortGame
  * @property {number} techLevel
@@ -54,7 +53,6 @@ import { SETUP_DEFAULTS } from '../data/rules.js';
 /** @returns {MatchSettings} */
 export const defaultSettings = () => ({
   oreGrowthSeconds: SETUP_DEFAULTS.oreGrowthSeconds,
-  fog: SETUP_DEFAULTS.fog,
   crates: SETUP_DEFAULTS.crates,
   shortGame: SETUP_DEFAULTS.shortGame,
   techLevel: SETUP_DEFAULTS.techLevel,
@@ -121,7 +119,7 @@ export function createWorld({ map, seed, players, settings }) {
     vision: createVision(map.width * map.height, teams),
     /** Sight circles currently stamped, by entity id. @type {Map<number, { x: number, y: number, r: number, team: number }>} */
     stamps: new Map(),
-    /** Cell in sight (fog) or explored (shroud). Installed by the shroud system. */
+    /** Cell explored (shroud). Installed by the shroud system. */
     cellVisible: (/** @type {number} */ pid, /** @type {number} */ x, /** @type {number} */ y) => true,
     /** Damaged trees: cell index → HP left (absent = full). @type {Map<number, number>} */
     terrainHp: new Map(),
@@ -172,7 +170,7 @@ export function step(w) {
   damageSystem(w);           // 9. Damage application and deaths
   harvestSystem(w);          // 10. Harvesting and unloading
   oreSystem(w);              // 11. Ore growth (and rubble timers)
-  shroudSystem(w);           // 12. Shroud, fog and detection (every 4 ticks)
+  shroudSystem(w);           // 12. Shroud and detection (every 4 ticks)
   supportPowerSystem(w);     // 13. Support-power timers and support planes,
   crateSystem(w);            //     and the crate timer
   victorySystem(w);          // 14. Eliminations and the end of the match

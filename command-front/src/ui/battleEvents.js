@@ -43,7 +43,6 @@ export function wireBattleEvents(ctx) {
       else if (lookOf(e.data.weapon) === 'shell' || lookOf(e.data.weapon) === 'missile') at('small', e.data.x, e.data.y);
     }),
     ev.on('charge', (e) => ctx.fx.onEvent(e, entity)),
-    ev.on('chrono', (e) => { ctx.fx.onEvent(e, entity); at('zap', e.data.x, e.data.y, false); }),
     ev.on('unitDied', (e) => {
       ctx.fx.onEvent(e, entity);
       at(UNITS[e.data.type].loco === 'foot' ? 'die' : 'boom', e.data.x, e.data.y, UNITS[e.data.type].loco === 'foot');
