@@ -1,7 +1,6 @@
 // @ts-check
 /**
- * Shroud and detection (system 12, section 12). There is no fog of war:
- * explored cells stay open unless an enemy Shroud Generator covers them. Each team keeps an
+ * Shroud, fog and detection (system 12, section 12). Each team keeps an
  * `explored` bit per cell and a `seen` count per cell (how many of its
  * entities' sight circles cover it). Sight circles are precomputed masks;
  * every 4 ticks only entities that changed cell are re-stamped. Allies share
@@ -222,11 +221,12 @@ export function installShroud(w) {
     const i = y * W + x;
     return teamsFor(pid).some((t) => w.vision[t].explored[i] === 1);
   };
-  /**
-   * Can the player see this cell? Explored ground stays open for good, as in
-   * Red Alert 2 (no fog of war); only an enemy Shroud Generator covers it again.
-   */
-  w.cellVisible = (/** @type {number} */ pid, /** @type {number} */ x, /** @type {number} */ y) => w.isExplored(pid, x, y);
+  /** Cell currently in sight (fog) or explored (shroud only). */
+  w.cellVisible = (/** @type {number} */ pid, /** @type {number} */ x, /** @type {number} */ y) => {
+    if (!inside(x, y)) return false;
+    const i = y * W + x;
+    return teamsFor(pid).some((t) => (w.settings.fog ? w.vision[t].seen[i] > 0 : w.vision[t].explored[i] === 1));
+  };
   w.visibleTo = (pid, e) => {
     if (!e || e.dead) return false;
     if (e.owner >= 0 && w.allied(e.owner, pid)) return true;
