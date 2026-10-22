@@ -30,6 +30,9 @@ function w(id, name, p) {
   return Object.freeze(def);
 }
 
+/** How far a weapon reaches, cells: its range, or further for a melee weapon that leaps (Hound, Terror Drone). @param {{ range: number, leap: number }} wd */
+export const reachCells = (wd) => Math.max(wd.range, wd.leap);
+
 const GN = /** @type {import('../types.js').HitLayer[]} */ (['G', 'N']);
 const G = /** @type {import('../types.js').HitLayer[]} */ (['G']);
 const A = /** @type {import('../types.js').HitLayer[]} */ (['A']);

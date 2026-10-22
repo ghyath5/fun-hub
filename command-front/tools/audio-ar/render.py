@@ -7,10 +7,14 @@ set gets its own speaker and treatment — the announcers clean with a little
 room, field units through a radio band — then loudness-normalised and
 encoded as small mono MP3s like the English set.
 
-Check: every line is transcribed back with Whisper (sherpa-onnx) and its
-character error rate printed, so a word the voice says wrongly shows up.
+Clarity: the voices are rendered with less sampling noise than Piper's
+default (clearer consonants, fewer swallowed endings), a little slower, and
+with light treatments; silence is trimmed gently at the end so a final
+consonant is never shaved off. With --check, every line is rendered several
+times (VITS varies between takes), each take transcribed back with Whisper
+(sherpa-onnx), and the take heard most accurately is kept.
 
-usage: python3 render.py --models <dir with vits-piper-ar_JO-* and sherpa-onnx-whisper-small> [--check]
+usage: python3 render.py --models <dir with vits-piper-ar_JO-* and sherpa-onnx-whisper-small> [--check] [--takes N] [--only set ...] [--lines set/key/i ...]
 """
 import argparse
 import json
@@ -36,9 +40,15 @@ MALE_C = 'vits-piper-ar_JO-kareem-medium'
 
 # Treatments (ffmpeg filter chains, before loudness and encoding). No echo on the
 # announcer: it blurs word endings (measured with the Whisper check).
-ROOM = 'highpass=f=90,acompressor=threshold=-18dB:ratio=3:attack=5:release=90'
-RADIO = 'highpass=f=280,lowpass=f=3600,acompressor=threshold=-22dB:ratio=5:attack=3:release=60'
-FIELD = 'highpass=f=120,lowpass=f=6500,acompressor=threshold=-20dB:ratio=4:attack=4:release=70'
+# Light on purpose: a narrow radio band made short commands hard to make out.
+ROOM = 'highpass=f=90,acompressor=threshold=-20dB:ratio=2.5:attack=6:release=120'
+RADIO = 'highpass=f=180,lowpass=f=5200,acompressor=threshold=-20dB:ratio=3:attack=4:release=90'
+FIELD = 'highpass=f=100,lowpass=f=7500,acompressor=threshold=-20dB:ratio=2.5:attack=5:release=100'
+# Sampling noise (Piper's defaults are 0.667 / 0.8): lower is clearer and steadier.
+NOISE = 0.4
+NOISE_W = 0.6
+# Everyone speaks this much slower than the cast below says (word endings get their time).
+PACE = 0.9
 
 # set → (voice, speed, pitch factor, treatment)
 CAST = {
@@ -72,7 +82,8 @@ def engine(models, name, cache={}):
         onnx = next(f for f in os.listdir(d) if f.endswith('.onnx'))
         cfg = sherpa_onnx.OfflineTtsConfig(
             model=sherpa_onnx.OfflineTtsModelConfig(
-                vits=sherpa_onnx.OfflineTtsVitsModelConfig(model=os.path.join(d, onnx), tokens=os.path.join(d, 'tokens.txt'), data_dir=os.path.join(d, 'espeak-ng-data')),
+                vits=sherpa_onnx.OfflineTtsVitsModelConfig(model=os.path.join(d, onnx), tokens=os.path.join(d, 'tokens.txt'), data_dir=os.path.join(d, 'espeak-ng-data'),
+                                                           noise_scale=NOISE, noise_scale_w=NOISE_W),
                 num_threads=4),
             max_num_sentences=2)
         cache[name] = sherpa_onnx.OfflineTts(cfg)
@@ -81,7 +92,7 @@ def engine(models, name, cache={}):
 
 def render_line(models, text, cast, out_mp3):
     voice, speed, pitch, chain = cast
-    a = engine(models, voice).generate(text, sid=0, speed=speed)
+    a = engine(models, voice).generate(text, sid=0, speed=speed * PACE)
     x = np.array(a.samples, dtype=np.float32)
     with tempfile.NamedTemporaryFile(suffix='.wav') as tmp:
         sf.write(tmp.name, x, a.sample_rate)
@@ -89,13 +100,15 @@ def render_line(models, text, cast, out_mp3):
         if abs(pitch - 1) > 1e-3:
             filters.append(f'rubberband=pitch={pitch}')
         # Trim silence at both ends only (a pause between words must survive): trim the start,
-        # reverse, trim the start again, reverse back.
-        trim = 'silenceremove=start_periods=1:start_threshold=-50dB:start_silence=0.03'
-        filters.extend([trim, 'areverse', trim, 'areverse'])
+        # reverse, trim the start again, reverse back. The end is trimmed gently (lower
+        # threshold, more kept) so a soft final consonant is never shaved off.
+        head = 'silenceremove=start_periods=1:start_threshold=-50dB:start_silence=0.03'
+        tail = 'silenceremove=start_periods=1:start_threshold=-58dB:start_silence=0.1'
+        filters.extend([head, 'areverse', tail, 'areverse'])
         filters.append(chain)
         filters.append('loudnorm=I=-15:TP=-1.5:LRA=7')
-        filters.append('apad=pad_dur=0.06')
-        subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', tmp.name, '-af', ','.join(filters), '-ar', '24000', '-ac', '1', '-c:a', 'libmp3lame', '-b:a', '40k', out_mp3], check=True)
+        filters.append('apad=pad_dur=0.12')
+        subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', tmp.name, '-af', ','.join(filters), '-ar', '24000', '-ac', '1', '-c:a', 'libmp3lame', '-b:a', '56k', out_mp3], check=True)
     return x, a.sample_rate
 
 
@@ -110,6 +123,8 @@ def main():
     ap.add_argument('--models', required=True)
     ap.add_argument('--check', action='store_true')
     ap.add_argument('--only', nargs='*')
+    ap.add_argument('--takes', type=int, default=4, help='with --check: render each line this many times and keep the clearest')
+    ap.add_argument('--lines', nargs='*', help='only these lines, as set/key/variant (the rest of the set is kept as it is)')
     args = ap.parse_args()
 
     sets = {'eva-coalition': {k: [v] for k, v in ANNOUNCER_COALITION.items()}, 'eva-union': {k: [v] for k, v in ANNOUNCER_UNION.items()}, **UNITS}
@@ -134,15 +149,33 @@ def main():
             files = []
             for i, text in enumerate(lines):
                 rel = f'{OUT_DIR}/{set_id}/{key}-{i}.mp3'
-                render_line(args.models, text, CAST[set_id], os.path.join(SOUND, rel))
+                out = os.path.join(SOUND, rel)
                 files.append(rel)
-                if check:
-                    x, sr = decode_padded(os.path.join(SOUND, rel))
+                if args.lines and f'{set_id}/{key}/{i}' not in args.lines and os.path.exists(out):
+                    continue
+                if not check:
+                    render_line(args.models, text, CAST[set_id], out)
+                    continue
+                # Several takes; keep the one Whisper hears closest to the text.
+                best = None
+                for take in range(max(1, args.takes)):
+                    cand = f'{out}.take{take}.mp3'
+                    render_line(args.models, text, CAST[set_id], cand)
+                    x, sr = decode_padded(cand)
                     heard, err = check.score(x, sr, text)
-                    flag = '  <<' if err > 0.34 else ''
-                    if flag:
-                        bad.append((set_id, key, i, text, heard, err))
-                    print(f'{set_id:20} {key:22} {err:.2f}  {heard}{flag}')
+                    if best is None or err < best[0]:
+                        if best: os.remove(best[2])
+                        best = (err, heard, cand)
+                    else:
+                        os.remove(cand)
+                    if err == 0:
+                        break
+                err, heard, cand = best
+                os.replace(cand, out)
+                flag = '  <<' if err > 0.34 else ''
+                if flag:
+                    bad.append((set_id, key, i, text, heard, err))
+                print(f'{set_id:20} {key:22} {err:.2f}  {heard}{flag}', flush=True)
             voice_ar[set_id][key] = files
     index['voiceAr'] = dict(sorted(voice_ar.items()))
     with open(os.path.join(SOUND, 'sounds.json'), 'w') as f:

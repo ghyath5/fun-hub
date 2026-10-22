@@ -8,7 +8,7 @@
  * projectiles; nothing is damaged here.
  */
 import { TURN_RATE, UNITS } from '../../data/units.js';
-import { WEAPONS, PROJECTILE_SPEED } from '../../data/weapons.js';
+import { WEAPONS, PROJECTILE_SPEED, reachCells } from '../../data/weapons.js';
 import { SIM, SPECIALS } from '../../data/rules.js';
 import { isqrt, facingOf, facingDelta, turnToward, ticks } from '../../core/fixed.js';
 import { weaponCanHit, effectiveness, layerOf, reachDist, weaponsOf } from '../targeting.js';
@@ -59,7 +59,7 @@ function aimOf(w, u) {
  * @param {World} w @param {Unit} u @param {WeaponDef} wd @param {{x: number, y: number, e: any}} aim @param {number} d
  */
 function canShoot(w, u, wd, aim, d) {
-  if (d > Math.round(wd.range * L) || d < Math.round(wd.minRange * L)) return false;
+  if (d > Math.round(reachCells(wd) * L) || d < Math.round(wd.minRange * L)) return false;
   if (!aim.e) return wd.hits.includes('G') && !!wd.warhead;
   const friendly = w.allied(aim.e.owner, u.owner);
   if (weaponCanHit(wd, aim.e, friendly)) return true;

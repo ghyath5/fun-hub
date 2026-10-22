@@ -72,8 +72,9 @@ export function checkPlacement(w, pid, type, cx, cy) {
   const probe = { cx, cy, w: def.w, h: def.h };
   /** @type {CellCheck[]} */
   const cells = footprint(probe).map(([x, y]) => ({ x, y, state: cellState(w, pid, x, y, water) }));
-  // Exit and dock cells are part of the footprint check: they must be drivable (water for naval exits).
-  for (const off of [def.exit, def.dock]) {
+  // Exit and dock cells are part of the footprint check: they must be drivable (water for naval exits);
+  // so is the doorway into a Service Depot (the cell south of its pad lane).
+  for (const off of [def.exit, def.dock, def.pad ? { x: def.pad.x, y: def.h } : null]) {
     if (!off) continue;
     const x = cx + off.x;
     const y = cy + off.y;

@@ -11,8 +11,9 @@
  *   3. small ZzFX blips generated in code, for interface clicks and as a
  *      stand-in while a sample is still loading or when it cannot load.
  *
- * Voices have two channels: the announcer speaks one line at a time from a
- * short queue; unit replies never cut each other off — the newest waits its turn.
+ * Voices take turns: the announcer speaks one line at a time from a short
+ * queue, unit replies never cut each other off (the newest waits), and the
+ * two never talk over each other — whoever starts second waits.
  */
 import { AUDIO } from '../data/ui.js';
 import { SOUND_INDEX, customNameOf } from '../data/sounds.js';
@@ -51,6 +52,8 @@ const QUEUE_MAX = 2;
 const STALE_MS = 3500;
 /** A unit reply that waited longer than this behind another is dropped. */
 const REPLY_FRESH_MS = 1500;
+/** …or this long behind the announcer, whose lines are longer. */
+const REPLY_BEHIND_ANNOUNCER_MS = 3500;
 
 /**
  * @param {{ index?: string, load?: (url: string) => Promise<ArrayBuffer> }} [opts]
@@ -237,7 +240,7 @@ export function createAudio(opts = {}) {
   let replying = null;
 
   function nextLine() {
-    if (speaking || !buses) return;
+    if (speaking || replying || !buses) return; // a unit mid-reply finishes first
     const now = performance.now();
     while (queue.length && now - queue[0].at > STALE_MS) queue.shift();
     const line = queue.shift();
@@ -252,7 +255,11 @@ export function createAudio(opts = {}) {
       return;
     }
     speaking = start(any(list), { bus: 'voice', volume: line.volume });
-    speaking.onended = () => { speaking = null; nextLine(); };
+    speaking.onended = () => {
+      speaking = null;
+      nextLine();
+      if (!speaking) replyNext(REPLY_BEHIND_ANNOUNCER_MS);
+    };
   }
 
   /**
@@ -271,18 +278,24 @@ export function createAudio(opts = {}) {
   /** The newest reply asked for while another was still speaking (played next, if still fresh). @type {{ name: string, volume: number, at: number } | null} */
   let pendingReply = null;
 
-  /** Start a reply and, when it ends, the one that waited behind it. @param {AudioBuffer[]} list @param {number} volume */
+  /** Play the reply that waited, if it is still fresh enough. @param {number} freshMs */
+  function replyNext(freshMs) {
+    const next = pendingReply;
+    pendingReply = null;
+    if (!next || performance.now() - next.at > freshMs) return;
+    const bufs = ready(next.name);
+    if (bufs) speakReply(bufs, next.volume);
+  }
+
+  /** Start a reply and, when it ends, the announcer's waiting line or the reply that waited behind it. @param {AudioBuffer[]} list @param {number} volume */
   function speakReply(list, volume) {
     const src = start(any(list), { bus: 'voice', volume });
     replying = src;
     src.onended = () => {
       if (replying !== src) return;
       replying = null;
-      const next = pendingReply;
-      pendingReply = null;
-      if (!next || performance.now() - next.at > REPLY_FRESH_MS) return;
-      const bufs = ready(next.name);
-      if (bufs) speakReply(bufs, next.volume);
+      nextLine(); // the announcer goes first
+      if (!speaking) replyNext(REPLY_FRESH_MS);
     };
   }
 
@@ -296,7 +309,7 @@ export function createAudio(opts = {}) {
     if (!buses) return;
     const list = ready(name);
     if (!list) { play('ack', { bus: 'voice', volume: 0.5 }); return; }
-    if (replying) { pendingReply = { name, volume, at: performance.now() }; return; }
+    if (replying || speaking) { pendingReply = { name, volume, at: performance.now() }; return; }
     speakReply(list, volume);
   }
 
