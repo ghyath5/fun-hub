@@ -103,6 +103,12 @@ export async function createRenderer3D(host, map, opts = {}) {
     return (flying ? ALTITUDE : 0) + units.heightOf(e.type) * 0.6;
   };
   const combat = createCombatFx({ lift: (e) => muzzle(e) * LIFT });
+  // Shots also kick the shooter's barrel back (cosmetic, read from the event only).
+  const onCombatEvent = combat.onEvent;
+  combat.onEvent = (e, entity) => {
+    if (e.type === 'shot') units.fired(e.data.shooter);
+    onCombatEvent(e, entity);
+  };
   // The overlay draws the cells and build area; the building itself is a 3D ghost.
   const placement = createPlacementOverlay(new Map(), opts.faction ?? '');
   const shroud = createShroudLayer(map);

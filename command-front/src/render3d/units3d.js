@@ -18,6 +18,17 @@ const PX_PER_LEPTON = RENDER.cellPx / SIM.leptonsPerCell;
 const TAU = Math.PI * 2;
 /** Rotor speed, radians per ms. */
 const ROTOR_SPEED = 0.03;
+/** Stride of a walking soldier, cells per leg cycle. */
+const STRIDE = 0.32;
+/** How far a barrel kicks back when it fires, cells; and how fast it returns (per ms). */
+const RECOIL = 0.07;
+const RECOIL_RETURN = 0.006;
+
+/**
+ * Cosmetic per-unit state, from what is drawn (never written back): rotor
+ * angle, wheel roll, walk phase, how much it is moving and firing kick.
+ * @typedef {{ rotor: number, roll: number, trav: number, walk: number, moving: number, kick: number, x: number, z: number }} Motion
+ */
 
 /** @type {Map<string, THREE.Color>} */
 const colorCache = new Map();
@@ -37,7 +48,7 @@ export function teamColor(id) {
  */
 export function createUnits3D(lib, inst) {
   const marks = new Graphics();
-  /** Per-unit cosmetic state: rotor angle. @type {Map<number, { rotor: number }>} */
+  /** Per-unit cosmetic state. @type {Map<number, Motion>} */
   const state = new Map();
   let lastFrame = performance.now();
   const m = new THREE.Matrix4();
@@ -54,6 +65,11 @@ export function createUnits3D(lib, inst) {
 
   return {
     marks,
+    /** A unit fired (the sim's `shot` event): its barrel kicks back. @param {number} id */
+    fired(id) {
+      const st = state.get(id);
+      if (st) st.kick = 1;
+    },
     /** World-px radius of a unit type (hit testing). @param {string} type */
     radiusOf: (type) => Math.max(5, lib.get(type).radius * CELL * 0.9),
     /** World-px height of a unit type. @param {string} type */
@@ -84,20 +100,40 @@ export function createUnits3D(lib, inst) {
         // Submerged subs and disguised Mirage Tanks show see-through to their own side.
         const ghost = !!(e.submerged || (e.detect !== undefined && e.detect !== -1 && d.tags.includes('disguise')));
         let st = state.get(e.id);
-        if (!st) { st = { rotor: Math.random() * TAU }; state.set(e.id, st); }
+        if (!st) { st = { rotor: Math.random() * TAU, roll: 0, trav: 0, walk: Math.random() * TAU, moving: 0, kick: 0, x, z }; state.set(e.id, st); }
         st.rotor += dt * ROTOR_SPEED * (flying ? 1 : 0.12);
-        base.makeTranslation(x, y, z);
+        // Distance drawn since the last frame: wheels roll it, feet walk it.
+        const step = Math.min(CELL, Math.hypot(x - st.x, z - st.z)) / CELL;
+        st.x = x;
+        st.z = z;
+        st.roll -= step / 0.06;
+        st.trav += step;
+        st.walk += (step / STRIDE) * TAU;
+        st.moving += ((step > 1e-4 ? 1 : 0) - st.moving) * Math.min(1, dt * 0.012);
+        st.kick = Math.max(0, st.kick - dt * RECOIL_RETURN);
+        const swing = Math.sin(st.walk) * 0.55 * st.moving;
+        // A walking soldier bobs with each step; a vehicle rocks back a little when it fires.
+        const bob = d.loco === 'foot' && !flying ? Math.abs(Math.sin(st.walk)) * 0.025 * st.moving * CELL : 0;
+        base.makeTranslation(x, y + bob, z);
         const facing = (-e.facing / 256) * TAU;
         // A dug-in Rifleman sits in a sandbag ring that faces where he looks.
         if (e.dug) for (const p of lib.get('sandbagNest').parts) {
           m.copy(base).multiply(rot.makeRotationY(facing)).multiply(S).multiply(part.makeTranslation(p.pivot.x, p.pivot.y, p.pivot.z));
           inst.add(p, m, color, 1, ghost);
         }
+        const rock = d.loco !== 'foot' && !flying ? st.kick * st.kick * 0.035 : 0;
         for (const p of def.parts) {
-          const turn = p.role === 'turret' ? (-(e.turret ?? e.facing) / 256) * TAU : facing;
-          m.copy(base).multiply(rot.makeRotationY(turn)).multiply(S).multiply(part.makeTranslation(p.pivot.x, p.pivot.y, p.pivot.z));
+          const aims = p.role === 'turret' || p.role === 'barrel';
+          const turn = aims ? (-(e.turret ?? e.facing) / 256) * TAU : facing;
+          m.copy(base).multiply(rot.makeRotationY(turn));
+          if (rock) m.multiply(rot.makeRotationX(rock));
+          m.multiply(S).multiply(part.makeTranslation(p.pivot.x, p.pivot.y, p.pivot.z));
           if (p.orient) m.multiply(rot.makeRotationFromQuaternion(p.orient));
           if (p.role === 'rotor') m.multiply(rot.makeRotationY(st.rotor));
+          else if (p.role === 'wheel') m.multiply(rot.makeRotationX(st.roll * (0.06 / (p.radius || 0.06))));
+          else if (p.role === 'tread') m.multiply(part.makeTranslation(0, 0, -(st.trav % /** @type {number} */ (p.pitch))));
+          else if (p.role === 'barrel') m.multiply(part.makeTranslation(0, 0, st.kick * RECOIL));
+          else if (p.role === 'limb') m.multiply(rot.makeRotationX(p.name === 'legL' || p.name === 'armR' ? swing : -swing));
           inst.add(p, m, color, 1, ghost);
         }
 

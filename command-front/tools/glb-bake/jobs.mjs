@@ -68,6 +68,10 @@ export const JOBS = [
   { id: 'psiCommander', kind: 'unit', proc: 'psiCommander', r: 0.28, size: 0.4, team: RED },
   { id: 'hero', kind: 'unit', proc: 'hero', r: 0.28, size: 0.46, team: RED },
 
+  // ── Blender models (tools/blender/): parts and pivots from named empties ──
+  // Built by `blender -b -P tools/blender/build.py -- <id>` into glb/bl-<id>.glb.
+  { id: 'lightTank', kind: 'unit', src: 'bl-lightTank.glb', named: true, budget: 6000, r: 0.42, size: 0.78 },
+
   // ── Procedural structures ──────────────────────────────────
   { id: 'airfield', kind: 'structure', proc: 'airfield', w: 4, h: 3, fill: 1, team: RED },
 ];
