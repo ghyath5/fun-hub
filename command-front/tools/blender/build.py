@@ -26,7 +26,7 @@ OUT_DIR = os.path.join(HERE, 'out')
 REGISTRY = {}
 
 
-def model(id, maxEdge=0.12, ao=0.12, aoStrength=0.75):
+def model(id, maxEdge=0.12, ao=0.12, aoStrength=0.85):
     """Register a builder: fn(k) models it with the kit `k`."""
     def wrap(fn):
         REGISTRY[id] = dict(fn=fn, maxEdge=maxEdge, ao=ao, aoStrength=aoStrength)

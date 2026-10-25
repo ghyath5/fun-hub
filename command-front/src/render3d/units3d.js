@@ -122,15 +122,22 @@ export function createUnits3D(lib, inst) {
           inst.add(p, m, color, 1, ghost);
         }
         const rock = d.loco !== 'foot' && !flying ? st.kick * st.kick * 0.035 : 0;
+        // Turrets turn about their own pivot (on the hull, which faces `facing`); barrels ride on the turret.
+        const aim = (-(e.turret ?? e.facing) / 256) * TAU - facing;
+        const ring = def.parts.find((q) => q.role === 'turret')?.pivot;
         for (const p of def.parts) {
-          const aims = p.role === 'turret' || p.role === 'barrel';
-          const turn = aims ? (-(e.turret ?? e.facing) / 256) * TAU : facing;
-          m.copy(base).multiply(rot.makeRotationY(turn));
+          m.copy(base).multiply(rot.makeRotationY(facing));
           if (rock) m.multiply(rot.makeRotationX(rock));
-          m.multiply(S).multiply(part.makeTranslation(p.pivot.x, p.pivot.y, p.pivot.z));
+          m.multiply(S);
+          if (p.role === 'turret') m.multiply(part.makeTranslation(p.pivot.x, p.pivot.y, p.pivot.z)).multiply(rot.makeRotationY(aim));
+          else if (p.role === 'barrel') {
+            const r = ring ?? p.pivot;
+            m.multiply(part.makeTranslation(r.x, r.y, r.z)).multiply(rot.makeRotationY(aim)).multiply(part.makeTranslation(p.pivot.x - r.x, p.pivot.y - r.y, p.pivot.z - r.z));
+          } else m.multiply(part.makeTranslation(p.pivot.x, p.pivot.y, p.pivot.z));
           if (p.orient) m.multiply(rot.makeRotationFromQuaternion(p.orient));
           if (p.role === 'rotor') m.multiply(rot.makeRotationY(st.rotor));
           else if (p.role === 'wheel') m.multiply(rot.makeRotationX(st.roll * (0.06 / (p.radius || 0.06))));
+          else if (p.role === 'prop') m.multiply(rot.makeRotationZ(st.rotor * 1.5));
           else if (p.role === 'tread') m.multiply(part.makeTranslation(0, 0, -(st.trav % /** @type {number} */ (p.pitch))));
           else if (p.role === 'barrel') m.multiply(part.makeTranslation(0, 0, st.kick * RECOIL));
           else if (p.role === 'limb') m.multiply(rot.makeRotationX(p.name === 'legL' || p.name === 'armR' ? swing : -swing));

@@ -24,7 +24,8 @@ const BASE = './assets/models/';
 /**
  * @typedef {object} Part
  * @property {string} name        body, turret, rotor0…, spin0…
- * @property {'body' | 'turret' | 'rotor' | 'spin' | 'wheel' | 'tread' | 'barrel' | 'limb'} role
+ * @property {'body' | 'turret' | 'rotor' | 'spin' | 'wheel' | 'tread' | 'prop' | 'barrel' | 'limb'} role
+ *   prop: a propeller turning about the model's forward axis;
  *   wheel: rolls about its axle (x) as the unit drives; tread: track links that
  *   slide forward one `pitch` at a time as it drives; barrel: turns with the
  *   turret and kicks back when it fires; limb (legL/R, armL/R): swings (x) as it walks
@@ -208,6 +209,7 @@ function roleOf(name) {
   if (name.startsWith('rotor')) return 'rotor';
   if (name.startsWith('wheel')) return 'wheel';
   if (name.startsWith('tread')) return 'tread';
+  if (name.startsWith('prop')) return 'prop';
   if (/^(leg|arm)[LR]$/.test(name)) return 'limb';
   return 'spin';
 }

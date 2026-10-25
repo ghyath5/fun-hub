@@ -100,7 +100,7 @@ export function adjustMaterials(root, look) {
  * Moving parts of a `named` job (the Blender models, tools/blender/): an
  * empty whose name says what it is, placed where the part turns.
  */
-export const NAMED_PART = /^(turret|barrel|rotor\d+|wheel\d+|tread\d+|spin\d+|leg[LR]|arm[LR])$/;
+export const NAMED_PART = /^(turret|barrel|rotor\d+|wheel\d+|tread\d+|prop\d+|spin\d+|leg[LR]|arm[LR])$/;
 
 /** `named` jobs: each mesh goes to its nearest named ancestor; the empties are the pivots. */
 function partitionNamed(root) {
@@ -181,14 +181,9 @@ export async function place(job, at, parent) {
   holder.updateMatrixWorld(true);
   b = boundsOf(visible);
   // Pivot: the turret ring for turreted units, else the footprint centre.
-  const pivotFrom = job.kind === 'unit' && parts.turret.length ? boundsOf(parts.turret) : b;
+  // (Named models centre on the whole model: their turret turns about its own empty, wherever it is.)
+  const pivotFrom = job.kind === 'unit' && parts.turret.length && !job.named ? boundsOf(parts.turret) : b;
   const c = pivotFrom.getCenter(new THREE.Vector3());
-  // A named turret turns about its own empty, not the middle of its meshes (the barrel reaches forward).
-  if (job.kind === 'unit' && parts.nodes?.turret) {
-    const t = parts.nodes.turret.getWorldPosition(new THREE.Vector3());
-    c.x = t.x;
-    c.z = t.z;
-  }
   if (job.pivot) {
     // Explicit pivot, as a fraction of the whole model's ground extent.
     const s = b.getSize(new THREE.Vector3());

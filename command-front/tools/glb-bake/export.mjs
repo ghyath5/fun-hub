@@ -110,7 +110,7 @@ function creaseNormals(p, crease = 44) {
 }
 
 /** Quantise one part into the binary blob; returns its index entry. */
-function writePart(p, pivot, chunks, offset) {
+function writePart(p, pivot, chunks, offset, textured = true) {
   const n = p.pos.length / 3;
   const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
   for (let i = 0; i < n; i++) for (let a = 0; a < 3; a++) { const v = p.pos[i * 3 + a]; if (v < min[a]) min[a] = v; if (v > max[a]) max[a] = v; }
@@ -129,7 +129,8 @@ function writePart(p, pivot, chunks, offset) {
   const idx = n < 65536 ? Uint16Array.from(p.idx) : Uint32Array.from(p.idx);
   const entry = { pivot: pivot.map((v) => +v.toFixed(5)), min: min.map((v) => +v.toFixed(5)), max: max.map((v) => +v.toFixed(5)), vertices: n, indices: idx.length, wide: idx instanceof Uint32Array };
   // `gl` (glow, one byte per vertex) only for parts that light themselves.
-  for (const [name, arr] of [['pos', pos], ['nrm', nrm], ['uv', uv], ['col', p.col], ['mr', p.mr], ['gl', p.gl], ['idx', idx]]) {
+  // Untextured models need no uv (the game only reads it with an atlas).
+  for (const [name, arr] of [['pos', pos], ['nrm', nrm], ['uv', textured ? uv : null], ['col', p.col], ['mr', p.mr], ['gl', p.gl], ['idx', idx]]) {
     if (!arr) continue;
     const buf = Buffer.from(arr.buffer, arr.byteOffset, arr.byteLength);
     entry[name] = offset.at;
@@ -250,7 +251,7 @@ for (const job of jobs) {
     }
     w = creaseNormals(w);
     tris += w.idx.length / 3;
-    parts[name] = writePart(w, p.pivot, chunks, offset);
+    parts[name] = writePart(w, p.pivot, chunks, offset, !!res.atlas);
     if (p.pitch) parts[name].pitch = +p.pitch.toFixed(5);
   }
   let atlas = null;

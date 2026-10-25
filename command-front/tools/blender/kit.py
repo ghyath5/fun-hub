@@ -25,8 +25,8 @@ def _lin(hexcol):
 # Palette: colour (sRGB hex), metalness, roughness, team (takes the player's
 # colour, keeping its brightness) and glow (lights itself, 0–1).
 PAL = {
-    'team':      (0xd4d4d0, 0.30, 0.42, 1, 0),
-    'teamDark':  (0x8a8a86, 0.30, 0.48, 1, 0),
+    'team':      (0xc4c4c0, 0.30, 0.42, 1, 0),
+    'teamDark':  (0x76767a, 0.30, 0.48, 1, 0),
     'steel':     (0x8d939a, 0.85, 0.34, 0, 0),
     'steelDark': (0x55595e, 0.85, 0.40, 0, 0),
     'gun':       (0x3a3d41, 0.90, 0.30, 0, 0),
@@ -420,3 +420,103 @@ def export(path):
     )
     tris = sum(sum(len(p.vertices) - 2 for p in o.data.polygons) for o in meshes())
     return tris
+
+
+# ── Vehicle helpers ─────────────────────────────────────────────
+
+def hull(L, W, z0, z1, mat='team', nose=0.08, glacis=0.16, rear=0.05, y=0.0, bevel=0.012, parent=None):
+    """A hull block along y: sloped nose and glacis at the front, a cut at the back."""
+    h = z1 - z0
+    prof = [(-L / 2, z0), (L / 2 - nose, z0), (L / 2, z0 + h * 0.45), (L / 2 - glacis, z1),
+            (-L / 2 + rear, z1), (-L / 2, z1 - h * 0.35)]
+    return prism([(py + y, pz) for py, pz in prof], W, (0, 0, 0), mat, bevel=bevel, parent=parent, name='hull')
+
+
+def grille(y0, n, w, z, step=0.032, x=0.0, parent=None):
+    """Engine grille slats across the deck from y0 backwards."""
+    for i in range(n):
+        box((w, step * 0.6, 0.012), (x, y0 - i * step, z), 'dark', bevel=0.003, parent=parent, name='slat')
+
+
+def axles(ys, x, r, w, z=None, start=0, tyre='rubber', hub='steelDark', verts=12):
+    """Wheel pairs on axles across x (±x): one empty wheelN per axle at its centre."""
+    out = []
+    for i, y in enumerate(ys):
+        e = empty(f'wheel{start + i}', (0, y, z if z is not None else r))
+        for s in (1, -1):
+            wheel(r, w, (s * x, y, z if z is not None else r), tyre, hub, parent=e, verts=verts)
+        out.append(e)
+    return out
+
+
+def cast_turret(r, h, loc, mat='team', parent=None, sy=1.15, segs=14):
+    """A rounded cast turret (Soviet style): a squashed dome on a short skirt."""
+    x, y, z = loc
+    cyl(r * 0.98, h * 0.3, (x, y, z + h * 0.15), mat, 'z', segs, parent=parent, name='turretSkirt').scale = (1, sy, 1)
+    return sphere(r, (x, y, z + h * 0.28), mat, segs, 6, scale=(1, sy, h / r * 0.75), parent=parent, name='turretDome', half=True)
+
+
+def rivets(points, z, r=0.009, parent=None, mat='steelDark'):
+    for x, y in points:
+        sphere(r, (x, y, z), mat, 6, 3, parent=parent, name='rivet', half=True)
+
+
+# ── Aircraft and ships ──────────────────────────────────────────
+
+def plate(points, thick, z, mat='team', parent=None, bevel=0.0, name='plate', top=None):
+    """A flat outline in (x, y) extruded up `thick` from z: wings, fins, decks.
+    `top` scales the top face toward its centre (a bevelled, thinning edge)."""
+    bm = bmesh.new()
+    a = [bm.verts.new((x, y, z)) for x, y in points]
+    if top:
+        cx = sum(p[0] for p in points) / len(points)
+        cy = sum(p[1] for p in points) / len(points)
+        b = [bm.verts.new((cx + (x - cx) * top, cy + (y - cy) * top, z + thick)) for x, y in points]
+    else:
+        b = [bm.verts.new((x, y, z + thick)) for x, y in points]
+    n = len(points)
+    bm.faces.new(a[::-1])
+    bm.faces.new(b)
+    for i in range(n):
+        j = (i + 1) % n
+        bm.faces.new((a[i], a[j], b[j], b[i]))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    _bevel(bm, bevel)
+    return _obj(bm, name, mat, parent)
+
+
+def fuselage(outline, y0, loc=(0, 0, 0), mat='team', segs=12, sx=1.0, sz=1.0, parent=None):
+    """A body of revolution along +y: `outline` is (r, y) from tail to nose."""
+    o = lathe([(r, y) for r, y in outline], (0, 0, 0), mat, segs, parent=None, name='fuselage')
+    o.rotation_euler = (math.radians(-90), 0, 0)
+    o.scale = (sx, sz, 1)
+    o.location = (loc[0], loc[1] + y0, loc[2])
+    bpy.context.view_layer.update()
+    if parent:
+        mw = o.matrix_world.copy()
+        o.parent = parent
+        o.matrix_world = mw
+    return o
+
+
+def rotor(name, r, blades, loc, hub='steelDark', blade='dark', chord=None):
+    """A rotor (spins about z) on its own empty."""
+    e = empty(name, loc)
+    c = chord or r * 0.12
+    for i in range(blades):
+        a = 360 * i / blades
+        box((r, c, 0.008), (loc[0] + math.cos(math.radians(a)) * r / 2, loc[1] + math.sin(math.radians(a)) * r / 2, loc[2]),
+            blade, parent=e, rot=(0, 0, a), name='blade')
+    cyl(r * 0.1, r * 0.08, loc, hub, 'z', 8, parent=e, name='hub')
+    return e
+
+
+def propeller(name, r, blades, loc, hub='steelDark', blade='dark'):
+    """A propeller facing forward (spins about y) on its own empty."""
+    e = empty(name, loc)
+    for i in range(blades):
+        a = 360 * i / blades
+        box((r, 0.008, r * 0.18), (loc[0] + math.cos(math.radians(a)) * r / 2, loc[1], loc[2] + math.sin(math.radians(a)) * r / 2),
+            blade, parent=e, rot=(0, -a, 0), name='blade')
+    sphere(r * 0.22, (loc[0], loc[1] + 0.01, loc[2]), hub, 8, 4, scale=(1, 1.6, 1), parent=e, name='spinner')
+    return e
