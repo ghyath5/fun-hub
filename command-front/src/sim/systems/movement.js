@@ -37,8 +37,12 @@ const GIVE_UP_TICKS = ticks(MOVEMENT.stuckIdleSeconds);
 const MAX_RETRIES = 6;
 /** After a failed search or a back-up, wait this long before asking again (outlasts a 2 s block). */
 const RETRY_TICKS = BLOCK_TICKS + 1;
-/** Longest a soldier waits for another to walk past before he goes anyway (no deadlocks). */
-const YIELD_TICKS = ticks(MOVEMENT.infantryYieldSeconds);
+/** Two friends nose to nose with no way round wait this long, then squeeze past each other. */
+const SQUEEZE_TICKS = ticks(MOVEMENT.squeezePastSeconds);
+/** A unit blocked by a friend on the move waits this long, then keeps right round him. */
+const SIDESTEP_TICKS = ticks(MOVEMENT.sidestepAfterSeconds);
+/** ...and does not dodge again sooner than this (no weaving). */
+const SIDESTEP_AGAIN = ticks(MOVEMENT.sidestepAgainSeconds);
 /** Stuck re-paths are staggered by id so a jammed crowd does not re-path in one tick. */
 const MOVEMENT_STAGGER = 8;
 
@@ -178,7 +182,13 @@ function stepAside(w, blocker, requester) {
       const k = `${c.x},${c.y}`;
       if (k === mine || (strict && avoid.has(k))) continue;
       if (canEnter(w, blocker, c.x, c.y).ok) {
-        setMove(w, blocker, c.x, c.y, { auto: true });
+        if (blocker.order) {
+          // On an errand of its own: one step aside, then on to its own destination.
+          blocker.path = [c.x, c.y];
+          blocker.pathReq = 0;
+          blocker.retryAt = 0;
+          blocker.retries = 0;
+        } else setMove(w, blocker, c.x, c.y, { auto: true });
         return true;
       }
     }
@@ -204,6 +214,92 @@ function backUp(w, u, other) {
   return false;
 }
 
+/**
+ * Keep right: step into the free cell ahead-right (else to the right) of the
+ * blocked move, then plan again from there — the route avoids cells other
+ * friends hold, so it stays in the free lane. Ahead-left / left only when the
+ * right is walled and the blocker is not coming straight at us (else both
+ * would dodge into the same lane). Returns whether it stepped.
+ * @param {World} w @param {Unit} u @param {number} nx @param {number} ny
+ */
+function sidestep(w, u, nx, ny) {
+  const dx = Math.sign(nx - u.cx), dy = Math.sign(ny - u.cy);
+  if (!dx && !dy) return false;
+  // Arriving is not traffic, and dodging without getting any closer has a limit (two units must
+  // never dance round each other); real progress since the last dodges earns a fresh allowance.
+  const o = u.order;
+  if (!o) return false;
+  const left = Math.max(Math.abs(o.dx - u.cx), Math.abs(o.dy - u.cy));
+  if (left <= 2) return false;
+  if (o.dodgeFrom !== undefined && left <= o.dodgeFrom - 3) o.dodges = 0;
+  if ((o.dodges ?? 0) >= MOVEMENT.sidestepMax) return false;
+  if (!o.dodges) o.dodgeFrom = left;
+  const rx = -dy, ry = dx; // right of the heading (y grows south)
+  const sgn = (v) => Math.sign(v);
+  const options = [[sgn(dx + rx), sgn(dy + ry)], [rx, ry], [sgn(dx - rx), sgn(dy - ry)], [-rx, -ry]];
+  const loco = defOf(u).loco;
+  for (const [ox, oy] of options) {
+    if (!ox && !oy) continue;
+    const cx = u.cx + ox, cy = u.cy + oy;
+    if (cx === nx && cy === ny) continue;
+    // No cutting a corner past a wall.
+    if (ox && oy && (!w.nav.passable(loco, u.cx + ox, u.cy) || !w.nav.passable(loco, u.cx, u.cy + oy))) continue;
+    if (!canEnter(w, u, cx, cy).ok) continue;
+    u.path = [cx, cy];
+    u.pathReq = 0;
+    u.retryAt = 0;
+    u.retries = 0; // a deliberate dodge, not a failed route: it does not count toward giving up
+    u.sidestepAt = w.tick + SIDESTEP_AGAIN;
+    o.dodges = (o.dodges ?? 0) + 1;
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Last resort for a jam with no way round (a full narrow pass): a unit and
+ * the friends filling the cell ahead — all stuck, at least one of them trying
+ * to get past the other way — swap cells, each driving into the other's as it
+ * is left: a brief squeeze, never a standstill. The unit must be alone in its
+ * cell. Everyone keeps its own order.
+ * @param {World} w @param {Unit} u @param {number} nx @param {number} ny
+ */
+function squeezePast(w, u, nx, ny) {
+  if (u.next || u.squeeze || u.sinceCell < SQUEEZE_TICKS) return false;
+  const ui = w.occ.index(u.cx, u.cy), bi = w.occ.index(nx, ny);
+  if (w.occ.unitsIn(ui).length !== 1) return false;
+  const B = w.occ.unitsIn(bi).map((id) => w.entities.get(id));
+  if (!B.length) return false;
+  for (const v of B) {
+    if (!v || v.dead || v.next || v.squeeze || !v.order || !w.allied(v.owner, u.owner) || v.sinceCell < SQUEEZE_TICKS) return false;
+  }
+  // Only to let someone through the other way (never pushing a friend back along its own road).
+  const oncoming = B.some((v) => (v.order.dx - nx) * (u.cx - nx) + (v.order.dy - ny) * (u.cy - ny) > 0);
+  if (!oncoming) return false;
+  const team = (/** @type {Unit} */ e) => w.players[e.owner].team;
+  const hand = (/** @type {Unit} */ e, /** @type {number} */ i) => {
+    if (isInfantry(e)) w.occ.takeInfantry(i, e.spot, e.id); else w.occ.takeVehicle(i, e.id);
+    w.nav.unitLeave(team(e), i, isInfantry(e));
+  };
+  const from = { x: u.cx, y: u.cy };
+  hand(u, ui);
+  for (const v of B) hand(v, bi);
+  const su = isInfantry(u) ? 0 : -1;
+  occupy(w, u, nx, ny, su);
+  u.next = { x: nx, y: ny, spot: su };
+  for (const v of B) {
+    const sv = isInfantry(v) ? v.spot : -1; // soldiers keep their (distinct) spots
+    occupy(w, v, from.x, from.y, sv);
+    v.next = { x: from.x, y: from.y, spot: sv };
+  }
+  for (const e of [u, ...B]) {
+    e.squeeze = true;
+    if (e.path.length >= 2 && e.path[0] === e.next.x && e.path[1] === e.next.y) e.path.splice(0, 2);
+    e.waited = 0;
+  }
+  return true;
+}
+
 /** @param {World} w @param {Unit} u @param {number} nx @param {number} ny @param {number} blockerId */
 function handleBlocked(w, u, nx, ny, blockerId) {
   u.waited++;
@@ -217,6 +313,13 @@ function handleBlocked(w, u, nx, ny, blockerId) {
     return;
   }
   const friendly = w.allied(b.owner, u.owner);
+  // Traffic: a friend on the move (or stuck in the queue) is in the way — keep right and
+  // pass him, the way two columns meeting in a pass sort themselves into two lanes.
+  if (friendly && !isIdle(b) && u.waited >= SIDESTEP_TICKS && w.tick >= (u.sidestepAt ?? 0)) {
+    if (sidestep(w, u, nx, ny)) { u.waited = 0; return; }
+    // Jammed with no way round: squeeze past.
+    if (squeezePast(w, u, nx, ny)) return;
+  }
   // A vehicle nudges idle friendly infantry out of its way at once.
   if (friendly && !isInfantry(u) && isInfantry(b) && !u.askedAside) {
     for (const id of w.occ.unitsIn(w.occ.index(nx, ny))) {
@@ -240,7 +343,9 @@ function handleBlocked(w, u, nx, ny, blockerId) {
       if (stepAside(w, b, u)) { u.waited = 0; return; }
     }
   }
-  w.nav.tempBlock(team, w.occ.index(nx, ny), w.tick + BLOCK_TICKS);
+  // A friend is no wall: the route already costs extra through cells friends hold. Blocking
+  // the cell for the whole team would wall off a crowded pass and strand everyone in it.
+  if (!friendly) w.nav.tempBlock(team, w.occ.index(nx, ny), w.tick + BLOCK_TICKS);
   requestPath(w, u);
   u.waited = 0;
   u.askedAside = false;
@@ -342,21 +447,13 @@ function stepUnit(w, u) {
       const last = u.path.length === 2;
       // Infantry keep their lane (the same spot in the next cell) on the way, so a squad walks side by side.
       const lane = isInfantry(u) && u.spot >= 0 ? u.spot : 0;
-      const want = last && o.spot >= 0 ? o.spot : lane;
-      // A soldier who would walk through another waits a moment for him to pass (then goes anyway).
-      let r = canEnter(w, u, nx, ny, want, u.yielded < YIELD_TICKS);
-      if (!r.ok && 'yieldTo' in r && r.yieldTo) {
-        u.yielded++;
-        checkStuck(w, u);
-        return;
-      }
+      const r = canEnter(w, u, nx, ny, last && o.spot >= 0 ? o.spot : lane);
       if (!r.ok) {
         handleBlocked(w, u, nx, ny, 'blocker' in r ? r.blocker : 0);
         checkStuck(w, u);
         return;
       }
       u.path.splice(0, 2);
-      u.yielded = 0;
       occupy(w, u, nx, ny, r.spot);
       u.next = { x: nx, y: ny, spot: r.spot };
       if (def.crusher !== 'none') warnInfantry(w, u, nx, ny);
@@ -387,6 +484,7 @@ function stepUnit(w, u) {
     u.x = target.x;
     u.y = target.y;
     vacate(w, u, u.cx, u.cy, u.spot);
+    u.squeeze = false;
     u.cx = n.x;
     u.cy = n.y;
     u.spot = isInfantry(u) ? n.spot : -1;
@@ -399,94 +497,9 @@ function stepUnit(w, u) {
   }
   const sx = Math.trunc((dx * stepLen) / dist);
   const sy = Math.trunc((dy * stepLen) / dist);
-  // A soldier never steps onto another one: he holds this tick instead (for a moment at most),
-  // and a friend standing in his way shuffles to another spot of his cell.
-  const onto = isInfantry(u) && u.yielded < YIELD_TICKS ? wouldStepOnto(w, u, u.x + sx, u.y + sy) : null;
-  if (onto) {
-    // Someone standing in the way: he shuffles to another spot of his cell; failing that the
-    // walker takes another free spot whose walk is clear; failing that an idle friend steps aside.
-    if (!onto.next && w.allied(onto.owner, u.owner) && !shuffleAside(w, onto, u, target) && !respot(w, u) && isIdle(onto)) stepAside(w, onto, u);
-    u.yielded++;
-    checkStuck(w, u);
-    return;
-  }
   u.x += sx;
   u.y += sy;
-  u.yielded = 0;
   checkStuck(w, u);
-}
-
-/** Soldiers' centres closer than this are standing in each other, leptons. */
-const ONTO = 24;
-/** Two walking soldiers on converging lines: the later one (higher id) gives way from this far. */
-const GIVE_WAY = 48;
-
-/**
- * Would a soldier stepping to (x, y) come onto another soldier? Closing on
- * one who stands still (or who has right of way) nearer than ONTO, or — for
- * the one who gives way, the higher id of two walkers — nearer than GIVE_WAY,
- * so he stops before their lines cross. Looks in the cells around him;
- * returns the soldier in the way, or null.
- * @param {World} w @param {Unit} u @param {number} x @param {number} y
- * @returns {Unit | null}
- */
-function wouldStepOnto(w, u, x, y) {
-  for (let oy = -1; oy <= 1; oy++) for (let ox = -1; ox <= 1; ox++) {
-    const cx = u.cx + ox, cy = u.cy + oy;
-    if (cx < 0 || cy < 0 || cx >= w.map.width || cy >= w.map.height) continue;
-    for (const id of w.occ.unitsIn(w.occ.index(cx, cy))) {
-      if (id === u.id) continue;
-      const v = w.entities.get(id);
-      if (!v || !isInfantry(v)) continue;
-      const now = (u.x - v.x) ** 2 + (u.y - v.y) ** 2;
-      const then = (x - v.x) ** 2 + (y - v.y) ** 2;
-      const r = v.next && v.id < u.id ? GIVE_WAY : ONTO;
-      if (then < r * r && then < now) return v;
-    }
-  }
-  return null;
-}
-
-/**
- * A soldier standing on a walker's line steps to the free spot of his cell
- * farthest from that line (if any is clear of it), the way RA2 infantry
- * shuffle aside. @returns {boolean} whether he moved
- * @param {World} w @param {Unit} v @param {Unit} walker @param {{ x: number, y: number }} to
- */
-function shuffleAside(w, v, walker, to) {
-  const i = w.occ.index(v.cx, v.cy);
-  let best = -1;
-  let bestD = (GIVE_WAY * GIVE_WAY);
-  for (let k = 0; k < MOVEMENT.infantrySpots; k++) {
-    if (w.occ.freeSpot(i, k) !== k) continue;
-    const p = spotPos(v.cx, v.cy, k);
-    const vx = to.x - walker.x, vy = to.y - walker.y;
-    const len = vx * vx + vy * vy || 1;
-    const t = Math.max(0, Math.min(1, ((p.x - walker.x) * vx + (p.y - walker.y) * vy) / len));
-    const d = (walker.x + vx * t - p.x) ** 2 + (walker.y + vy * t - p.y) ** 2;
-    if (d > bestD && walkClear(w, v, v.cx, v.cy, k)) { bestD = d; best = k; }
-  }
-  if (best < 0) return false;
-  occupy(w, v, v.cx, v.cy, best);
-  v.next = { x: v.cx, y: v.cy, spot: best };
-  return true;
-}
-
-/**
- * Change the spot a walking soldier is heading for (in the same next cell) to
- * a free one whose walk is clear. @param {World} w @param {Unit} u @returns {boolean}
- */
-function respot(w, u) {
-  const n = u.next;
-  if (!n) return false;
-  for (let k = 0; k < MOVEMENT.infantrySpots; k++) {
-    if (k === n.spot || !walkClear(w, u, n.x, n.y, k)) continue;
-    vacate(w, u, n.x, n.y, n.spot);
-    occupy(w, u, n.x, n.y, k);
-    u.next = { x: n.x, y: n.y, spot: k };
-    return true;
-  }
-  return false;
 }
 
 // ── Flight ──────────────────────────────────────────────────────

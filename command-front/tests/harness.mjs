@@ -132,6 +132,7 @@ export function invariants(w) {
     const loco = UNITS[e.type].loco;
     if (!w.nav.passable(loco, e.cx, e.cy)) return `${tag} stands on ground its ${loco} cannot cross`;
     const i = e.cy * W + e.cx;
+    if (e.squeeze) continue; // squeezing past a friend: its old cell is already handed over
     if (isFoot(e)) {
       if (!(e.spot >= 0 && e.spot < SPOTS)) return `${tag} infantry without a spot (${e.spot})`;
       if (occ.inf[i * SPOTS + e.spot] !== e.id) return `${tag} not in its spot ${e.spot} (holds ${occ.inf[i * SPOTS + e.spot]})`;

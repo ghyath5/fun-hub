@@ -141,7 +141,8 @@ const PERSONAL = MOVEMENT.infantryClearance;
  * would pass through another soldier in his cell or that one (where he
  * stands, or anywhere on the walk he is making); then the free spot whose
  * walk stays clear, nearest first. Deterministic (spot order). `clear` is
- * false when every free spot's walk would cross someone.
+ * false when every free spot's walk would cross someone (he goes anyway:
+ * waiting for a clear walk jams narrow passes).
  * @param {any} world @param {Unit} u @param {number} x @param {number} y @param {number} want
  * @returns {{ spot: number, clear: boolean }}
  */
@@ -179,12 +180,10 @@ export function walkClear(world, u, x, y, spot) {
 /**
  * Can a unit stand in a cell right now (ignoring itself)? Returns the spot it
  * would take (-1 for vehicles) or null with the id of what blocks it.
- * With `yieldTo`, a soldier whose every way into the cell would walk through
- * another soldier is told to wait (`ok: false, yieldTo: true`) instead.
- * @param {any} world @param {Unit} u @param {number} x @param {number} y @param {number} [wantSpot] @param {boolean} [yieldTo]
- * @returns {{ ok: true, spot: number } | { ok: false, blocker: number, yieldTo?: boolean }}
+ * @param {any} world @param {Unit} u @param {number} x @param {number} y @param {number} [wantSpot]
+ * @returns {{ ok: true, spot: number } | { ok: false, blocker: number }}
  */
-export function canEnter(world, u, x, y, wantSpot = 0, yieldTo = false) {
+export function canEnter(world, u, x, y, wantSpot = 0) {
   const def = defOf(u);
   if (!world.nav.passable(def.loco, x, y)) return { ok: false, blocker: 0 };
   if (def.loco === 'air') return { ok: true, spot: -1 };
@@ -196,9 +195,7 @@ export function canEnter(world, u, x, y, wantSpot = 0, yieldTo = false) {
       return { ok: false, blocker: occ.unitsIn(i)[0] };
     }
     if (occ.freeSpot(i, 0) < 0) return { ok: false, blocker: occ.unitsIn(i)[0] };
-    const pick = pickSpot(world, u, x, y, wantSpot);
-    if (yieldTo && !pick.clear) return { ok: false, blocker: 0, yieldTo: true };
-    return { ok: true, spot: pick.spot };
+    return { ok: true, spot: pickSpot(world, u, x, y, wantSpot).spot };
   }
   if (occ.veh[i] && occ.veh[i] !== u.id) return { ok: false, blocker: occ.veh[i] };
   if (occ.infCount[i]) {
@@ -222,6 +219,8 @@ export function occupy(world, u, x, y, spot) {
 export function vacate(world, u, x, y, spot) {
   const i = world.occ.index(x, y);
   if (isAir(u)) return;
+  // Squeezing past a friend, a unit has already handed its old cell over (movement.js).
+  if (u.squeeze && x === u.cx && y === u.cy) return;
   if (isInfantry(u)) world.occ.takeInfantry(i, spot, u.id);
   else world.occ.takeVehicle(i, u.id);
   world.nav.unitLeave(world.players[u.owner].team, i, isInfantry(u));
@@ -253,7 +252,7 @@ export function spawnUnit(world, type, owner, x, y, opts = {}) {
     x: pos.x, y: pos.y, px: pos.x, py: pos.y,
     facing, pfacing: facing, turret: facing,
     cx: at.x, cy: at.y, spot: def.loco === 'foot' ? at.spot : -1,
-    order: null, path: [], pathReq: 0, next: null, waited: 0, yielded: 0, askedAside: false, sinceCell: 0, retries: 0, retryAt: 0,
+    order: null, path: [], pathReq: 0, next: null, waited: 0, askedAside: false, sinceCell: 0, retries: 0, retryAt: 0,
     stance: 'guard', task: null, target: 0, fireCell: null, post: { x: at.x, y: at.y },
     weapons: def.weapons.map((wid) => ({ cd: 0, burst: 0, burstCd: 0, charge: 0, ammo: WEAPONS[wid].ammo })),
     proneUntil: 0, lastAttacker: 0, waypoints: [], chase: null, repairAcc: 0, aegisUntil: 0,

@@ -226,18 +226,19 @@ export const MOVEMENT = Object.freeze({
   /** A vehicle's (and an aircraft's) point in its cell. */
   cellCentre: [128, 128],
   /**
-   * Soldiers keep their walks this far from each other's centres, leptons (a
-   * cell is 256); a squad still passes shoulder to shoulder (lanes are ~40
-   * apart) when nothing clearer is free.
+   * A soldier picks a spot whose walk stays this far from the others'
+   * centres when one is free, leptons (a cell is 256); he never waits for
+   * one, so crowds and narrow passes keep flowing.
    */
   infantryClearance: 44,
-  /** ...and wait up to this long for another soldier to walk past first. */
-  infantryYieldSeconds: 1.33,
   tileCostBase: 100,           // EasyStar tile cost = 100 / speed%
   friendlyUnitPointCost: 5,
   iterationsPerCalculation: 4000,
   unreachableSearch: 10,
   reserveWaitSeconds: 1,
+  sidestepAfterSeconds: 0.33,  // blocked by a friend on the move: keep right round him after this
+  sidestepAgainSeconds: 1,
+  sidestepMax: 6,              // dodges per order at most
   blockedCellSeconds: 2,
   stuckRepathSeconds: 3,
   stuckIdleSeconds: 8,
@@ -246,6 +247,7 @@ export const MOVEMENT = Object.freeze({
   flowFieldMinUnits: 8,
   spawnSearch: 3,
   headOnBackoffSeconds: 1,
+  squeezePastSeconds: 1.5,     // two friends nose to nose with no way round squeeze past each other after this
 });
 
 export const LIMITS = Object.freeze({
