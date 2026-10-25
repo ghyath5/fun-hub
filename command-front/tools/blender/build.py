@@ -26,10 +26,10 @@ OUT_DIR = os.path.join(HERE, 'out')
 REGISTRY = {}
 
 
-def model(id, maxEdge=0.12, ao=0.12, aoStrength=0.85):
+def model(id, maxEdge=0.12, ao=0.12, aoStrength=0.85, view='game'):
     """Register a builder: fn(k) models it with the kit `k`."""
     def wrap(fn):
-        REGISTRY[id] = dict(fn=fn, maxEdge=maxEdge, ao=ao, aoStrength=aoStrength)
+        REGISTRY[id] = dict(fn=fn, maxEdge=maxEdge, ao=ao, aoStrength=aoStrength, view=view)
         return fn
     return wrap
 
@@ -40,8 +40,9 @@ for path in sorted(glob.glob(os.path.join(HERE, 'models', '*.py'))):
         exec(compile(f.read(), path, 'exec'), {'model': model, 'kit': kit, '__name__': 'models'})
 
 
-def preview(id, size=640):
-    """A render from the game's camera (south, high), team paint in red."""
+def preview(id, size=640, view='game'):
+    """A render from the game's camera (south, high), or `front` (a close
+    three-quarter view of the face side), team paint in red."""
     sc = bpy.context.scene
     for m in bpy.data.materials:
         if m.get('team'):
@@ -57,9 +58,17 @@ def preview(id, size=640):
     bpy.data.collections[kit.COL].objects.link(cam)
     cam.data.type = 'ORTHO'
     cam.data.ortho_scale = ext * 1.35
-    tilt = math.radians(50)
-    cam.location = (c[0] + ext * 0.35, c[1] - ext * 3 * math.cos(tilt), c[2] + ext * 3 * math.sin(tilt))
-    cam.rotation_euler = (math.pi / 2 - tilt, 0, math.radians(7))
+    if view == 'front':
+        cam.data.ortho_scale = ext * 1.15
+        tilt = math.radians(18)
+        yaw = math.radians(150)
+        R = ext * 3
+        cam.location = (c[0] + R * math.sin(math.radians(30)) * math.cos(tilt), c[1] + R * math.cos(math.radians(30)) * math.cos(tilt), c[2] + R * math.sin(tilt))
+        cam.rotation_euler = (math.pi / 2 - tilt, 0, yaw)
+    else:
+        tilt = math.radians(50)
+        cam.location = (c[0] + ext * 0.35, c[1] - ext * 3 * math.cos(tilt), c[2] + ext * 3 * math.sin(tilt))
+        cam.rotation_euler = (math.pi / 2 - tilt, 0, math.radians(7))
     sc.camera = cam
     sun = bpy.data.objects.new('BAKE-sun', bpy.data.lights.new('BAKE-sun', 'SUN'))
     bpy.data.collections[kit.COL].objects.link(sun)
@@ -92,7 +101,7 @@ def build(id, render=True):
     os.makedirs(GLB_DIR, exist_ok=True)
     path = os.path.join(GLB_DIR, f'bl-{id}.glb')
     tris = kit.export(path)
-    png = preview(id) if render else None
+    png = preview(id, view=spec['view']) if render else None
     print(f'BUILT {id}: {tris} tris, {os.path.getsize(path) // 1024} KB, {time.time() - t:.1f}s -> {path} {png or ""}')
     return tris
 

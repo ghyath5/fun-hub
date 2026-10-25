@@ -62,6 +62,20 @@ PAL = {
     'ore':       (0xd9a63a, 0.60, 0.40, 0, 0.15),
     'water':     (0x3d6f8a, 0.20, 0.10, 0, 0.00),
     'grass':     (0x55703a, 0.00, 0.95, 0, 0.00),
+    # People: a darker team-coloured uniform, field kit and weapons.
+    'uniform':   (0x9a9a94, 0.00, 0.88, 1, 0),
+    'trousers':  (0x4f5639, 0.00, 0.92, 0, 0),
+    'trousersDark': (0x2f3328, 0.00, 0.92, 0, 0),
+    'boots':     (0x231e19, 0.10, 0.70, 0, 0),
+    'gloves':    (0x2b261f, 0.00, 0.80, 0, 0),
+    'webbing':   (0x434a32, 0.00, 0.90, 0, 0),
+    'canvas':    (0x7a7052, 0.00, 0.95, 0, 0),
+    'helmetOd':  (0x4b5234, 0.10, 0.65, 0, 0),
+    'gunmetal':  (0x26282b, 0.70, 0.42, 0, 0),
+    'wood':      (0x6a4327, 0.00, 0.70, 0, 0),
+    'skinDark':  (0xb07a5c, 0.00, 0.70, 0, 0),
+    'hair':      (0x2a1f17, 0.00, 0.85, 0, 0),
+    'fur':       (0x5a4430, 0.00, 0.95, 0, 0),
 }
 
 
@@ -668,3 +682,52 @@ def floodlight(x, y, z, h=0.3):
     cyl(0.01, h, (x, -y, z + h / 2), 'steelDark', 'z', 5, name='lightPole')
     box((0.06, 0.04, 0.03), (x, -y - 0.01, z + h), 'dark', bevel=0.006, name='lightHead')
     box((0.05, 0.01, 0.02), (x, -y - 0.032, z + h), 'lamp', name='lightLens')
+
+
+# ── Organic shapes (people, animals) ────────────────────────────
+
+def skin(name, verts, edges, radii, paint, parent=None, levels=1, root=0):
+    """An organic mesh grown from a joint graph with the Skin modifier and
+    smoothed (Subdivision Surface): `verts` are joints, `radii` (x, y) the
+    body's half-widths there. `paint(centre)` names the palette material of
+    each face (uniform, skin, boots…). Smooth shaded."""
+    me = bpy.data.meshes.new(name + '-src')
+    me.from_pydata([tuple(v) for v in verts], edges, [])
+    me.update()
+    tmp = bpy.data.objects.new(name + '-src', me)
+    bpy.context.scene.collection.objects.link(tmp)
+    tmp.modifiers.new('skin', 'SKIN')
+    for i, r in enumerate(radii):
+        sv = me.skin_vertices[0].data[i]
+        sv.radius = r if isinstance(r, (tuple, list)) else (r, r)
+        sv.use_root = i == root
+    if levels:
+        tmp.modifiers.new('sub', 'SUBSURF').levels = levels
+    dg = bpy.context.evaluated_depsgraph_get()
+    out = bpy.data.meshes.new_from_object(tmp.evaluated_get(dg))
+    bpy.data.objects.remove(tmp, do_unlink=True)
+    bpy.data.meshes.remove(me)
+    names = []
+    for p in out.polygons:
+        n = paint(Vector(p.center))
+        if n not in names:
+            names.append(n)
+            out.materials.append(mat(n))
+        p.material_index = names.index(n)
+        p.use_smooth = True
+    _count[0] += 1
+    out.name = f'{name}.{_count[0]}'
+    o = _link(bpy.data.objects.new(out.name, out))
+    bpy.context.view_layer.update()
+    if parent:
+        mw = o.matrix_world.copy()
+        o.parent = parent
+        o.matrix_world = mw
+    return o
+
+
+def smooth(o):
+    """Shade an object smooth (rounded gear: helmets, packs, tanks)."""
+    for p in o.data.polygons:
+        p.use_smooth = True
+    return o
