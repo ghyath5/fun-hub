@@ -23,7 +23,7 @@ import { enterEffect, canC4, isMineLayer } from './specials.js';
 import { slotsFor, isTransport } from './transports.js';
 import { isAircraft, returnToPad, linkPad, freePad } from './air.js';
 import { ticks } from '../core/fixed.js';
-import { TRANSPORT } from '../data/rules.js';
+import { TRANSPORT, SPECIALS } from '../data/rules.js';
 import { firePower } from './systems/supportPowers.js';
 import { eliminate } from './systems/victory.js';
 import { T } from '../data/terrain.js';
@@ -311,7 +311,7 @@ export function applyCommand(w, c) {
       break;
     }
     case 'layMines': {
-      const cells = Array.isArray(c.target?.cells) ? c.target.cells.filter((/** @type {any} */ p) => Array.isArray(p) && Number.isInteger(p[0]) && Number.isInteger(p[1])).slice(0, 50) : [];
+      const cells = Array.isArray(c.target?.cells) ? c.target.cells.filter((/** @type {any} */ p) => Array.isArray(p) && Number.isInteger(p[0]) && Number.isInteger(p[1])).slice(0, SPECIALS.minesMaxPerPlayer) : [];
       ok = false;
       for (const u of units) {
         if (!isMineLayer(u) || !cells.length) continue;

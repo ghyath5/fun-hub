@@ -4,7 +4,7 @@
  * - A group spanning 6 cells or fewer keeps each unit's offset from the
  *   group centre (formation) and moves at the slowest unit's speed.
  * - Otherwise destinations fill a spiral around the target, nearest unit
- *   first; infantry fill 5 spots of a cell before using the next one.
+ *   first; infantry fill the 3 spots of a cell before using the next one.
  */
 import { MOVEMENT } from '../data/rules.js';
 import { spiral } from './nav.js';

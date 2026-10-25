@@ -105,10 +105,22 @@ function service(w, u) {
   u.hp = Math.min(u.maxHp, u.hp + Math.max(1, Math.floor(u.maxHp * REPAIR.padHpFractionPerSecond)));
 }
 
-/** A clear ground cell to set a helicopter down near a point. @param {World} w @param {number} x @param {number} y */
-function landingCell(w, x, y) {
+/**
+ * A clear ground cell to set a helicopter down near a point: no building,
+ * no unit on it, and no other aircraft landed there or on its way down to it
+ * (aircraft hold no cells, so they would otherwise all land in one place).
+ * @param {World} w @param {any} u @param {number} x @param {number} y
+ */
+function landingCell(w, u, x, y) {
+  const taken = new Set();
+  for (const e of w.entities.all()) {
+    if (e === u || e.dead || e.kind !== 'unit' || e.inside || UNITS[e.type].loco !== 'air') continue;
+    if (e.landed) taken.add(e.cy * w.map.width + e.cx);
+    else if (e.order && (e.task?.type === 'land' || e.task?.type === 'returnPad')) taken.add(e.order.dy * w.map.width + e.order.dx);
+  }
   for (const [cx, cy] of spiral(x, y, 3)) {
-    if (!w.nav.passable('track', cx, cy) || w.occ.bld[cy * w.map.width + cx]) continue;
+    const i = cy * w.map.width + cx;
+    if (!w.nav.passable('track', cx, cy) || w.occ.bld[i] || !w.occ.empty(i) || taken.has(i)) continue;
     return { x: cx, y: cy };
   }
   return null;
@@ -203,7 +215,7 @@ function stepAircraft(w, u) {
   if (u.landed && ((u.task && u.task.type !== 'returnPad' && u.task.type !== 'land') || u.order)) u.landed = false;
   if (u.task?.type === 'land') {
     // Helicopters set down on clear ground within 3 cells (to load or unload passengers).
-    const c = isHeli(u) ? landingCell(w, u.cx, u.cy) : null;
+    const c = isHeli(u) ? landingCell(w, u, u.cx, u.cy) : null;
     if (!c) u.task = null;
     else if (u.cx === c.x && u.cy === c.y && !u.next) { u.landed = true; u.task = null; u.order = null; }
     else if (!u.order && !u.next) setMove(w, u, c.x, c.y, { auto: true });
@@ -223,7 +235,7 @@ function stepAircraft(w, u) {
       else if (!u.order && !u.next) setMove(w, u, c.x, c.y, { auto: true });
     } else if (isHeli(u)) {
       const b = nearBase(w, u);
-      const c = landingCell(w, b.x, b.y);
+      const c = landingCell(w, u, b.x, b.y);
       if (!c || (u.cx === c.x && u.cy === c.y && !u.next)) { u.landed = true; u.task = null; u.order = null; }
       else if (!u.order && !u.next) setMove(w, u, c.x, c.y, { auto: true });
     } else u.task = null; // a plane with no pad circles (below)

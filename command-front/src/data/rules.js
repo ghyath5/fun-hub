@@ -163,7 +163,8 @@ export const SPECIALS = Object.freeze({
   medicSight: 3,
   mineLaySeconds: 1,
   mineCarry: 5,
-  minesMaxPerPlayer: 50,
+  /** No cap on the mines a player may have down (Infinity); a Mine Layer still carries mineCarry per trip. */
+  minesMaxPerPlayer: Infinity,
 });
 
 export const TRANSPORT = Object.freeze({
@@ -180,6 +181,8 @@ export const AIRCRAFT = Object.freeze({
   orphanPlaneCrashSeconds: 60,
   planeTurnRate: 8,             // facing units per tick: planes bank round in arcs, never on the spot
   heliAlignBefore: 24,          // helicopters turn on the spot until within this of their heading, then fly
+  hoverSpacing: 176,            // leptons: hovering aircraft closer than this drift apart (never stacked)
+  hoverPush: 6,                 // ...by up to this much a tick each
   planeHuntCells: 2,            // a circling plane with ammo attacks enemies this far beyond its sight
   planeRetargetCells: 4,        // its target gone, a plane with ammo left strikes another this close to it
 });
@@ -211,9 +214,25 @@ export const SHROUD = Object.freeze({
 });
 
 export const MOVEMENT = Object.freeze({
-  infantrySpots: 5,
-  /** Sub-cell spots in leptons from the cell's top-left: centre, then the four corners. */
-  spotOffsets: [[128, 128], [64, 64], [192, 64], [64, 192], [192, 192]],
+  /** Infantry per cell, as in Red Alert 2: three, far enough apart that soldiers never overlap. */
+  infantrySpots: 3,
+  /**
+   * Sub-cell spots in leptons from the cell's top-left. No two share a row,
+   * a column or a diagonal (even across cells), so soldiers walking their
+   * lanes in any of the 8 directions never pass through one another; at rest
+   * they stand ~0.43 cell apart.
+   */
+  spotOffsets: [[56, 76], [96, 180], [200, 132]],
+  /** A vehicle's (and an aircraft's) point in its cell. */
+  cellCentre: [128, 128],
+  /**
+   * Soldiers keep their walks this far from each other's centres, leptons (a
+   * cell is 256); a squad still passes shoulder to shoulder (lanes are ~40
+   * apart) when nothing clearer is free.
+   */
+  infantryClearance: 44,
+  /** ...and wait up to this long for another soldier to walk past first. */
+  infantryYieldSeconds: 1.33,
   tileCostBase: 100,           // EasyStar tile cost = 100 / speed%
   friendlyUnitPointCost: 5,
   iterationsPerCalculation: 4000,
