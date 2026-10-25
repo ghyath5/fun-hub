@@ -520,3 +520,151 @@ def propeller(name, r, blades, loc, hub='steelDark', blade='dark'):
             blade, parent=e, rot=(0, -a, 0), name='blade')
     sphere(r * 0.22, (loc[0], loc[1] + 0.01, loc[2]), hub, 8, 4, scale=(1, 1.6, 1), parent=e, name='spinner')
     return e
+
+
+# ── Buildings ───────────────────────────────────────────────────
+# Structures are modelled on their footprint in game cells: cell (x, y)
+# (y growing south) is Blender (x, -y), so x ∈ [0, w], y ∈ [-h, 0], and the
+# front (doors, exits) faces south (-y). Keep everything inside the
+# footprint: the exporter fits the model's bounds to it.
+
+def at(x, y, z=0.0):
+    """Game cell coordinates (x east, y south) to Blender."""
+    return (x, -y, z)
+
+
+def slab(x0, y0, x1, y1, z0, z1, mat='concrete', bevel=0.02, parent=None, taper=None, name='slab'):
+    """A block from cell (x0, y0) to (x1, y1), z0 to z1."""
+    return box((x1 - x0, y1 - y0, z1 - z0), ((x0 + x1) / 2, -(y0 + y1) / 2, (z0 + z1) / 2), mat, bevel=bevel, parent=parent, taper=taper, name=name)
+
+
+def foundation(w, h, mat='concrete', t=0.06, inset=0.03):
+    slab(inset, inset, w - inset, h - inset, 0, t, mat, bevel=0.02, name='foundation')
+    slab(0, 0, w, h, 0, 0.02, 'concreteDark', bevel=0.0, name='foundationEdge')
+    return t
+
+
+def gable(x0, y0, x1, y1, z, rise, mat='team', along='x', overhang=0.04):
+    """A pitched roof over a block; the ridge runs along x or y."""
+    if along == 'x':
+        hy = (y1 - y0) / 2 + overhang
+        return prism([(-hy, 0), (hy, 0), (0, rise)], x1 - x0 + overhang * 2, ((x0 + x1) / 2, -(y0 + y1) / 2, z), mat, bevel=0.01, name='roof')
+    hx = (x1 - x0) / 2 + overhang
+    return prism([(-hx, 0), (hx, 0), (0, rise)], y1 - y0 + overhang * 2, ((x0 + x1) / 2, -(y0 + y1) / 2, z), mat, bevel=0.01, name='roof', axis='y')
+
+
+def window_row(x0, x1, y, z, n, h=0.08, w=None, mat='lamp', facing='south'):
+    """A row of lit windows on a south (or north) face at cell row y."""
+    step = (x1 - x0) / n
+    for i in range(n):
+        cx = x0 + step * (i + 0.5)
+        box((w or step * 0.55, 0.02, h), (cx, -y + (-0.005 if facing == 'south' else 0.005), z), mat, name='window')
+
+
+def window_col(y0, y1, x, z, n, h=0.08, w=None, mat='lamp'):
+    """A row of lit windows on an east/west face at cell column x."""
+    step = (y1 - y0) / n
+    for i in range(n):
+        cy = y0 + step * (i + 0.5)
+        box((0.02, w or step * 0.55, h), (x, -cy, z), mat, name='window')
+
+
+def bay_door(x, y, w, h, z=0.0, mat='steelDark'):
+    """A big roller door on a south face at cell row y, with hazard posts."""
+    box((w, 0.04, h), (x, -y, z + h / 2), mat, bevel=0.006, name='door')
+    for i in range(int(h / 0.06)):
+        box((w * 0.96, 0.045, 0.008), (x, -y, z + 0.03 + i * 0.06), 'dark', name='doorSlat')
+    for s in (1, -1):
+        box((0.05, 0.06, h + 0.04), (x + s * (w / 2 + 0.03), -y, z + h / 2 + 0.02), 'hazard', bevel=0.006, name='doorPost')
+    box((w + 0.12, 0.06, 0.05), (x, -y, z + h + 0.03), 'hazard', bevel=0.006, name='doorLintel')
+
+
+def stripes(x0, x1, y, z=0.065, n=6, mat='hazard'):
+    """Hazard stripes painted across the apron at row y."""
+    step = (x1 - x0) / n
+    for i in range(n):
+        box((step * 0.5, 0.08, 0.006), (x0 + step * (i + 0.5), -y, z), mat, rot=(0, 0, 35), name='stripe')
+
+
+def star(x, y, z, r, mat='team', t=0.012):
+    """A five-pointed star lying flat (roofs, emblems)."""
+    pts = []
+    for i in range(10):
+        a = math.pi / 2 + i * math.pi / 5
+        rr = r if i % 2 == 0 else r * 0.42
+        pts.append((x + rr * math.cos(a), -y + rr * math.sin(a)))
+    return plate(pts, t, z, mat, name='star')
+
+
+def chimney(x, y, z, r, h, mat='concreteDark'):
+    cyl(r, h, (x, -y, z + h / 2), mat, 'z', 12, r2=r * 0.85, name='chimney')
+    cyl(r * 0.9, h * 0.08, (x, -y, z + h * 0.96), 'dark', 'z', 12, name='chimneyCap')
+    torus(r * 0.88, 0.012, (x, -y, z + h * 0.8), 'redLamp', 'z', 12, 4, name='chimneyBand')
+
+
+def storage_tank(x, y, z, r, h, mat='steel'):
+    cyl(r, h, (x, -y, z + h / 2), mat, 'z', 16, name='tank')
+    sphere(r, (x, -y, z + h), mat, 16, 6, scale=(1, 1, 0.4), half=True, name='tankTop')
+    torus(r * 1.01, 0.012, (x, -y, z + h * 0.66), 'dark', 'z', 16, 4, name='tankBand')
+    cyl(0.008, h, (x + r * 0.95, -y - r * 0.3, z + h / 2), 'steelDark', 'z', 4, name='ladder')
+
+
+def pipe_run(points, r=0.025, mat='steel'):
+    """A pipe through game-cell points (x, y, z)."""
+    for (ax, ay, az), (bx, by, bz) in zip(points, points[1:]):
+        a = Vector((ax, -ay, az))
+        b = Vector((bx, -by, bz))
+        d = b - a
+        L = d.length
+        if L < 1e-4:
+            continue
+        o = cyl(r, L, (a + b) / 2, mat, 'z', 8, name='pipe')
+        o.rotation_mode = 'QUATERNION'
+        o.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(d.normalized())
+        sphere(r * 1.15, b, mat, 8, 4, name='pipeJoint')
+
+
+def radar_dish(name, x, y, z, r, mat='white'):
+    """A dish on a mast that turns (spinN)."""
+    e = empty(name, (x, -y, z))
+    cyl(0.03, 0.12, (x, -y, z + 0.06), 'steelDark', 'z', 8, parent=e, name='dishMast')
+    d = lathe([(0.0, 0.0), (r * 0.6, r * 0.12), (r, r * 0.38), (r * 0.96, r * 0.42), (0.0, r * 0.06)], (0, 0, 0), mat, 16, parent=None, name='dish')
+    d.rotation_euler = (math.radians(-60), 0, 0)
+    d.location = (x, -y - r * 0.15, z + 0.14 + r * 0.4)
+    bpy.context.view_layer.update()
+    mw = d.matrix_world.copy()
+    d.parent = e
+    d.matrix_world = mw
+    cyl(0.01, r * 0.8, (x, -y - r * 0.5, z + 0.2 + r * 0.6), 'dark', 'y', 5, parent=e, name='feed')
+    return e
+
+
+def lattice_tower(x, y, z, w, h, mat='steelDark', levels=5):
+    """An open steel tower of four legs and cross braces."""
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            cyl(0.014, h, (x + sx * w / 2, -y + sy * w / 2, z + h / 2), mat, 'z', 5, name='towerLeg')
+    for k in range(1, levels + 1):
+        zz = z + k * h / (levels + 0.3)
+        for sy in (-1, 1):
+            box((w, 0.012, 0.012), (x, -y + sy * w / 2, zz), mat, name='brace')
+        for sx in (-1, 1):
+            box((0.012, w, 0.012), (x + sx * w / 2, -y, zz), mat, name='brace')
+
+
+def fence(points, z=0.06, h=0.1, mat='steelDark', step=0.18):
+    """A wire fence along game-cell points (x, y)."""
+    for (ax, ay), (bx, by) in zip(points, points[1:]):
+        L = math.hypot(bx - ax, by - ay)
+        n = max(1, int(L / step))
+        for i in range(n + 1):
+            t = i / n
+            cyl(0.008, h, (ax + (bx - ax) * t, -(ay + (by - ay) * t), z + h / 2), mat, 'z', 4, name='post')
+        ang = math.degrees(math.atan2(-(by - ay), bx - ax))
+        box((L, 0.006, h * 0.6), ((ax + bx) / 2, -(ay + by) / 2, z + h * 0.6), 'steelDark', rot=(0, 0, ang), name='wire')
+
+
+def floodlight(x, y, z, h=0.3):
+    cyl(0.01, h, (x, -y, z + h / 2), 'steelDark', 'z', 5, name='lightPole')
+    box((0.06, 0.04, 0.03), (x, -y - 0.01, z + h), 'dark', bevel=0.006, name='lightHead')
+    box((0.05, 0.01, 0.02), (x, -y - 0.032, z + h), 'lamp', name='lightLens')
