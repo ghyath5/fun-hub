@@ -105,6 +105,7 @@ async function exportJob(job) {
   // Every mesh of every exported part, with its material.
   const named = { body: parts.body, turret: parts.turret };
   parts.rotors.forEach((m, k) => { if (m.length) named[`rotor${k}`] = m; });
+  Object.assign(named, parts.extra ?? {});
   const meshes = Object.values(named).flat();
 
   // ── Atlas: one tile per textured material, plus a white tile for solid colours.
@@ -181,14 +182,19 @@ async function exportJob(job) {
   const nm = new THREE.Matrix3();
   for (const [name, list] of Object.entries(named)) {
     let pivot = [0, 0, 0];
-    // Rotors, and a structure's turret (its footprint is not centred on it), turn about their own middle.
-    if (name.startsWith('rotor') || (name === 'turret' && job.kind === 'structure')) {
+    const node = parts.nodes?.[name];
+    if (node) {
+      // Named parts turn about their empty (wheel axle, hip, turret ring, barrel trunnion).
+      const p = node.getWorldPosition(new THREE.Vector3());
+      pivot = [p.x, p.y, p.z];
+    } else if (name.startsWith('rotor') || (name === 'turret' && job.kind === 'structure')) {
+      // Rotors, and a structure's turret (its footprint is not centred on it), turn about their own middle.
       const b = new THREE.Box3();
       for (const m of list) b.expandByObject(m, true);
       const c = b.getCenter(new THREE.Vector3());
       pivot = [c.x, 0, c.z];
     }
-    const P = [], N = [], U = [], C = [], R = [], I = [];
+    const P = [], N = [], U = [], C = [], R = [], G = [], I = [];
     for (const m of list) {
       const geo = m.geometry;
       const pos = geo.attributes.position;
@@ -208,6 +214,9 @@ async function exportJob(job) {
       if (tiled && !sampled.has(mat)) sampled.set(mat, pixelsOf(mat.map.image));
       const solid = mat.color ?? new THREE.Color(1, 1, 1);
       const [metal, rough] = metalRough(mat);
+      // Emissive materials light themselves in game (`glow`, 0–1 of their own colour).
+      const em = mat.emissive ? Math.max(mat.emissive.r, mat.emissive.g, mat.emissive.b) * (mat.emissiveIntensity ?? 1) : 0;
+      const glow = Math.round(255 * Math.min(1, em));
       const solidTeam = teamWeight(srgbByte(solid.r) / 255, srgbByte(solid.g) / 255, srgbByte(solid.b) / 255, team);
       // Painted per vertex (STL sources, stl.js): linear colour, alpha = team weight; metalness, roughness.
       const vcol = mat.vertexColors ? geo.attributes.color : null;
@@ -216,6 +225,7 @@ async function exportJob(job) {
       for (let i = 0; i < pos.count; i++) {
         v.fromBufferAttribute(pos, i).applyMatrix4(m.matrixWorld);
         P.push(v.x - pivot[0], v.y - pivot[1], v.z - pivot[2]);
+        G.push(glow);
         if (vpbr) R.push(Math.round(255 * vpbr.getX(i)), Math.round(255 * Math.max(0.05, vpbr.getY(i))));
         else R.push(metal, rough);
         if (nor) { v.fromBufferAttribute(nor, i).applyMatrix3(nm).normalize(); N.push(v.x, v.y, v.z); } else N.push(0, 1, 0);
@@ -248,10 +258,13 @@ async function exportJob(job) {
       }
     }
     if (!P.length) continue;
+    // Treads: the spacing of their links (a Blender custom property, scaled like the model).
+    const pitch = node?.userData?.pitch ? node.userData.pitch * node.getWorldScale(new THREE.Vector3()).x : undefined;
     out[name] = {
-      pivot,
+      pivot, pitch,
       pos: toB64(new Float32Array(P)), nrm: toB64(new Float32Array(N)), uv: toB64(new Float32Array(U)),
       col: toB64(new Uint8Array(C)), mr: toB64(new Uint8Array(R)), idx: toB64(new Uint32Array(I)),
+      gl: G.some((g) => g > 0) ? toB64(new Uint8Array(G)) : null,
     };
   }
   scene.remove(holder);

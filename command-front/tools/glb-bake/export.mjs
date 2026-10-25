@@ -36,13 +36,14 @@ function weld(p) {
       ...Array.from(p.uv.subarray(i * 2, i * 2 + 2), (v) => Math.round(v * 4096)),
       ...p.col.subarray(i * 4, i * 4 + 4),
       ...p.mr.subarray(i * 2, i * 2 + 2),
+      p.gl ? p.gl[i] : 0,
     ].join(',');
     let j = key.get(k);
     if (j === undefined) { j = keep.length; key.set(k, j); keep.push(i); }
     remap[i] = j;
   }
   const pick = (a, s) => { const o = new a.constructor(keep.length * s); keep.forEach((i, j) => o.set(a.subarray(i * s, i * s + s), j * s)); return o; };
-  return { pos: pick(p.pos, 3), nrm: pick(p.nrm, 3), uv: pick(p.uv, 2), col: pick(p.col, 4), mr: pick(p.mr, 2), idx: p.idx.map((i) => remap[i]) };
+  return { pos: pick(p.pos, 3), nrm: pick(p.nrm, 3), uv: pick(p.uv, 2), col: pick(p.col, 4), mr: pick(p.mr, 2), gl: p.gl ? pick(p.gl, 1) : null, idx: p.idx.map((i) => remap[i]) };
 }
 
 /** Drop vertices no triangle uses. */
@@ -51,7 +52,7 @@ function compact(p) {
   let n = 0;
   for (const i of p.idx) if (used[i] < 0) used[i] = n++;
   const pick = (a, s) => { const o = new a.constructor(n * s); used.forEach((j, i) => { if (j >= 0) o.set(a.subarray(i * s, i * s + s), j * s); }); return o; };
-  return { pos: pick(p.pos, 3), nrm: pick(p.nrm, 3), uv: pick(p.uv, 2), col: pick(p.col, 4), mr: pick(p.mr, 2), idx: p.idx.map((i) => used[i]) };
+  return { pos: pick(p.pos, 3), nrm: pick(p.nrm, 3), uv: pick(p.uv, 2), col: pick(p.col, 4), mr: pick(p.mr, 2), gl: p.gl ? pick(p.gl, 1) : null, idx: p.idx.map((i) => used[i]) };
 }
 
 /**
@@ -77,7 +78,7 @@ function creaseNormals(p, crease = 44) {
   }
   const unit = (t) => { const l = Math.hypot(fn[t * 3], fn[t * 3 + 1], fn[t * 3 + 2]) || 1; return [fn[t * 3] / l, fn[t * 3 + 1] / l, fn[t * 3 + 2] / l]; };
   const key = new Map();
-  const out = { pos: [], nrm: [], uv: [], col: [], mr: [], idx: [] };
+  const out = { pos: [], nrm: [], uv: [], col: [], mr: [], gl: [], idx: [] };
   for (let t = 0; t < tris; t++) {
     const me = unit(t);
     for (let k = 0; k < 3; k++) {
@@ -100,15 +101,16 @@ function creaseNormals(p, crease = 44) {
         out.uv.push(p.uv[v * 2], p.uv[v * 2 + 1]);
         out.col.push(...p.col.subarray(v * 4, v * 4 + 4));
         out.mr.push(...p.mr.subarray(v * 2, v * 2 + 2));
+        out.gl.push(p.gl ? p.gl[v] : 0);
       }
       out.idx.push(j);
     }
   }
-  return { pos: new Float32Array(out.pos), nrm: new Float32Array(out.nrm), uv: new Float32Array(out.uv), col: new Uint8Array(out.col), mr: new Uint8Array(out.mr), idx: out.idx };
+  return { pos: new Float32Array(out.pos), nrm: new Float32Array(out.nrm), uv: new Float32Array(out.uv), col: new Uint8Array(out.col), mr: new Uint8Array(out.mr), gl: p.gl ? new Uint8Array(out.gl) : null, idx: out.idx };
 }
 
 /** Quantise one part into the binary blob; returns its index entry. */
-function writePart(p, pivot, chunks, offset) {
+function writePart(p, pivot, chunks, offset, textured = true) {
   const n = p.pos.length / 3;
   const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
   for (let i = 0; i < n; i++) for (let a = 0; a < 3; a++) { const v = p.pos[i * 3 + a]; if (v < min[a]) min[a] = v; if (v > max[a]) max[a] = v; }
@@ -126,7 +128,10 @@ function writePart(p, pivot, chunks, offset) {
   }
   const idx = n < 65536 ? Uint16Array.from(p.idx) : Uint32Array.from(p.idx);
   const entry = { pivot: pivot.map((v) => +v.toFixed(5)), min: min.map((v) => +v.toFixed(5)), max: max.map((v) => +v.toFixed(5)), vertices: n, indices: idx.length, wide: idx instanceof Uint32Array };
-  for (const [name, arr] of [['pos', pos], ['nrm', nrm], ['uv', uv], ['col', p.col], ['mr', p.mr], ['idx', idx]]) {
+  // `gl` (glow, one byte per vertex) only for parts that light themselves.
+  // Untextured models need no uv (the game only reads it with an atlas).
+  for (const [name, arr] of [['pos', pos], ['nrm', nrm], ['uv', textured ? uv : null], ['col', p.col], ['mr', p.mr], ['gl', p.gl], ['idx', idx]]) {
+    if (!arr) continue;
     const buf = Buffer.from(arr.buffer, arr.byteOffset, arr.byteLength);
     entry[name] = offset.at;
     chunks.push(buf);
@@ -179,8 +184,9 @@ for (const [id, m] of Object.entries(index.models)) {
   const parts = {};
   for (const [name, e] of Object.entries(m.parts)) {
     const copy = { ...e };
-    const sizes = { pos: e.vertices * 8, nrm: e.vertices * 4, uv: e.vertices * 4, col: e.vertices * 4, mr: e.vertices * 2, idx: e.indices * (e.wide ? 4 : 2) };
-    for (const k of ['pos', 'nrm', 'uv', 'col', 'mr', 'idx']) {
+    const sizes = { pos: e.vertices * 8, nrm: e.vertices * 4, uv: e.vertices * 4, col: e.vertices * 4, mr: e.vertices * 2, gl: e.vertices, idx: e.indices * (e.wide ? 4 : 2) };
+    for (const k of ['pos', 'nrm', 'uv', 'col', 'mr', 'gl', 'idx']) {
+      if (e[k] === undefined) continue;
       copy[k] = offset.at;
       chunks.push(oldBin.subarray(e[k], e[k] + sizes[k]));
       offset.at += sizes[k];
@@ -196,7 +202,8 @@ for (const job of jobs) {
   const t = Date.now();
   const res = await page.evaluate((j) => window.exporter.exportJob(j), job);
   const raw = Object.fromEntries(Object.entries(res.parts).map(([k, p]) => [k, {
-    pivot: p.pivot, pos: b64(p.pos, Float32Array), nrm: b64(p.nrm, Float32Array), uv: b64(p.uv, Float32Array), col: b64(p.col, Uint8Array), mr: b64(p.mr, Uint8Array), idx: b64(p.idx, Uint32Array),
+    pivot: p.pivot, pitch: p.pitch, pos: b64(p.pos, Float32Array), nrm: b64(p.nrm, Float32Array), uv: b64(p.uv, Float32Array), col: b64(p.col, Uint8Array), mr: b64(p.mr, Uint8Array), idx: b64(p.idx, Uint32Array),
+    gl: p.gl ? b64(p.gl, Uint8Array) : null,
   }]));
   // Brighten dark PBR textures for the game's simple lighting: one gamma for
   // the atlas and the vertex colours, bringing the model's mean brightness up.
@@ -244,7 +251,8 @@ for (const job of jobs) {
     }
     w = creaseNormals(w);
     tris += w.idx.length / 3;
-    parts[name] = writePart(w, p.pivot, chunks, offset);
+    parts[name] = writePart(w, p.pivot, chunks, offset, !!res.atlas);
+    if (p.pitch) parts[name].pitch = +p.pitch.toFixed(5);
   }
   let atlas = null;
   if (res.atlas) {

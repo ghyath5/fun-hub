@@ -18,7 +18,7 @@ import { facingOf, facingDelta, turnToward, isqrt, DIR8, stepAlong } from '../..
 import { MOVEMENT, SIM, COMBAT, AIRCRAFT } from '../../data/rules.js';
 import { TURN_RATE } from '../../data/units.js';
 import { ticks } from '../../core/fixed.js';
-import { defOf, isInfantry, isAir, canEnter, occupy, vacate, spotPos, isIdle } from '../entities/units.js';
+import { defOf, isInfantry, isAir, canEnter, occupy, vacate, spotPos, isIdle, walkClear } from '../entities/units.js';
 import { digOut } from '../dig.js';
 import { spiral } from '../nav.js';
 import { triggerMine } from '../mines.js';
@@ -37,6 +37,8 @@ const GIVE_UP_TICKS = ticks(MOVEMENT.stuckIdleSeconds);
 const MAX_RETRIES = 6;
 /** After a failed search or a back-up, wait this long before asking again (outlasts a 2 s block). */
 const RETRY_TICKS = BLOCK_TICKS + 1;
+/** Longest a soldier waits for another to walk past before he goes anyway (no deadlocks). */
+const YIELD_TICKS = ticks(MOVEMENT.infantryYieldSeconds);
 /** Stuck re-paths are staggered by id so a jammed crowd does not re-path in one tick. */
 const MOVEMENT_STAGGER = 8;
 
@@ -319,7 +321,8 @@ function stepUnit(w, u) {
     const o = u.order;
     if (u.path.length === 0) {
       const atDest = u.cx === o.dx && u.cy === o.dy;
-      if (atDest && isInfantry(u) && o.spot >= 0 && u.spot !== o.spot && w.occ.freeSpot(w.occ.index(u.cx, u.cy), o.spot) === o.spot) {
+      // At the destination cell a soldier steps over to his own spot, unless that would walk through someone.
+      if (atDest && isInfantry(u) && o.spot >= 0 && u.spot !== o.spot && walkClear(w, u, u.cx, u.cy, o.spot)) {
         occupy(w, u, u.cx, u.cy, o.spot);
         u.next = { x: u.cx, y: u.cy, spot: o.spot };
       } else if (atDest || u.retries >= MAX_RETRIES) {
@@ -337,13 +340,23 @@ function stepUnit(w, u) {
       const nx = u.path[0];
       const ny = u.path[1];
       const last = u.path.length === 2;
-      const r = canEnter(w, u, nx, ny, last && o.spot >= 0 ? o.spot : 0);
+      // Infantry keep their lane (the same spot in the next cell) on the way, so a squad walks side by side.
+      const lane = isInfantry(u) && u.spot >= 0 ? u.spot : 0;
+      const want = last && o.spot >= 0 ? o.spot : lane;
+      // A soldier who would walk through another waits a moment for him to pass (then goes anyway).
+      let r = canEnter(w, u, nx, ny, want, u.yielded < YIELD_TICKS);
+      if (!r.ok && 'yieldTo' in r && r.yieldTo) {
+        u.yielded++;
+        checkStuck(w, u);
+        return;
+      }
       if (!r.ok) {
         handleBlocked(w, u, nx, ny, 'blocker' in r ? r.blocker : 0);
         checkStuck(w, u);
         return;
       }
       u.path.splice(0, 2);
+      u.yielded = 0;
       occupy(w, u, nx, ny, r.spot);
       u.next = { x: nx, y: ny, spot: r.spot };
       if (def.crusher !== 'none') warnInfantry(w, u, nx, ny);
@@ -384,9 +397,96 @@ function stepUnit(w, u) {
     if (w.crates.length) collectCrate(w, u);
     return;
   }
-  u.x += Math.trunc((dx * stepLen) / dist);
-  u.y += Math.trunc((dy * stepLen) / dist);
+  const sx = Math.trunc((dx * stepLen) / dist);
+  const sy = Math.trunc((dy * stepLen) / dist);
+  // A soldier never steps onto another one: he holds this tick instead (for a moment at most),
+  // and a friend standing in his way shuffles to another spot of his cell.
+  const onto = isInfantry(u) && u.yielded < YIELD_TICKS ? wouldStepOnto(w, u, u.x + sx, u.y + sy) : null;
+  if (onto) {
+    // Someone standing in the way: he shuffles to another spot of his cell; failing that the
+    // walker takes another free spot whose walk is clear; failing that an idle friend steps aside.
+    if (!onto.next && w.allied(onto.owner, u.owner) && !shuffleAside(w, onto, u, target) && !respot(w, u) && isIdle(onto)) stepAside(w, onto, u);
+    u.yielded++;
+    checkStuck(w, u);
+    return;
+  }
+  u.x += sx;
+  u.y += sy;
+  u.yielded = 0;
   checkStuck(w, u);
+}
+
+/** Soldiers' centres closer than this are standing in each other, leptons. */
+const ONTO = 24;
+/** Two walking soldiers on converging lines: the later one (higher id) gives way from this far. */
+const GIVE_WAY = 48;
+
+/**
+ * Would a soldier stepping to (x, y) come onto another soldier? Closing on
+ * one who stands still (or who has right of way) nearer than ONTO, or — for
+ * the one who gives way, the higher id of two walkers — nearer than GIVE_WAY,
+ * so he stops before their lines cross. Looks in the cells around him;
+ * returns the soldier in the way, or null.
+ * @param {World} w @param {Unit} u @param {number} x @param {number} y
+ * @returns {Unit | null}
+ */
+function wouldStepOnto(w, u, x, y) {
+  for (let oy = -1; oy <= 1; oy++) for (let ox = -1; ox <= 1; ox++) {
+    const cx = u.cx + ox, cy = u.cy + oy;
+    if (cx < 0 || cy < 0 || cx >= w.map.width || cy >= w.map.height) continue;
+    for (const id of w.occ.unitsIn(w.occ.index(cx, cy))) {
+      if (id === u.id) continue;
+      const v = w.entities.get(id);
+      if (!v || !isInfantry(v)) continue;
+      const now = (u.x - v.x) ** 2 + (u.y - v.y) ** 2;
+      const then = (x - v.x) ** 2 + (y - v.y) ** 2;
+      const r = v.next && v.id < u.id ? GIVE_WAY : ONTO;
+      if (then < r * r && then < now) return v;
+    }
+  }
+  return null;
+}
+
+/**
+ * A soldier standing on a walker's line steps to the free spot of his cell
+ * farthest from that line (if any is clear of it), the way RA2 infantry
+ * shuffle aside. @returns {boolean} whether he moved
+ * @param {World} w @param {Unit} v @param {Unit} walker @param {{ x: number, y: number }} to
+ */
+function shuffleAside(w, v, walker, to) {
+  const i = w.occ.index(v.cx, v.cy);
+  let best = -1;
+  let bestD = (GIVE_WAY * GIVE_WAY);
+  for (let k = 0; k < MOVEMENT.infantrySpots; k++) {
+    if (w.occ.freeSpot(i, k) !== k) continue;
+    const p = spotPos(v.cx, v.cy, k);
+    const vx = to.x - walker.x, vy = to.y - walker.y;
+    const len = vx * vx + vy * vy || 1;
+    const t = Math.max(0, Math.min(1, ((p.x - walker.x) * vx + (p.y - walker.y) * vy) / len));
+    const d = (walker.x + vx * t - p.x) ** 2 + (walker.y + vy * t - p.y) ** 2;
+    if (d > bestD && walkClear(w, v, v.cx, v.cy, k)) { bestD = d; best = k; }
+  }
+  if (best < 0) return false;
+  occupy(w, v, v.cx, v.cy, best);
+  v.next = { x: v.cx, y: v.cy, spot: best };
+  return true;
+}
+
+/**
+ * Change the spot a walking soldier is heading for (in the same next cell) to
+ * a free one whose walk is clear. @param {World} w @param {Unit} u @returns {boolean}
+ */
+function respot(w, u) {
+  const n = u.next;
+  if (!n) return false;
+  for (let k = 0; k < MOVEMENT.infantrySpots; k++) {
+    if (k === n.spot || !walkClear(w, u, n.x, n.y, k)) continue;
+    vacate(w, u, n.x, n.y, n.spot);
+    occupy(w, u, n.x, n.y, k);
+    u.next = { x: n.x, y: n.y, spot: k };
+    return true;
+  }
+  return false;
 }
 
 // ── Flight ──────────────────────────────────────────────────────
@@ -488,6 +588,49 @@ function flyUnit(w, u) {
   settle(w, u);
 }
 
+/**
+ * Hovering aircraft (helicopters, jump-jets, the airship) never stack: two
+ * closer than AIRCRAFT.hoverSpacing drift apart a little each tick (planes
+ * keep flying their own loops). Same order every tick, so it is lockstep-safe.
+ * @param {World} w
+ */
+function separateHovering(w) {
+  const air = [];
+  for (const u of w.entities.all()) {
+    if (u.dead || u.kind !== 'unit' || u.inside || u.landed || !isAir(u) || fliesLikePlane(defOf(u))) continue;
+    air.push(u);
+  }
+  const R = AIRCRAFT.hoverSpacing;
+  for (let i = 0; i < air.length; i++) for (let j = i + 1; j < air.length; j++) {
+    const a = air[i], b = air[j];
+    let dx = b.x - a.x, dy = b.y - a.y;
+    if (Math.abs(dx) >= R || Math.abs(dy) >= R) continue;
+    let d = isqrt(dx * dx + dy * dy);
+    if (d >= R) continue;
+    if (d === 0) {
+      // Exactly on top of each other: part along a direction set by their ids.
+      const v = stepAlong(((a.id * 37 + b.id * 11) & 255), 64);
+      dx = v.dx; dy = v.dy; d = isqrt(dx * dx + dy * dy) || 1;
+    }
+    const push = Math.min(AIRCRAFT.hoverPush, (R - d) >> 1) || 1;
+    const px = Math.trunc((dx * push) / d), py = Math.trunc((dy * push) / d);
+    nudge(w, a, -px, -py);
+    nudge(w, b, px, py);
+  }
+}
+
+/** Move a hovering aircraft, and the point it is flying to with it (so it settles there, not back on the other). @param {World} w @param {Unit} u @param {number} dx @param {number} dy */
+function nudge(w, u, dx, dy) {
+  u.x += dx;
+  u.y += dy;
+  settle(w, u);
+  const o = u.order;
+  if (o) {
+    const at = o.at ?? { x: o.dx * L + (L >> 1), y: o.dy * L + (L >> 1) };
+    o.at = { x: Math.max(0, Math.min(w.map.width * L - 1, at.x + dx)), y: Math.max(0, Math.min(w.map.height * L - 1, at.y + dy)) };
+  }
+}
+
 /** @param {World} w */
 export function movementSystem(w) {
   airSystem(w);
@@ -498,6 +641,7 @@ export function movementSystem(w) {
     if (isAir(u)) flyUnit(w, u);
     else stepUnit(w, u);
   }
+  separateHovering(w);
   specialsSystem(w);
   transportSystem(w);
 }

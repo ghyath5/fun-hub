@@ -96,8 +96,34 @@ export function adjustMaterials(root, look) {
   });
 }
 
+/**
+ * Moving parts of a `named` job (the Blender models, tools/blender/): an
+ * empty whose name says what it is, placed where the part turns.
+ */
+export const NAMED_PART = /^(turret|barrel|rotor\d+|wheel\d+|tread\d+|prop\d+|spin\d+|leg[LR]|arm[LR])$/;
+
+/** `named` jobs: each mesh goes to its nearest named ancestor; the empties are the pivots. */
+function partitionNamed(root) {
+  const parts = { body: [], turret: [], hidden: [], rotors: [], extra: {}, nodes: {} };
+  root.traverse((o) => { if (NAMED_PART.test(o.name)) parts.nodes[o.name] = o; });
+  root.traverse((o) => {
+    if (!o.isMesh) return;
+    o.castShadow = true;
+    o.receiveShadow = true;
+    o.frustumCulled = false;
+    let n = o;
+    while (n && n !== root && !NAMED_PART.test(n.name)) n = n.parent;
+    const name = n && n !== root ? n.name : 'body';
+    if (name === 'body') parts.body.push(o);
+    else if (name === 'turret') parts.turret.push(o);
+    else (parts.extra[name] ??= []).push(o);
+  });
+  return parts;
+}
+
 /** Meshes of the model split into the parts a job asks for. */
 export function partition(root, job) {
+  if (job.named) return partitionNamed(root);
   const parts = { body: [], turret: [], hidden: [], rotors: (job.rotors ?? []).map(() => []) };
   const meshes = [];
   root.traverse((o) => { if (o.isMesh) meshes.push(o); });
@@ -144,7 +170,7 @@ export async function place(job, at, parent) {
   holder.updateMatrixWorld(true);
   adjustMaterials(root, job.look);
   const parts = partition(root, job);
-  const visible = [...parts.body, ...parts.turret, ...parts.rotors.flat()];
+  const visible = [...parts.body, ...parts.turret, ...parts.rotors.flat(), ...Object.values(parts.extra ?? {}).flat()];
   let b = boundsOf(visible);
   const size = b.getSize(new THREE.Vector3());
   let scale;
@@ -155,7 +181,8 @@ export async function place(job, at, parent) {
   holder.updateMatrixWorld(true);
   b = boundsOf(visible);
   // Pivot: the turret ring for turreted units, else the footprint centre.
-  const pivotFrom = job.kind === 'unit' && parts.turret.length ? boundsOf(parts.turret) : b;
+  // (Named models centre on the whole model: their turret turns about its own empty, wherever it is.)
+  const pivotFrom = job.kind === 'unit' && parts.turret.length && !job.named ? boundsOf(parts.turret) : b;
   const c = pivotFrom.getCenter(new THREE.Vector3());
   if (job.pivot) {
     // Explicit pivot, as a fraction of the whole model's ground extent.

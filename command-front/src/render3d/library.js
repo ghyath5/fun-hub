@@ -24,12 +24,18 @@ const BASE = './assets/models/';
 /**
  * @typedef {object} Part
  * @property {string} name        body, turret, rotor0…, spin0…
- * @property {'body' | 'turret' | 'rotor' | 'spin'} role
+ * @property {'body' | 'turret' | 'rotor' | 'spin' | 'wheel' | 'tread' | 'prop' | 'barrel' | 'limb'} role
+ *   prop: a propeller turning about the model's forward axis;
+ *   wheel: rolls about its axle (x) as the unit drives; tread: track links that
+ *   slide forward one `pitch` at a time as it drives; barrel: turns with the
+ *   turret and kicks back when it fires; limb (legL/R, armL/R): swings (x) as it walks
  * @property {THREE.BufferGeometry} geometry
  * @property {THREE.Vector3} pivot  where the part turns, in the model's frame (cells)
  * @property {THREE.Quaternion} [orient]  the part's own frame (a propeller stands on edge): it spins about its local y
  * @property {THREE.Texture | null} map
  * @property {boolean} [pbr]  lit physically (baked models carry metalness and roughness)
+ * @property {number} [radius]  wheels: rolling radius, cells
+ * @property {number} [pitch]  treads: spacing of the links, cells
  */
 /**
  * @typedef {object} ModelDef
@@ -197,6 +203,17 @@ function finish(id, parts) {
 
 // ── Baked → parts ───────────────────────────────────────────────
 
+/** A baked part's role from its name. @param {string} name @returns {Part['role']} */
+function roleOf(name) {
+  if (name === 'body' || name === 'turret' || name === 'barrel') return name;
+  if (name.startsWith('rotor')) return 'rotor';
+  if (name.startsWith('wheel')) return 'wheel';
+  if (name.startsWith('tread')) return 'tread';
+  if (name.startsWith('prop')) return 'prop';
+  if (/^(leg|arm)[LR]$/.test(name)) return 'limb';
+  return 'spin';
+}
+
 /** @param {any} index @param {ArrayBuffer} bin @param {Map<string, THREE.Texture>} maps */
 function decodeBaked(index, bin, maps) {
   /** @type {Map<string, ModelDef>} */
@@ -228,13 +245,20 @@ function decodeBaked(index, bin, maps) {
       g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
       g.setAttribute('normal', new THREE.BufferAttribute(nrm, 3));
       g.setAttribute('tint', new THREE.BufferAttribute(tint, 4));
-      g.setAttribute('glow', new THREE.BufferAttribute(new Float32Array(n), 1));
+      // Glow per vertex (lamps, energy coils), when the model has any.
+      g.setAttribute('glow', e.gl !== undefined
+        ? new THREE.BufferAttribute(Float32Array.from(new Uint8Array(bin, e.gl, n), (b) => b / 255), 1)
+        : new THREE.BufferAttribute(new Float32Array(n), 1));
       if (map) g.setAttribute('uv', new THREE.BufferAttribute(new Uint16Array(bin, e.uv, n * 2).slice(), 2, true));
       // Metalness and roughness per vertex: baked models are lit physically (material.js).
       if (e.mr !== undefined) g.setAttribute('pbr', new THREE.BufferAttribute(new Uint8Array(bin, e.mr, n * 2).slice(), 2, true));
       g.setIndex(new THREE.BufferAttribute(e.wide ? new Uint32Array(bin, e.idx, e.indices).slice() : new Uint16Array(bin, e.idx, e.indices).slice(), 1));
-      const role = name === 'body' ? 'body' : name === 'turret' ? 'turret' : name.startsWith('rotor') ? 'rotor' : 'spin';
-      parts.push({ name, role, geometry: g, pivot: new THREE.Vector3(...e.pivot), map, pbr: e.mr !== undefined });
+      const role = roleOf(name);
+      /** @type {Part} */
+      const part = { name, role, geometry: g, pivot: new THREE.Vector3(...e.pivot), map, pbr: e.mr !== undefined };
+      if (role === 'wheel') { g.computeBoundingBox(); part.radius = /** @type {THREE.Box3} */ (g.boundingBox).max.y; }
+      if (role === 'tread') part.pitch = e.pitch || 0.05;
+      parts.push(part);
     }
     parts.sort((a, z) => (a.role === 'body' ? -1 : z.role === 'body' ? 1 : 0));
     out.set(id, finish(id, parts));

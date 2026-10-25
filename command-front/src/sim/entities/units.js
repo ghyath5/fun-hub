@@ -104,17 +104,87 @@ export const isAir = (e) => UNITS[e.type].loco === 'air';
 /** Lepton position of a spot inside a cell (-1 = cell centre). */
 export function spotPos(cx, cy, spot) {
   const L = SIM.leptonsPerCell;
-  const [ox, oy] = MOVEMENT.spotOffsets[spot < 0 ? 0 : spot];
+  const [ox, oy] = spot < 0 ? MOVEMENT.cellCentre : MOVEMENT.spotOffsets[spot];
   return { x: cx * L + ox, y: cy * L + oy };
+}
+
+/** Squared distance from point (px, py) to the segment a→b. */
+function segDist2(ax, ay, bx, by, px, py) {
+  const vx = bx - ax, vy = by - ay;
+  const len = vx * vx + vy * vy;
+  const t = len > 0 ? Math.max(0, Math.min(1, ((px - ax) * vx + (py - ay) * vy) / len)) : 0;
+  const dx = ax + vx * t - px, dy = ay + vy * t - py;
+  return dx * dx + dy * dy;
+}
+
+/** Do segments a→b and c→d cross? */
+function crosses(ax, ay, bx, by, cx, cy, dx, dy) {
+  const s1 = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
+  const s2 = (bx - ax) * (dy - ay) - (by - ay) * (dx - ax);
+  const s3 = (dx - cx) * (ay - cy) - (dy - cy) * (ax - cx);
+  const s4 = (dx - cx) * (by - cy) - (dy - cy) * (bx - cx);
+  return s1 * s2 < 0 && s3 * s4 < 0;
+}
+
+/** Squared distance between segments a→b and c→d. */
+function segSeg2(ax, ay, bx, by, cx, cy, dx, dy) {
+  if (crosses(ax, ay, bx, by, cx, cy, dx, dy)) return 0;
+  return Math.min(segDist2(ax, ay, bx, by, cx, cy), segDist2(ax, ay, bx, by, dx, dy), segDist2(cx, cy, dx, dy, ax, ay), segDist2(cx, cy, dx, dy, bx, by));
+}
+
+/** Soldiers closer than this (leptons, centre to centre) would stand in each other. */
+const PERSONAL = MOVEMENT.infantryClearance;
+
+/**
+ * The free spot of cell (x, y) a soldier walks to: the one he wants (his
+ * lane, or his place at the destination) unless the straight walk there
+ * would pass through another soldier in his cell or that one (where he
+ * stands, or anywhere on the walk he is making); then the free spot whose
+ * walk stays clear, nearest first. Deterministic (spot order). `clear` is
+ * false when every free spot's walk would cross someone.
+ * @param {any} world @param {Unit} u @param {number} x @param {number} y @param {number} want
+ * @returns {{ spot: number, clear: boolean }}
+ */
+function pickSpot(world, u, x, y, want) {
+  const occ = world.occ;
+  const i = occ.index(x, y);
+  // A probe (a unit about to be made) has no position yet: just the wanted or first free spot.
+  if (!Number.isFinite(u.x) || !Number.isFinite(u.y)) return { spot: occ.freeSpot(i, want), clear: true };
+  const others = [...occ.unitsIn(i), ...(u.cx !== x || u.cy !== y ? occ.unitsIn(occ.index(u.cx, u.cy)) : [])]
+    .filter((id) => id !== u.id).map((id) => world.entities.get(id)).filter(Boolean);
+  let best = -1;
+  let bestCost = Infinity;
+  for (let k = 0; k < MOVEMENT.infantrySpots; k++) {
+    if (occ.freeSpot(i, k) !== k) continue;
+    const p = spotPos(x, y, k);
+    let cost = (p.x - u.x) ** 2 + (p.y - u.y) ** 2 - (k === want ? 1 << 15 : 0);
+    for (const v of others) {
+      const t = v.next && v.kind === 'unit' ? spotPos(v.next.x, v.next.y, isInfantry(v) ? v.next.spot : -1) : null;
+      const d2 = t ? segSeg2(u.x, u.y, p.x, p.y, v.x, v.y, t.x, t.y) : segDist2(u.x, u.y, p.x, p.y, v.x, v.y);
+      if (d2 < PERSONAL * PERSONAL) cost += 1 << 24;
+    }
+    if (cost < bestCost) { bestCost = cost; best = k; }
+  }
+  return { spot: best, clear: bestCost < 1 << 23 };
+}
+
+/** Would a soldier's walk to `spot` of cell (x, y) stay clear of every other soldier there and in his cell? @param {any} world @param {Unit} u @param {number} x @param {number} y @param {number} spot */
+export function walkClear(world, u, x, y, spot) {
+  const occ = world.occ;
+  if (occ.freeSpot(occ.index(x, y), spot) !== spot) return false;
+  const p = pickSpot(world, u, x, y, spot);
+  return p.spot === spot && p.clear;
 }
 
 /**
  * Can a unit stand in a cell right now (ignoring itself)? Returns the spot it
  * would take (-1 for vehicles) or null with the id of what blocks it.
- * @param {any} world @param {Unit} u @param {number} x @param {number} y @param {number} [wantSpot]
- * @returns {{ ok: true, spot: number } | { ok: false, blocker: number }}
+ * With `yieldTo`, a soldier whose every way into the cell would walk through
+ * another soldier is told to wait (`ok: false, yieldTo: true`) instead.
+ * @param {any} world @param {Unit} u @param {number} x @param {number} y @param {number} [wantSpot] @param {boolean} [yieldTo]
+ * @returns {{ ok: true, spot: number } | { ok: false, blocker: number, yieldTo?: boolean }}
  */
-export function canEnter(world, u, x, y, wantSpot = 0) {
+export function canEnter(world, u, x, y, wantSpot = 0, yieldTo = false) {
   const def = defOf(u);
   if (!world.nav.passable(def.loco, x, y)) return { ok: false, blocker: 0 };
   if (def.loco === 'air') return { ok: true, spot: -1 };
@@ -125,9 +195,10 @@ export function canEnter(world, u, x, y, wantSpot = 0) {
     if (occ.infCount[i] && occ.infOwner[i] !== u.owner && !world.allied(occ.infOwner[i], u.owner)) {
       return { ok: false, blocker: occ.unitsIn(i)[0] };
     }
-    const s = occ.freeSpot(i, wantSpot);
-    if (s < 0) return { ok: false, blocker: occ.unitsIn(i)[0] };
-    return { ok: true, spot: s };
+    if (occ.freeSpot(i, 0) < 0) return { ok: false, blocker: occ.unitsIn(i)[0] };
+    const pick = pickSpot(world, u, x, y, wantSpot);
+    if (yieldTo && !pick.clear) return { ok: false, blocker: 0, yieldTo: true };
+    return { ok: true, spot: pick.spot };
   }
   if (occ.veh[i] && occ.veh[i] !== u.id) return { ok: false, blocker: occ.veh[i] };
   if (occ.infCount[i]) {
@@ -182,7 +253,7 @@ export function spawnUnit(world, type, owner, x, y, opts = {}) {
     x: pos.x, y: pos.y, px: pos.x, py: pos.y,
     facing, pfacing: facing, turret: facing,
     cx: at.x, cy: at.y, spot: def.loco === 'foot' ? at.spot : -1,
-    order: null, path: [], pathReq: 0, next: null, waited: 0, askedAside: false, sinceCell: 0, retries: 0, retryAt: 0,
+    order: null, path: [], pathReq: 0, next: null, waited: 0, yielded: 0, askedAside: false, sinceCell: 0, retries: 0, retryAt: 0,
     stance: 'guard', task: null, target: 0, fireCell: null, post: { x: at.x, y: at.y },
     weapons: def.weapons.map((wid) => ({ cd: 0, burst: 0, burstCd: 0, charge: 0, ammo: WEAPONS[wid].ammo })),
     proneUntil: 0, lastAttacker: 0, waypoints: [], chase: null, repairAcc: 0, aegisUntil: 0,

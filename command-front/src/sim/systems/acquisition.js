@@ -315,8 +315,25 @@ function engage(w, u) {
   const tc = chaseCell(t);
   if (!u.chase || !u.order || chebyshev(u.chase.x, u.chase.y, tc.x, tc.y) >= RECHASE_CELLS) {
     u.chase = tc;
-    setMove(w, u, tc.x, tc.y, { auto: true });
+    if (UNITS[u.type].loco === 'air') {
+      // Hovering aircraft fly to a point in range on their own side of the target, not onto it:
+      // several attacking one target spread round it instead of stacking over its middle.
+      const at = standoff(w, u, t, range);
+      setMove(w, u, cellOf(at.x), cellOf(at.y), { auto: true, at });
+    } else setMove(w, u, tc.x, tc.y, { auto: true });
   }
+}
+
+/**
+ * A point at 3/4 of `range` from the target, toward where the attacker is.
+ * @param {World} w @param {Unit} u @param {any} t @param {number} range  leptons
+ */
+function standoff(w, u, t, range) {
+  const dx = u.x - t.x, dy = u.y - t.y;
+  const d = Math.max(1, Math.round(Math.hypot(dx, dy)));
+  const r = Math.min(d, Math.floor((range * 3) / 4));
+  const x = t.x + Math.trunc((dx * r) / d), y = t.y + Math.trunc((dy * r) / d);
+  return { x: Math.max(0, Math.min(w.map.width * L - 1, x)), y: Math.max(0, Math.min(w.map.height * L - 1, y)) };
 }
 
 /** Pick a target now if the unit may: the best by score, or keep the current one. @param {World} w @param {any} u */

@@ -1,10 +1,10 @@
 // @ts-check
 /**
- * Mines (section 10): laid by Mine Layers, one per cell, at most 50 per
- * player. Invisible to enemies, immune to damage, never blocking paths.
- * Own and allied units never trigger them; an enemy vehicle sets off an
- * anti-tank mine, enemy infantry an anti-personnel one. Detonations go
- * through the normal impact rules (system 8's `detonate`).
+ * Mines (section 10): laid by Mine Layers, one per cell, as many as a
+ * player likes (SPECIALS.minesMaxPerPlayer). Invisible to enemies, immune to
+ * damage, never blocking paths. Own and allied units never trigger them; an
+ * enemy vehicle sets off an anti-tank mine, enemy infantry an anti-personnel
+ * one. Detonations go through the normal impact rules (system 8's `detonate`).
  */
 import { MINES } from '../data/weapons.js';
 import { SPECIALS, SIM } from '../data/rules.js';
@@ -29,7 +29,8 @@ export function canMine(w, pid, x, y) {
   const i = y * w.map.width + x;
   const t = w.map.terrain[i];
   if (t === T.water || t === T.rock || t === T.tree || t === T.bridge) return false;
-  return !w.occ.bld[i] && !w.mines.has(i) && minesOf(w, pid) < SPECIALS.minesMaxPerPlayer;
+  if (w.occ.bld[i] || w.mines.has(i)) return false;
+  return SPECIALS.minesMaxPerPlayer === Infinity || minesOf(w, pid) < SPECIALS.minesMaxPerPlayer;
 }
 
 /** Lay a mine of the layer's faction kind. @param {World} w @param {any} layer @param {number} x @param {number} y */
