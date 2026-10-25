@@ -26,6 +26,7 @@ import { RENDER } from '../data/rules.js';
 import { PERF } from '../data/ui.js';
 import { UNITS } from '../data/units.js';
 import { STRUCTURES } from '../data/structures.js';
+import { FACTIONS } from '../data/factions.js';
 import { createScene } from './scene.js';
 import { createLibrary } from './library.js';
 import { createInstancer } from './instances.js';
@@ -124,7 +125,9 @@ export async function createRenderer3D(host, map, opts = {}) {
   let frame = 0;
 
   // Build every model now, while the match loads, so no first sighting stalls a frame.
-  lib.warm([...Object.keys(UNITS), ...Object.keys(STRUCTURES), ...Object.keys(STRUCTURES).map((k) => `${k}@${opts.faction ?? ''}`)]);
+  // (Every side's looks of units: the enemy's Harvester differs from yours.)
+  const looks = (/** @type {string[]} */ types) => Object.keys(FACTIONS).flatMap((f) => types.map((k) => `${k}@${f}`));
+  lib.warm([...Object.keys(UNITS), ...Object.keys(STRUCTURES), ...looks(Object.keys(UNITS)), ...Object.keys(STRUCTURES).map((k) => `${k}@${opts.faction ?? ''}`)]);
 
   /** Cells currently on screen (with a margin). Tall things south of the screen reach into it. */
   const visibleCells = () => {

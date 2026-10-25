@@ -3,8 +3,10 @@
  * Units in 3D. Reads the world each frame (never writes it): every visible
  * unit's model parts go to the instancer at its interpolated position and
  * facing; turrets turn on their own, rotors spin, aircraft fly above their
- * shadows. Selection marks and health bars are drawn in the 2D overlay,
- * placed over the model's top.
+ * shadows, track links run round their wheels and a harvester's drum turns
+ * while it digs. A side's own look of a unit (`harvester@union`) is used
+ * when there is one. Selection marks and health bars are drawn in the 2D
+ * overlay, placed over the model's top.
  */
 import * as THREE from 'three';
 import { Graphics } from 'pixi.js';
@@ -23,11 +25,15 @@ const STRIDE = 0.32;
 /** How far a barrel kicks back when it fires, cells; and how fast it returns (per ms). */
 const RECOIL = 0.07;
 const RECOIL_RETURN = 0.006;
+/** A harvesting drum at full speed, radians per ms; how fast it spools up and runs down (per ms). */
+const DRUM_SPEED = 0.011;
+const DRUM_SPOOL = 0.0025;
 
 /**
  * Cosmetic per-unit state, from what is drawn (never written back): rotor
- * angle, wheel roll, walk phase, how much it is moving and firing kick.
- * @typedef {{ rotor: number, roll: number, trav: number, walk: number, moving: number, kick: number, x: number, z: number }} Motion
+ * angle, wheel roll, walk phase, how much it is moving, firing kick, and a
+ * harvester's drum angle and how fast it turns (0–1).
+ * @typedef {{ rotor: number, roll: number, trav: number, walk: number, moving: number, kick: number, drum: number, spool: number, x: number, z: number }} Motion
  */
 
 /** @type {Map<string, THREE.Color>} */
@@ -59,8 +65,8 @@ export function createUnits3D(lib, inst) {
 
   /** What a unit looks like to the viewer: a Spy shows enemies one of their own Riflemen (section 10). */
   function lookOf(/** @type {any} */ world, /** @type {any} */ e, /** @type {number} */ viewer) {
-    if (viewer >= 0 && e.type === 'spy' && !world.allied(e.owner, viewer)) return { type: 'rifleman', color: world.players[viewer].color };
-    return { type: e.type, color: world.players[e.owner].color };
+    if (viewer >= 0 && e.type === 'spy' && !world.allied(e.owner, viewer)) return { type: 'rifleman', color: world.players[viewer].color, faction: world.players[viewer].faction };
+    return { type: e.type, color: world.players[e.owner].color, faction: world.players[e.owner].faction };
   }
 
   return {
@@ -92,7 +98,7 @@ export function createUnits3D(lib, inst) {
         const z = (e.py + (e.y - e.py) * alpha) * PX_PER_LEPTON;
         if (x < view.x0 || x > view.x1 || z < view.y0 || z > view.y1) continue;
         const look = lookOf(world, e, viewer);
-        const def = lib.get(look.type);
+        const def = lib.get(`${look.type}@${look.faction}`);
         const d = UNITS[look.type];
         const flying = d.loco === 'air' && !e.landed;
         const y = flying ? ALTITUDE : 0;
@@ -100,7 +106,7 @@ export function createUnits3D(lib, inst) {
         // Submerged subs and disguised Mirage Tanks show see-through to their own side.
         const ghost = !!(e.submerged || (e.detect !== undefined && e.detect !== -1 && d.tags.includes('disguise')));
         let st = state.get(e.id);
-        if (!st) { st = { rotor: Math.random() * TAU, roll: 0, trav: 0, walk: Math.random() * TAU, moving: 0, kick: 0, x, z }; state.set(e.id, st); }
+        if (!st) { st = { rotor: Math.random() * TAU, roll: 0, trav: 0, walk: Math.random() * TAU, moving: 0, kick: 0, drum: 0, spool: 0, x, z }; state.set(e.id, st); }
         st.rotor += dt * ROTOR_SPEED * (flying ? 1 : 0.12);
         // Distance drawn since the last frame: wheels roll it, feet walk it.
         const step = Math.min(CELL, Math.hypot(x - st.x, z - st.z)) / CELL;
@@ -111,6 +117,11 @@ export function createUnits3D(lib, inst) {
         st.walk += (step / STRIDE) * TAU;
         st.moving += ((step > 1e-4 ? 1 : 0) - st.moving) * Math.min(1, dt * 0.012);
         st.kick = Math.max(0, st.kick - dt * RECOIL_RETURN);
+        // The drum digs at full speed, idles over as the harvester drives, and runs down when it stops.
+        if (e.harv) {
+          st.spool += ((e.harv.state === 'harvesting' ? 1 : st.moving * 0.12) - st.spool) * Math.min(1, dt * DRUM_SPOOL);
+          st.drum += dt * DRUM_SPEED * st.spool;
+        }
         const swing = Math.sin(st.walk) * 0.55 * st.moving;
         // A walking soldier bobs with each step; a vehicle rocks back a little when it fires.
         const bob = d.loco === 'foot' && !flying ? Math.abs(Math.sin(st.walk)) * 0.025 * st.moving * CELL : 0;
@@ -138,7 +149,13 @@ export function createUnits3D(lib, inst) {
           if (p.role === 'rotor') m.multiply(rot.makeRotationY(st.rotor));
           else if (p.role === 'wheel') m.multiply(rot.makeRotationX(st.roll * (0.06 / (p.radius || 0.06))));
           else if (p.role === 'prop') m.multiply(rot.makeRotationZ(st.rotor * 1.5));
-          else if (p.role === 'tread') m.multiply(part.makeTranslation(0, 0, -(st.trav % /** @type {number} */ (p.pitch))));
+          else if (p.role === 'tread') {
+            // Links move one pitch and start again: a run slides along itself, a bend turns round its wheel.
+            const t = st.trav % /** @type {number} */ (p.pitch);
+            if (p.arc) m.multiply(rot.makeRotationX(t / p.arc));
+            else if (p.slide) m.multiply(part.makeTranslation(p.slide.x * t, p.slide.y * t, p.slide.z * t));
+            else m.multiply(part.makeTranslation(0, 0, -t));
+          } else if (p.role === 'drum') m.multiply(rot.makeRotationX(st.drum));
           else if (p.role === 'barrel') m.multiply(part.makeTranslation(0, 0, st.kick * RECOIL));
           else if (p.role === 'limb') m.multiply(rot.makeRotationX(p.name === 'legL' || p.name === 'armR' ? swing : -swing));
           inst.add(p, m, color, 1, ghost);

@@ -100,7 +100,7 @@ export function adjustMaterials(root, look) {
  * Moving parts of a `named` job (the Blender models, tools/blender/): an
  * empty whose name says what it is, placed where the part turns.
  */
-export const NAMED_PART = /^(turret|barrel|rotor\d+|wheel\d+|tread\d+|prop\d+|spin\d+|leg[LR]|arm[LR])$/;
+export const NAMED_PART = /^(turret|barrel|rotor\d+|wheel\d+|tread\d+|drum\d+|prop\d+|spin\d+|leg[LR]|arm[LR])$/;
 
 /** `named` jobs: each mesh goes to its nearest named ancestor; the empties are the pivots. */
 function partitionNamed(root) {

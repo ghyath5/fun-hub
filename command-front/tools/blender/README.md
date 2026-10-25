@@ -26,7 +26,31 @@ models/*.py ── build.py (Blender, headless) ── ../glb-bake/glb/bl-<id>.g
   `wheelN` (rolls), `treadN` (track links slide one `pitch`, a custom
   property), `rotorN` (spins about up), `propN` (spins about forward),
   `spinN` (buildings: dishes, cranes, rings), `legL`/`legR`/`armL`/`armR`
-  (swing as a soldier walks).
+  (swing as a soldier walks), `drumN` (a harvester's drum: turns while it
+  harvests). A tread may instead carry `slide` (the direction its links run,
+  for one straight run of a belt) or `arc` (a bend's signed radius round its
+  wheel), so a whole belt can circulate.
+
+## Finished models (`rig.py`)
+
+A model made elsewhere (its own .blend, textured) is rigged rather than
+built: `rig.py` splits its meshes into the parts above — wheels from the
+round islands of its track meshes, the track links sorted onto the belt's
+runs and bends round the wheels, a drum and a turret by rules in `SOURCES` —
+re-packs its texture by area (running gear at a quarter of the density),
+bakes colour × ambient occlusion, metalness and roughness at 1024 px, and
+writes `../glb-bake/glb/bl-<id>.glb` plus `out/<id>.png` and
+`out/<id>-parts.png` (each moving part in its own colour). The sources are
+not committed; pass the .blend:
+
+```sh
+$BLENDER -b --factory-startup -P tools/blender/rig.py -- harvester@union ~/Downloads/harvester/harvester.blend
+$BLENDER -b --factory-startup -P tools/blender/rig.py -- harvester@coalition ~/Downloads/chrono_miner/chrono_miner.blend
+cd tools/glb-bake && CHROMIUM="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" node export.mjs harvester@union harvester@coalition
+```
+
+A unit id with `@<faction>` is that side's own look of the unit (the game
+falls back to the plain id).
 
 ## Run
 

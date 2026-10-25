@@ -149,7 +149,8 @@ function writePart(p, pivot, chunks, offset, textured = true) {
 const TARGET = 0.3;
 function lift(rgba, cols) {
   let sum = 0, n = 0;
-  if (rgba) for (let i = 0; i < rgba.length; i += 16) { sum += Math.max(rgba[i], rgba[i + 1], rgba[i + 2]) / 255; n++; }
+  // (Pure black texels are the atlas's unused space, not the model.)
+  if (rgba) for (let i = 0; i < rgba.length; i += 16) { const v = Math.max(rgba[i], rgba[i + 1], rgba[i + 2]); if (v > 2) { sum += v / 255; n++; } }
   for (const c of cols) for (let i = 0; i < c.length; i += 4) {
     if (c[i] === 255 && c[i + 1] === 255 && c[i + 2] === 255) continue; // textured vertex
     sum += Math.max(c[i], c[i + 1], c[i + 2]) / 255; n++;
@@ -202,7 +203,7 @@ for (const job of jobs) {
   const t = Date.now();
   const res = await page.evaluate((j) => window.exporter.exportJob(j), job);
   const raw = Object.fromEntries(Object.entries(res.parts).map(([k, p]) => [k, {
-    pivot: p.pivot, pitch: p.pitch, pos: b64(p.pos, Float32Array), nrm: b64(p.nrm, Float32Array), uv: b64(p.uv, Float32Array), col: b64(p.col, Uint8Array), mr: b64(p.mr, Uint8Array), idx: b64(p.idx, Uint32Array),
+    pivot: p.pivot, pitch: p.pitch, slide: p.slide, arc: p.arc, pos: b64(p.pos, Float32Array), nrm: b64(p.nrm, Float32Array), uv: b64(p.uv, Float32Array), col: b64(p.col, Uint8Array), mr: b64(p.mr, Uint8Array), idx: b64(p.idx, Uint32Array),
     gl: p.gl ? b64(p.gl, Uint8Array) : null,
   }]));
   // Brighten dark PBR textures for the game's simple lighting: one gamma for
@@ -253,6 +254,8 @@ for (const job of jobs) {
     tris += w.idx.length / 3;
     parts[name] = writePart(w, p.pivot, chunks, offset, !!res.atlas);
     if (p.pitch) parts[name].pitch = +p.pitch.toFixed(5);
+    if (p.slide) parts[name].slide = p.slide;
+    if (p.arc) parts[name].arc = +p.arc.toFixed(5);
   }
   let atlas = null;
   if (res.atlas) {
