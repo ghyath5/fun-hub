@@ -18,7 +18,7 @@
  */
 import { Container } from 'pixi.js';
 import { RENDER } from '../data/rules.js';
-import { CAMERA } from '../data/ui.js';
+import { CAMERA, READABILITY } from '../data/ui.js';
 
 const C = RENDER.cellPx;
 
@@ -76,7 +76,8 @@ export function createCamera(map, screenSize, opts = {}) {
   /** Rows shown at the default zoom: fewer on a small screen, so models stay big enough to read. */
   const defaultCells = () => (H < CAMERA.smallScreenPx ? CAMERA.defaultCellsVisibleSmall : CAMERA.defaultCellsVisible);
   /** Zoomed right out: up to CAMERA.maxCellsVisible rows, but no point showing far more than the whole map. */
-  const maxCells = () => Math.min(CAMERA.maxCellsVisible, Math.max(CAMERA.defaultCellsVisible, map.height * k + 2));
+  // On a small screen, never so far that a cell is a speck (READABILITY.minCellPx).
+  const maxCells = () => Math.max(defaultCells(), Math.min(CAMERA.maxCellsVisible, areaH() / READABILITY.minCellPx, Math.max(CAMERA.defaultCellsVisible, map.height * k + 2)));
   const minScale = () => areaH() / (maxCells() * C);
   const maxScale = () => areaH() / (CAMERA.minCellsVisible * C);
 

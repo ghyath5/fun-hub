@@ -21,6 +21,7 @@ const L = SIM.leptonsPerCell;
  *   flash: (cells: { x: number, y: number }[]) => void,
  *   onStructureGone: (id: number) => void,
  *   toast: (text: string, at?: { x: number, y: number }) => void,
+ *   threats?: ReturnType<typeof import('./threats.js').createThreats>,
  * }} ctx
  */
 export function wireGameEvents(ctx) {
@@ -58,11 +59,16 @@ export function wireGameEvents(ctx) {
     ev.on('damaged', (e) => {
       if (!mine(e.data)) return;
       const v = w.entities.get(e.data.id);
-      if (!v || (e.data.by && w.allied(w.entities.get(e.data.by)?.owner ?? -1, human))) return;
+      // Only an enemy's doing counts (not a friend's stray shot, nor neglect with no one behind it).
+      if (!v || !(e.data.from >= 0) || w.allied(e.data.from, human)) return;
       if (v.kind === 'structure') {
         const c = cellOf(v);
+        ctx.threats?.hit(c, 'base');
         if (alerts.raise('baseUnderAttack', c, area(c))) buzz(AUDIO.hapticBaseAttackMs);
-      } else if (v.harv) alerts.raise('harvesterUnderAttack', cellOf(v));
+      } else if (v.harv) {
+        ctx.threats?.hit(cellOf(v), 'harvester');
+        alerts.raise('harvesterUnderAttack', cellOf(v));
+      }
     }),
     ev.on('structureDestroyed', (e) => {
       ctx.onStructureGone(e.data.id);

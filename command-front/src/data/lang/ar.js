@@ -364,6 +364,8 @@ const ui = {
   'Low power': 'الطاقة منخفضة',
   'Silos needed': 'نحتاج إلى صوامع',
   'Base under attack': 'القاعدة تحت الهجوم',
+  show: 'اعرض المكان',
+  'Jump to the attack': 'انتقل إلى مكان الهجوم',
   'Harvester under attack': 'الحصادة تحت الهجوم',
   'Unit lost': 'خسرنا وحدة',
   'Structure lost': 'خسرنا مبنى',

@@ -15,6 +15,7 @@ import { PLAYER_COLORS } from '../data/factions.js';
 import { RENDER, SIM } from '../data/rules.js';
 import { drawPips } from '../render/healthPips.js';
 import { shakeOf } from '../render/shake.js';
+import { unitBoost } from '../render/readability.js';
 import { CELL, LIFT, ALTITUDE, SQUASH } from './view.js';
 
 const PX_PER_LEPTON = RENDER.cellPx / SIM.leptonsPerCell;
@@ -62,7 +63,10 @@ export function createUnits3D(lib, inst) {
   const base = new THREE.Matrix4();
   const rot = new THREE.Matrix4();
   const part = new THREE.Matrix4();
+  /** Model scale: a cell, times the unit's zoomed-out boost (set per unit). */
   const S = new THREE.Matrix4().makeScale(CELL, CELL, CELL);
+  /** The zoom of the last frame, for hit testing and effects between frames. */
+  let lastScale = 1;
 
   /** What a unit looks like to the viewer: a Spy shows enemies one of their own Riflemen (section 10). */
   function lookOf(/** @type {any} */ world, /** @type {any} */ e, /** @type {number} */ viewer) {
@@ -81,6 +85,8 @@ export function createUnits3D(lib, inst) {
     radiusOf: (type) => Math.max(5, lib.get(type).radius * CELL * 0.9),
     /** World-px height of a unit type. @param {string} type */
     heightOf: (type) => lib.get(type).height * CELL,
+    /** How much bigger than life a unit is drawn at the current zoom (readability.js). @param {any} e */
+    boostOf: (e) => unitBoost(UNITS[e.type].loco, CELL * lastScale),
     /**
      * @param {any} world @param {number} alpha  interpolation between ticks
      * @param {Set<number>} selected @param {number} viewScale
@@ -92,6 +98,7 @@ export function createUnits3D(lib, inst) {
       const now = performance.now();
       const dt = Math.min(100, now - lastFrame);
       lastFrame = now;
+      lastScale = viewScale;
       marks.clear();
       for (const e of world.entities.all()) {
         if (e.dead || e.kind !== 'unit' || e.inside || !visible(e)) continue;
@@ -104,6 +111,9 @@ export function createUnits3D(lib, inst) {
         const flying = d.loco === 'air' && !e.landed;
         const y = flying ? ALTITUDE : 0;
         const color = teamColor(look.color);
+        // Zoomed out on a small screen, drawn bigger than life so it still reads.
+        const boost = unitBoost(d.loco, CELL * viewScale);
+        S.makeScale(CELL * boost, CELL * boost, CELL * boost);
         // Submerged subs and disguised Mirage Tanks show see-through to their own side.
         const ghost = !!(e.submerged || (e.detect !== undefined && e.detect !== -1 && d.tags.includes('disguise')));
         let st = state.get(e.id);
@@ -167,8 +177,8 @@ export function createUnits3D(lib, inst) {
         const isSel = selected.has(e.id);
         const hurt = e.hp < e.maxHp;
         if (!isSel && !hurt && e.id !== hover) continue;
-        const r = Math.max(5, def.radius * CELL * 0.9);
-        const top = z - (y + def.height * CELL) * LIFT;
+        const r = Math.max(5, def.radius * CELL * 0.9 * boost);
+        const top = z - (y + def.height * CELL * boost) * LIFT;
         if (isSel) {
           const w = 1.5 / viewScale;
           if (d.loco === 'foot') {

@@ -38,6 +38,7 @@ const mapLabel = (name) => name.replace(/^[A-Za-z][A-Za-z ]*?(?= \d|$)/, (w) => 
  * @property {{ x: number, y: number, options: { id: string, label: string }[] } | null} radial
  * @property {string | null} targetMode   attackMove | sell | repair | rally | place | walls
  * @property {number} alertCount
+ * @property {boolean} underAttack
  * @property {ReturnType<typeof import('./model.js').sidebarModel>} sidebar
  * @property {Record<string, string>} icons
  * @property {import('../sim/catalog.js').LineId} tab
@@ -153,7 +154,7 @@ function Hud({ store, actions }) {
       <span class="spacer"></span>
       <button class="icon-btn zoom-btn" aria-label=${t('Zoom out')} onClick=${() => actions.zoom(-1)}>−</button>
       <button class="icon-btn zoom-btn" aria-label=${t('Zoom in')} onClick=${() => actions.zoom(1)}>+</button>
-      <button class="icon-btn" aria-label=${t('Jump to recent alerts')} disabled=${!s.alertCount} onClick=${actions.alertJump}>!</button>
+      <button class=${`icon-btn${s.underAttack ? ' alarm' : ''}`} aria-label=${t(s.underAttack ? 'Jump to the attack' : 'Jump to recent alerts')} disabled=${!s.alertCount && !s.underAttack} onClick=${actions.alertJump}>!</button>
       <button class="icon-btn" aria-label=${t('Pause')} onClick=${actions.pause}>❚❚</button>
     </header>
     <${Toasts} toasts=${s.toasts} onJump=${actions.jump} />

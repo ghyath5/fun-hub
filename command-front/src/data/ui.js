@@ -37,6 +37,37 @@ export const CAMERA = Object.freeze({
   mouseDragPx: 6,              // a right or middle drag past this pans instead of clicking
 });
 
+/**
+ * Seeing the battle on a small screen (src/render/readability.js). As the view
+ * zooms out, units are drawn bigger than life (up to maxBoost) once a cell is
+ * smaller than comfortCellPx on screen, and team-coloured discs under units
+ * and plates under buildings fade in between aidFromCellPx and aidFullCellPx.
+ * Zoomed right out, a cell never gets smaller than minCellPx.
+ */
+export const READABILITY = Object.freeze({
+  minCellPx: 9,
+  comfortCellPx: { infantry: 48, vehicle: 34, aircraft: 34 },
+  maxBoost: { infantry: 2.2, vehicle: 1.8, aircraft: 1.8 },
+  /** How fast units grow as cells shrink (1: keep their screen size; less: grow more gently). */
+  boostPower: 0.75,
+  aidFromCellPx: 24,
+  aidFullCellPx: 13,
+});
+
+/**
+ * Where the base is being hit (src/ui/threats.js): hits within mergeCells of a
+ * spot join it; a spot stays marked holdMs after its last hit; the minimap
+ * pings it every pingEveryMs; at most maxArrows arrows point off screen.
+ */
+export const THREATS = Object.freeze({
+  mergeCells: 6,
+  holdMs: 8000,
+  pingEveryMs: 1200,
+  maxArrows: 3,
+  /** Arrows sit this far inside the edge of the play area, px: further from the sides, where the group buttons are. */
+  arrowInsetPx: { x: 64, y: 32 },
+});
+
 export const LAYOUT = Object.freeze({
   referenceWidth: 640,
   referenceHeight: 360,

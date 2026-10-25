@@ -36,6 +36,8 @@ import { createNature3D } from './nature3d.js';
 import { makeIcons3D } from './icons3d.js';
 import { SQUASH, LIFT, RISE, ALTITUDE } from './view.js';
 import { disposeMaterials } from './material.js';
+import { createTeamMarks } from '../render/teamMarks.js';
+import { createThreatRings } from '../render/threatRings.js';
 
 /** @typedef {import('../types.js').MapData} MapData */
 
@@ -101,7 +103,7 @@ export async function createRenderer3D(host, map, opts = {}) {
   const muzzle = (/** @type {any} */ e) => {
     if (e.kind === 'structure') return structures.heightOf(e.faction ? `${e.type}@${e.faction}` : e.type) * 0.8;
     const flying = UNITS[e.type]?.loco === 'air' && !e.landed;
-    return (flying ? ALTITUDE : 0) + units.heightOf(e.type) * 0.6;
+    return (flying ? ALTITUDE : 0) + units.heightOf(e.type) * units.boostOf(e) * 0.6;
   };
   const combat = createCombatFx({ lift: (e) => muzzle(e) * LIFT });
   // Shots also kick the shooter's barrel back (cosmetic, read from the event only).
@@ -118,8 +120,11 @@ export async function createRenderer3D(host, map, opts = {}) {
   const cursor = new Graphics();
   const boxG = new Graphics();
   const minesG = new Graphics();
-  camera.ground.addChild(terrain.layer, combat.ground);
-  overlay.addChild(minesG, structures.smoke, combat.layer, structures.marks, units.marks, structures.flags, fx.layer);
+  // Team discs and plates (zoomed out) lie on the ground, under the models.
+  const team = createTeamMarks();
+  camera.ground.addChild(terrain.layer, combat.ground, team.layer);
+  const threats = createThreatRings();
+  overlay.addChild(minesG, structures.smoke, combat.layer, structures.marks, units.marks, structures.flags, threats.layer, fx.layer);
   top.addChild(placement.layer, cursor, boxG);
   camera.view.addChild(overlay, shroud.layer, top);
   let frame = 0;
@@ -212,7 +217,7 @@ export async function createRenderer3D(host, map, opts = {}) {
       const s = camera.scale * RISE;
       if (e.kind === 'structure') return structures.heightOf(e.faction ? `${e.type}@${e.faction}` : e.type) * s;
       const flying = UNITS[e.type]?.loco === 'air' && !e.landed;
-      return ((flying ? ALTITUDE : 0) + units.heightOf(e.type) * 0.5) * s;
+      return ((flying ? ALTITUDE : 0) + units.heightOf(e.type) * units.boostOf(e) * 0.5) * s;
     },
     /** Draw calls, triangles and GPU memory of the last 3D frame (perf overlay, tests). */
     stats() {
@@ -232,7 +237,7 @@ export async function createRenderer3D(host, map, opts = {}) {
     /**
      * Per-frame work before drawing.
      * @param {any} world @param {number} alpha @param {Set<number>} selected
-     * @param {{ selectedStructure?: number, placement?: any, viewer?: number, hover?: number }} [o]
+     * @param {{ selectedStructure?: number, placement?: any, viewer?: number, hover?: number, threats?: readonly any[] }} [o]  threats: where the base is under attack (ui/threats.js)
      */
     update(world, alpha, selected, o = {}) {
       terrain.update();
@@ -252,6 +257,7 @@ export async function createRenderer3D(host, map, opts = {}) {
       placement.draw(p, scale);
       if (p?.type && !p.wall) structures.ghost(p.type, opts.faction ?? '', p.cx, p.cy, p.tint);
       units.sync(world, alpha, selected, scale, see, viewer, vw, o.hover ?? 0);
+      team.draw(world, alpha, scale, see, viewer, cells);
       // Scenery: the cells on screen plus those just below it, whose trees reach up into view.
       nature.sync(world, { ...cells, y1: Math.min(map.height - 1, cells.y1 + 2) }, viewer);
       inst.end();
@@ -266,6 +272,7 @@ export async function createRenderer3D(host, map, opts = {}) {
         }
       }
       combat.update(world, scale);
+      threats.draw(o.threats ?? [], scale, performance.now());
       fx.update(scale);
       scene.follow(camera.origin, scale, app.screen.width, app.screen.height, vw);
     },

@@ -17,6 +17,8 @@ import { createShroudLayer } from './shroud.js';
 import { makeIcons } from './icons.js';
 import { RENDER } from '../data/rules.js';
 import { PERF } from '../data/ui.js';
+import { createTeamMarks } from './teamMarks.js';
+import { createThreatRings } from './threatRings.js';
 
 /** @typedef {import('../types.js').MapData} MapData */
 
@@ -92,9 +94,11 @@ async function createRenderer2D(host, map, opts = {}) {
   const boxG = new Graphics();
   /** Own and allied mines (enemies never see them), and crates. */
   const minesG = new Graphics();
-  overlay.addChild(minesG, structures.smoke, combat.layer, structures.marks, units.marks, fx.layer);
+  const threats = createThreatRings();
+  overlay.addChild(minesG, structures.smoke, combat.layer, structures.marks, units.marks, threats.layer, fx.layer);
   top.addChild(placement.layer, cursor, boxG);
-  camera.view.addChild(terrain.layer, combat.ground, structures.layer, units.layer, overlay, shroud.layer, top);
+  const team = createTeamMarks();
+  camera.view.addChild(terrain.layer, combat.ground, team.layer, structures.layer, units.layer, overlay, shroud.layer, top);
   let frame = 0;
 
   /** Cells currently on screen (with a margin). */
@@ -161,7 +165,7 @@ async function createRenderer2D(host, map, opts = {}) {
     /**
      * Per-frame work before PixiJS draws.
      * @param {any} world @param {number} alpha @param {Set<number>} selected
-     * @param {{ selectedStructure?: number, placement?: any, viewer?: number, hover?: number }} [opts]  viewer: whose eyes the map is drawn through; hover: entity under the mouse
+     * @param {{ selectedStructure?: number, placement?: any, viewer?: number, hover?: number, threats?: readonly any[] }} [opts]  viewer: whose eyes the map is drawn through; hover: entity under the mouse; threats: where the base is under attack (ui/threats.js)
      */
     update(world, alpha, selected, opts = {}) {
       terrain.update();
@@ -176,6 +180,7 @@ async function createRenderer2D(host, map, opts = {}) {
       } : undefined, opts.hover ?? 0);
       placement.draw(opts.placement ?? null, scale);
       units.sync(world, alpha, selected, scale, see ?? (() => true), viewer, opts.hover ?? 0);
+      team.draw(world, alpha, scale, see ?? (() => true), viewer, visibleCells());
       minesG.clear();
       for (const c of world.crates) {
         if (viewer >= 0 && !world.isExplored(viewer, c.x, c.y)) continue;
@@ -197,6 +202,7 @@ async function createRenderer2D(host, map, opts = {}) {
         }
       }
       combat.update(world, scale);
+      threats.draw(opts.threats ?? [], scale, performance.now());
       fx.update(scale);
     },
   };
