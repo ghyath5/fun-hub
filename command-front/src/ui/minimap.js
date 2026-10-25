@@ -36,7 +36,7 @@ export function hasRadar(w, pid) {
  * @param {HTMLCanvasElement} canvas
  * @param {any} w @param {number} viewer
  * @param {{ x0: number, y0: number, x1: number, y1: number }} cam  Camera rect in cells
- * @param {{ x: number, y: number, at: number }[]} pings
+ * @param {{ x: number, y: number, at: number, attack?: boolean }[]} pings  attack: the base under attack (red)
  */
 export function drawMinimap(canvas, w, viewer, cam, pings) {
   const m = w.map;
@@ -81,7 +81,8 @@ export function drawMinimap(canvas, w, viewer, cam, pings) {
   for (const p of pings) {
     const f = (now - p.at) / PING_MS;
     if (f < 0 || f > 1) continue;
-    g.strokeStyle = `rgba(224,164,58,${1 - f})`;
+    g.strokeStyle = p.attack ? `rgba(255,59,47,${1 - f})` : `rgba(224,164,58,${1 - f})`;
+    g.lineWidth = p.attack ? 2 : 1;
     g.beginPath();
     g.arc((p.x + 0.5) * k, (p.y + 0.5) * k, (2 + f * 8) * k, 0, Math.PI * 2);
     g.stroke();

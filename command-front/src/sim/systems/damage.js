@@ -57,7 +57,7 @@ function applyDamage(w) {
     if (v.kind === 'structure' && v.owner >= 0 && (structureDef(v.type).power ?? 0) > 0) w.players[v.owner].powerDirty = true;
     if (isInfantryEntity(v)) v.proneUntil = w.tick + PRONE_TICKS;
     if (r.attacker && r.owner >= 0 && !w.allied(r.owner, v.owner)) v.lastAttacker = r.attacker;
-    w.events.emit('damaged', w.tick, { id: v.id, amount: r.amount, by: r.attacker, owner: v.owner });
+    w.events.emit('damaged', w.tick, { id: v.id, amount: r.amount, by: r.attacker, owner: v.owner, from: r.owner });
   }
   const dead = [...killers.keys()].sort((a, b) => a - b);
   for (const id of dead) {

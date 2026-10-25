@@ -12,6 +12,7 @@ import { PLAYER_COLORS } from '../data/factions.js';
 import { RENDER, SIM } from '../data/rules.js';
 import { drawPips } from './healthPips.js';
 import { shakeOf } from './shake.js';
+import { unitBoost } from './readability.js';
 
 const PX_PER_LEPTON = RENDER.cellPx / SIM.leptonsPerCell;
 const TAU = Math.PI * 2;
@@ -161,11 +162,14 @@ export function createUnitLayer(renderer, art = null) {
         // A Terror Drone inside: the whole vehicle rattles.
         const shake = shakeOf(e, now);
         v.root.position.set(x + shake.x * RENDER.cellPx, y + shake.y * RENDER.cellPx);
-        // Aircraft in flight sit above their shadow and over everything on the ground.
+        // Zoomed out on a small screen, drawn bigger than life so it still reads.
+        const boost = unitBoost(UNITS[e.type].loco, RENDER.cellPx * viewScale);
+        v.root.scale.set(boost);
+        // Aircraft in flight sit above their shadow and over everything on the ground (at their true height).
         const flying = UNITS[e.type].loco === 'air' && !e.landed;
         const lift = flying ? ALTITUDE_PX : 0;
-        v.body.position.y = -lift;
-        if (v.turret) v.turret.position.y = -lift;
+        v.body.position.y = -lift / boost;
+        if (v.turret) v.turret.position.y = -lift / boost;
         v.root.zIndex = y + (flying ? 10000 : 0);
         const frames = framesFor(look.type);
         v.body.rotation = rotationOf(e.facing, frames) + shake.twist;
@@ -179,7 +183,7 @@ export function createUnitLayer(renderer, art = null) {
         // Rotors turn while flying and idle down once landed.
         for (const r of v.rotors) r.rotation += dt * ROTOR_SPEED * (flying ? 1 : 0.15);
 
-        const r = textures.get(look.type)?.radius ?? 8;
+        const r = (textures.get(look.type)?.radius ?? 8) * boost;
         const isSel = selected.has(e.id);
         const hurt = e.hp < e.maxHp;
         if (isSel) {

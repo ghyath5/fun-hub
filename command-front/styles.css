@@ -518,3 +518,22 @@ html.lang-ar .bicon-cost, html.lang-ar .bicon-hold, html.lang-ar .tab { font-siz
 .keys-help dt { color: var(--accent); font-weight: 600; white-space: nowrap; }
 .keys-help dd { margin: 0; color: var(--ink); }
 @media (hover: none), (pointer: coarse) { .keys-help { display: none; } }
+
+/* Where the base is under attack (src/ui/threatArrows.js): arrows at the edge of the view point to fights off screen. */
+.threat-arrows { position: absolute; inset: 0; pointer-events: none; z-index: 11; overflow: hidden; }
+.threat-arrow { position: absolute; left: 0; top: 0; width: 44px; height: 44px; padding: 0; border-radius: 50%;
+  display: grid; place-items: center; pointer-events: auto; cursor: pointer;
+  background: rgba(200, 36, 26, .9); border: 2px solid #ffd7cc; color: #fff; font: 800 22px var(--font);
+  box-shadow: 0 0 10px rgba(255, 59, 47, .8); animation: threat-pulse 1s ease-in-out infinite; }
+.threat-arrow.harvester { background: rgba(206, 124, 26, .92); border-color: #ffe6c2; box-shadow: 0 0 10px rgba(255, 166, 58, .8); }
+.threat-arrow[hidden] { display: none; }
+.threat-arrow b { position: relative; line-height: 1; }
+.ta-head { position: absolute; inset: 0; }
+.ta-head::after { content: ''; position: absolute; left: 100%; top: 50%; margin: -10px 0 0 -1px;
+  border-left: 15px solid #ff3b2f; border-top: 10px solid transparent; border-bottom: 10px solid transparent;
+  filter: drop-shadow(0 0 3px rgba(0, 0, 0, .6)); }
+.threat-arrow.harvester .ta-head::after { border-left-color: #ffa63a; }
+@keyframes threat-pulse { 50% { scale: 1.12; box-shadow: 0 0 22px rgba(255, 59, 47, 1); } }
+.icon-btn.alarm { background: var(--danger); color: #fff; border-color: #ffd7cc; animation: alarm-pulse .9s ease-in-out infinite; }
+@keyframes alarm-pulse { 50% { box-shadow: 0 0 14px rgba(255, 59, 47, .95); } }
+@media (prefers-reduced-motion: reduce) { .threat-arrow, .icon-btn.alarm { animation: none; } }

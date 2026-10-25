@@ -29,6 +29,9 @@ import { t, nameOf } from '../lib/i18n.js';
 import { drawMinimap, hasRadar } from '../ui/minimap.js';
 import { isTransport } from '../sim/transports.js';
 import { isMineLayer } from '../sim/specials.js';
+import { createThreats } from '../ui/threats.js';
+import { createThreatArrows } from '../ui/threatArrows.js';
+import { THREATS } from '../data/ui.js';
 import { isAircraft } from '../sim/air.js';
 import { GAME_SPEEDS, SIM, RENDER, PRODUCTION } from '../data/rules.js';
 import { GESTURE, LAYOUT } from '../data/ui.js';
@@ -112,6 +115,8 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
     /** Lay Mines: cells queued and what they will cost. @type {{ queued: number, cost: number } | null} */
     minesCount: null,
     alertCount: 0,
+    /** The base is being hit right now (the "!" button glows and jumps there). */
+    underAttack: false,
     sidebar: sidebarModel(world, human),
     icons: /** @type {Record<string, string>} */ ({}),
     tab: /** @type {import('../sim/catalog.js').LineId} */ ('structures'),
@@ -149,8 +154,12 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
   let watching = false;
   /** The minimap's canvas while it is shown with radar. @type {HTMLCanvasElement | null} */
   let minimapCanvas = null;
-  /** Alert spots pulsing on the minimap. @type {{ x: number, y: number, at: number }[]} */
+  /** Alert spots pulsing on the minimap. @type {{ x: number, y: number, at: number, attack?: boolean }[]} */
   const pings = [];
+  /** Where the base is under attack (rings, edge arrows, minimap pings, the "!" button). */
+  const threats = createThreats();
+  /** When each attack spot last pinged the minimap. @type {Map<number, number>} */
+  const threatPinged = new Map();
   let lastAlpha = 0;
 
   /** Every player command goes through here: straight into the sim, or into the lockstep on two phones. @param {any} cmd */
@@ -397,7 +406,13 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
     radialPick: (id) => intents.radialPick(id),
     radialClose: () => store.set({ radial: null }),
     cancelTarget: () => { enterTarget(null); modes.cancel(); },
-    alertJump: () => { const p = alerts.nextPlace(); if (p) jump(p); },
+    // While the base is under attack, the fights come first (each press the next one), then recent alerts.
+    alertJump: () => {
+      const live = threats.active();
+      if (live.length) { jump(live[threatCursor++ % live.length]); return; }
+      const p = alerts.nextPlace();
+      if (p) jump(p);
+    },
     zoom: (dir) => cam.zoomStep(dir),
     build: buildActs,
     structure: structureActs,
@@ -438,7 +453,24 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
     flash: (cells) => view.flash(cells),
     onStructureGone: (id) => { if (id === selectedStructure) selectStructure(0); },
     toast: (text, at) => toaster.show(text, at),
+    threats,
   });
+  const threatArrows = createThreatArrows(worldEl, (cell) => jump(cell));
+  let threatCursor = 0;
+  /** Attack spots this frame, and their minimap pings. */
+  const watchThreats = () => {
+    const live = threats.active();
+    const now = performance.now();
+    for (const s of live) {
+      if (now - (threatPinged.get(s.id) ?? -Infinity) < THREATS.pingEveryMs) continue;
+      threatPinged.set(s.id, now);
+      pings.push({ x: s.x, y: s.y, at: now, attack: true });
+      if (pings.length > 8) pings.shift();
+    }
+    if (threatPinged.size > 16) for (const id of threatPinged.keys()) if (!live.some((s) => s.id === id)) threatPinged.delete(id);
+    threatArrows.update(live, cam.area, (c) => cam.toScreen((c.x + 0.5) * C, (c.y + 0.5) * C));
+    return live;
+  };
 
   const offEnd = [
     ...(net ? [net.onCard((link) => store.set({ link }))] : []),
@@ -534,6 +566,8 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
       Object.assign(patch, { credits: eco.credits, powerProduced: eco.powerProduced, powerDrain: eco.powerDrain });
     }
     if (me.power.low) alerts.raise('lowPower');
+    const attacked = threats.active().some((s) => s.kind === 'base');
+    if (attacked !== cur.underAttack) patch.underAttack = attacked;
     const sb = sidebarModel(world, human);
     if (!sameShape(sb, cur.sidebar)) patch.sidebar = sb;
     if (selectedStructure) {
@@ -615,7 +649,7 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
       const overlay = modes.overlay(tint, view.visibleCells());
       // The world moves under a still mouse: re-read what is under it now and then.
       if (pointer && frameNo % 4 === 0) refreshHover();
-      view.update(world, alpha, selection.ids, { selectedStructure, placement: overlay, viewer: watching ? -1 : human, hover: hoverId });
+      view.update(world, alpha, selection.ids, { selectedStructure, placement: overlay, viewer: watching ? -1 : human, hover: hoverId, threats: watchThreats() });
       placeControls(overlay);
       world.events.flush();
       battle.flush();
@@ -745,6 +779,7 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
       document.removeEventListener('visibilitychange', onVisibility);
       window.visualViewport?.removeEventListener('resize', onViewport);
       hud.unmount();
+      threatArrows.destroy();
       view.destroy();
     },
   };
