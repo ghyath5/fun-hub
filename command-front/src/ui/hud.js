@@ -167,7 +167,7 @@ function Hud({ store, actions }) {
         rallyMode=${s.targetMode === 'rally'} act=${actions.structure} />`}
     <${PlaceControls} at=${s.placeAt} place=${actions.place} cancel=${actions.cancelTarget} />
     <${InfoCard} card=${s.card} />
-    <${TargetBanner} mode=${s.targetMode} cancel=${actions.cancelTarget} />
+    <${TargetBanner} mode=${s.targetMode} count=${s.minesCount} cancel=${actions.cancelTarget} />
     <${RadialMenu} menu=${s.radial} pick=${actions.radialPick} close=${actions.radialClose} />
     ${s.hash ? html`<div class="debug-hash">${s.hash} · ${s.cellsVisible.toFixed(1)} cells</div>` : null}
     ${s.hint ? html`<button class="hint panel" onClick=${actions.dismissHint}>${t(s.hint)}</button>` : null}

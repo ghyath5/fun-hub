@@ -30,6 +30,7 @@ import { step } from '../sim/world.js';
 import { GAME_SPEEDS } from '../data/rules.js';
 import { FACTIONS } from '../data/factions.js';
 import { t } from '../lib/i18n.js';
+import { track } from '../lib/progress.js';
 import { showScreen, SetupScreen, EndScreen } from '../ui/screens.js';
 import { TwoPhoneMenu, HostPair, JoinPair, DiagPanel, GuestLobby } from '../ui/pairScreens.js';
 
@@ -134,7 +135,7 @@ export function createTwoPhones(app) {
       scan: (/** @type {boolean} */ on) => { scanning = on; redraw(); },
       code: async (/** @type {string} */ code) => {
         status = 'Linking…'; scanning = false; redraw();
-        try { await room?.accept(code); } catch (e) { status = t('That reply code did not fit: {why}', { why: /** @type {any} */ (e)?.message ?? e }); redraw(); }
+        try { await track(Promise.resolve(room?.accept(code))); } catch (e) { status = t('That reply code did not fit: {why}', { why: /** @type {any} */ (e)?.message ?? e }); redraw(); }
       },
       back: open,
       diag: openDiag,
@@ -142,7 +143,7 @@ export function createTwoPhones(app) {
     }} />`);
     redraw();
     try {
-      const r = await openRoom('host');
+      const r = await track(openRoom('host'));
       if (phase !== 'pairing') { r.close(); return; }
       room = r;
       watchRoom(r);
@@ -150,7 +151,7 @@ export function createTwoPhones(app) {
         if (s === 'open' && phase === 'pairing') hostLobby();
         else if (s === 'failed' && phase === 'pairing') { status = 'Could not reach the other phone — open Diagnostics.'; redraw(); }
       }));
-      invite = await r.invite();
+      invite = await track(r.invite());
       status = 'Waiting for the other phone…';
       redraw();
     } catch (e) {
@@ -171,7 +172,7 @@ export function createTwoPhones(app) {
       if (!room || stage === 'reply') return;
       stage = 'reply'; status = 'Making the reply code…'; redraw();
       try {
-        reply = await room.answer(c);
+        reply = await track(room.answer(c));
         status = 'Waiting for the host to scan it…';
       } catch (e) {
         stage = 'scan'; status = t('That invite did not fit: {why}', { why: /** @type {any} */ (e)?.message ?? e });
@@ -193,7 +194,7 @@ export function createTwoPhones(app) {
     }} />`);
     redraw();
     try {
-      const r = await openRoom('guest');
+      const r = await track(openRoom('guest'));
       if (phase !== 'pairing') { r.close(); return; }
       room = r;
       watchRoom(r);
@@ -239,7 +240,7 @@ export function createTwoPhones(app) {
         onChange=${(/** @type {SetupForm} */ f) => { form = normaliseForm(f, maxPlayersOf(f, maps)); publish(); redraw(); }}
         onStart=${async () => {
           if (!form || r.state !== 'open') return;
-          const chosen = await mapForForm(form);
+          const chosen = await track(mapForForm(form));
           if (!chosen.map) { error = chosen.error; redraw(); return; }
           form = normaliseForm(form, chosen.map.maxPlayers);
           const seed = chosen.seed ?? Date.now() % 1e9;
@@ -278,7 +279,7 @@ export function createTwoPhones(app) {
   /** Start (or restart) the match on this phone. @param {SetupForm} f @param {number} seed @param {any} map null: resolve from the form */
   async function launch(f, seed, map) {
     if (!room) return;
-    const resolved = map ?? (await mapForForm(f)).map;
+    const resolved = map ?? (await track(mapForForm(f))).map;
     current = { form: f, seed };
     await play(startMatch(f, resolved, seed));
   }

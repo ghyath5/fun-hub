@@ -22,6 +22,7 @@ import { createTwoPhones } from './twoPhones.js';
 import { inviteInUrl } from '../net/link.js';
 import { autoFullscreen, enterFullscreen, needsHomeScreen } from '../ui/fullscreen.js';
 import { setLanguages, browserLang, textLang, voiceLang, t, list as listOf } from '../lib/i18n.js';
+import { track } from '../lib/progress.js';
 
 const HUMAN = 0;
 const AUTOSAVE_MS = VICTORY.autosaveSeconds * 1000;
@@ -73,7 +74,7 @@ export async function startApp({ hudEl, worldEl, screensEl, debug }) {
 
   // ---- Screens.
   const menu = async () => {
-    const saves = await listSaves().catch(() => []);
+    const saves = await track(listSaves()).catch(() => []);
     showScreen(screensEl, html`<${MainMenu} hasAutosave=${saves.some((s) => s.slot === 'auto')} homeScreenHint=${needsHomeScreen()}
       act=${{ skirmish: setup, twoPhones: () => twoPhones.open(), resume: () => loadSlot('auto'), load: () => slots('load', menu), settings: () => settingsScreen(menu), credits: () => showScreen(screensEl, html`<${CreditsScreen} onBack=${menu} />`) }} />`);
   };
@@ -91,7 +92,7 @@ export async function startApp({ hudEl, worldEl, screensEl, debug }) {
   const settingsScreen = async (back) => {
     /** @type {import('../ui/screens.js').SoundsPanel} */
     const sounds = {
-      names: await customSounds.names(),
+      names: await track(customSounds.names()),
       replaced: customSounds.replaced,
       count: customSounds.count,
       note: soundsNote,
@@ -115,7 +116,7 @@ export async function startApp({ hudEl, worldEl, screensEl, debug }) {
 
   /** Save or load slots. @param {'save' | 'load'} mode @param {() => void} back */
   const slots = async (mode, back) => {
-    const saved = await listSaves().catch(() => []);
+    const saved = await track(listSaves()).catch(() => []);
     const list = ['auto', '1', '2', '3']
       .filter((slot) => mode === 'load' || slot !== 'auto')
       .map((slot) => {
@@ -162,7 +163,7 @@ export async function startApp({ hudEl, worldEl, screensEl, debug }) {
   /** @param {string} slot */
   const loadSlot = async (slot) => {
     try {
-      const data = await loadGame(slot);
+      const data = await track(loadGame(slot));
       if (!data) return;
       const world = restore(data.snapshot);
       stopSession();
@@ -175,7 +176,7 @@ export async function startApp({ hudEl, worldEl, screensEl, debug }) {
   };
 
   async function startFromForm() {
-    const chosen = await mapForForm(form);
+    const chosen = await track(mapForForm(form));
     setupError = chosen.error;
     if (!chosen.map) { setup(); return; }
     const map = chosen.map;
@@ -203,7 +204,8 @@ export async function startApp({ hudEl, worldEl, screensEl, debug }) {
     backGuard.arm();
     meta = m;
     const human = m.me ?? HUMAN; // the player this phone controls
-    session = await createSession({
+    // The renderer, 3D models and art load here: the loading line runs until the match is on screen.
+    session = await track(createSession({
       world, human, hudEl, worldEl, audio, speed: m.speed ?? 'normal', debug, hint, leftHanded: settings.leftHanded, net, edgePan: settings.edgePan !== false,
       graphics: settings.graphics ?? '3d',
       hooks: online ?? {
@@ -214,7 +216,7 @@ export async function startApp({ hudEl, worldEl, screensEl, debug }) {
         ended: (/** @type {any} */ result) => ended(result),
         speedChanged: (/** @type {string} */ s) => { meta = { ...meta, speed: s }; },
       },
-    });
+    }));
     if (hint) {
       // First match: centre on the MCV.
       const mcv = world.entities.all().find((e) => e.owner === HUMAN && e.type === 'mcv');

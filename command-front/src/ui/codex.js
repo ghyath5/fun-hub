@@ -181,7 +181,9 @@ export function codexEntry(type, faction, price) {
   const d = /** @type {any} */ (unit ?? STRUCTURES[type]);
   if (!d) return null;
   const text = codexOf(type, codexText(type));
-  const weapons = (unit ? unit.weapons : d.weapon ? [d.weapon] : []).map((/** @type {string} */ id) => WEAPONS[id]);
+  // A side's own arms (the Union's War Miner) show for that side.
+  const unitWeapons = unit ? unit.armedAs?.[/** @type {'coalition' | 'union'} */ (faction)]?.weapons ?? unit.weapons : null;
+  const weapons = (unitWeapons ?? (d.weapon ? [d.weapon] : [])).map((/** @type {string} */ id) => WEAPONS[id]);
   const range = Math.max(0, ...weapons.filter((w) => w.damage).map((w) => w.range));
   const cost = price ?? d.cost;
   /** @type {Stat[]} */

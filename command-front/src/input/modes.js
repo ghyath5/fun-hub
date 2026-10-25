@@ -104,6 +104,8 @@ export function createModes(ctx) {
     cancel() { set(null); },
     /** Lay Mines: taps and drags queue cells for the selected Mine Layers. @param {number[]} ids */
     mines(ids) { set({ kind: 'mines', ids, cells: [] }); },
+    /** Lay Mines: cells queued and what they will cost, for the banner; null in any other mode. */
+    minesCount() { return mode?.kind === 'mines' ? { queued: mode.cells.length, cost: mode.cells.length * SPECIALS.mineCost } : null; },
     /** Aim a ready support power. @param {string} power */
     power(power) { set({ kind: 'power', power, unit: 0, at: null, id: 0 }); },
     /** Desktop: the ghost follows the mouse while no button is held. @param {number} sx @param {number} sy */

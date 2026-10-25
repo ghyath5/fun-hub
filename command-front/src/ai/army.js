@@ -14,6 +14,7 @@ import { canAttack } from '../sim/targeting.js';
 import { SCOUTS, MIN_WAVE } from './buildOrders.js';
 import { baseCentre } from './placement.js';
 import { ticks, isqrt } from '../core/fixed.js';
+import { spiral } from '../sim/nav.js';
 
 /** @typedef {import('../sim/world.js').World} World */
 /** @typedef {ReturnType<typeof import('./brain.js').createAiState>} AiState */
@@ -27,10 +28,46 @@ const tags = (/** @type {any} */ u) => UNITS[u.type].tags;
 const UNIT_COMMANDS = new Set(['move', 'attackMove', 'attack', 'enter', 'depot', 'deploy', 'guardArea']);
 const NON_ARMY = ['harvester', 'mcv', 'engineer', 'spy', 'thief', 'mineLayer', 'support', 'transport'];
 
-/** Combat units the AI can send anywhere. @param {World} w @param {number} pid */
+const isShip = (/** @type {any} */ u) => UNITS[u.type].loco === 'float';
+
+/** Combat units the AI can send anywhere on land or in the air. @param {World} w @param {number} pid */
 export function armyOf(w, pid) {
   return w.entities.all().filter((u) => u.kind === 'unit' && !u.dead && !u.inside && u.owner === pid
-    && u.weapons.length > 0 && !tags(u).some((t) => NON_ARMY.includes(t)) && !tags(u).includes('medic'));
+    && u.weapons.length > 0 && !tags(u).some((t) => NON_ARMY.includes(t)) && !tags(u).includes('medic') && !isShip(u));
+}
+
+/** Warships (not transports). @param {World} w @param {number} pid */
+export function fleetOf(w, pid) {
+  return w.entities.all().filter((u) => u.kind === 'unit' && !u.dead && u.owner === pid && isShip(u) && u.weapons.length > 0);
+}
+
+/** Fewest warships worth sending out together. */
+const MIN_FLEET = 3;
+/** How far round the target the fleet looks for water it can reach (cells). */
+const COAST_SEARCH = 24;
+
+/**
+ * The navy: once enough warships are idle, they sail together to the water
+ * nearest what the next attack aims at and fight there (ships shell the
+ * coast, submarines hunt the enemy's ships).
+ * @param {World} w @param {AiState} ai
+ */
+function fleet(w, ai) {
+  const ships = fleetOf(w, ai.pid);
+  const idle = ships.filter((u) => !u.task && !u.order && !u.next);
+  if (idle.length < Math.min(MIN_FLEET, ai.cfg.fleetSize) || idle.length === 0) return;
+  const target = chooseTarget(w, ai);
+  if (!target) return;
+  const at = idle[0];
+  const sea = w.nav.component('float', at.cx, at.cy);
+  for (const [x, y] of spiral(target.x, target.y, COAST_SEARCH)) {
+    if (x < 0 || y < 0 || x >= w.map.width || y >= w.map.height) continue;
+    if (w.nav.component('float', x, y) !== sea) continue;
+    // Already there: nothing to do until something moves.
+    if (idle.every((u) => dist2(cellOfUnit(u), { x, y }) <= 16)) return;
+    issue(w, ai, 'attackMove', idle.map((u) => u.id), { x, y });
+    return;
+  }
 }
 
 /** @param {World} w @param {AiState} ai @param {string} type @param {number[]} ids @param {any} target */
@@ -208,7 +245,8 @@ function micro(w, ai, army) {
     for (const u of army) {
       if (u.task?.type === 'depot') continue;
       if (!['wheel', 'track'].includes(UNITS[u.type].loco)) continue;
-      if (u.hp * 100 < u.maxHp * Math.round(AI.shared.retreatHpFraction * 100)) issue(w, ai, 'depot', [u.id], { id: depot.id });
+      // Badly hurt, or a Terror Drone inside (only a depot gets it out).
+      if (u.infested || u.hp * 100 < u.maxHp * Math.round(AI.shared.retreatHpFraction * 100)) issue(w, ai, 'depot', [u.id], { id: depot.id });
     }
   }
   if (ai.difficulty !== 'hard' || ai.wave?.stage !== 'attack') return;
@@ -357,4 +395,5 @@ export function thinkArmy(w, ai, baseGone) {
   airStrikes(w, ai, army);
   captures(w, ai);
   powers(w, ai, army);
+  fleet(w, ai);
 }

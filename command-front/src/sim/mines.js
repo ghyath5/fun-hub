@@ -1,7 +1,8 @@
 // @ts-check
 /**
  * Mines (section 10): laid by Mine Layers, one per cell, as many as a
- * player likes (SPECIALS.minesMaxPerPlayer). Invisible to enemies, immune to
+ * player likes (SPECIALS.minesMaxPerPlayer), each paid for as it goes down
+ * (SPECIALS.mineCost). Invisible to enemies, immune to
  * damage, never blocking paths. Own and allied units never trigger them; an
  * enemy vehicle sets off an anti-tank mine, enemy infantry an anti-personnel
  * one. Detonations go through the normal impact rules (system 8's `detonate`).
@@ -11,6 +12,7 @@ import { SPECIALS, SIM } from '../data/rules.js';
 import { UNITS } from '../data/units.js';
 import { T } from '../data/terrain.js';
 import { detonate } from './systems/projectiles.js';
+import { spend } from './formulas/economy.js';
 
 /** @typedef {import('./world.js').World} World */
 
@@ -33,9 +35,20 @@ export function canMine(w, pid, x, y) {
   return SPECIALS.minesMaxPerPlayer === Infinity || minesOf(w, pid) < SPECIALS.minesMaxPerPlayer;
 }
 
-/** Lay a mine of the layer's faction kind. @param {World} w @param {any} layer @param {number} x @param {number} y */
+/** Can `pid` pay for one more mine? @param {World} w @param {number} pid */
+export function canAffordMine(w, pid) {
+  const p = w.players[pid];
+  return p.cash + p.stored >= SPECIALS.mineCost;
+}
+
+/** Lay a mine of the layer's faction kind, paying for it. @param {World} w @param {any} layer @param {number} x @param {number} y */
 export function layMine(w, layer, x, y) {
   if (!canMine(w, layer.owner, x, y)) return false;
+  const p = w.players[layer.owner];
+  const paid = spend({ cash: p.cash, stored: p.stored }, SPECIALS.mineCost);
+  if (!paid) return false;
+  p.cash = paid.cash;
+  p.stored = paid.stored;
   const kind = MINES[w.players[layer.owner].faction].kind;
   w.mines.set(y * w.map.width + x, { owner: layer.owner, kind });
   w.events.emit('mineLaid', w.tick, { owner: layer.owner, x, y });

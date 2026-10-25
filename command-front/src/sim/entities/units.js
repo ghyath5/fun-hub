@@ -5,7 +5,7 @@
  */
 import { UNITS } from '../../data/units.js';
 import { WEAPONS } from '../../data/weapons.js';
-import { MOVEMENT, SIM, SPECIALS } from '../../data/rules.js';
+import { MOVEMENT, SIM } from '../../data/rules.js';
 import { spiral } from '../nav.js';
 
 /** @typedef {import('../../types.js').UnitDef} UnitDef */
@@ -84,8 +84,6 @@ import { spiral } from '../nav.js';
  * @property {number[]} [cargo]    Transports: passenger ids
  * @property {boolean} [unloading]
  * @property {number} [unloadAt]
- * @property {number} [mines]      Mine Layer: mines carried
- * @property {number} [maxMines]
  * @property {number} [speedK]     Speed crate: speed in thousandths
  * @property {number} [armorK]     Armour crate: damage taken ÷ (armorK / 1000)
  * @property {any} [mission]       Support plane: what it is flying to do
@@ -245,6 +243,10 @@ export function spawnUnit(world, type, owner, x, y, opts = {}) {
   if (!at) return null;
   const pos = def.loco === 'foot' ? spotPos(at.x, at.y, at.spot) : spotPos(at.x, at.y, -1);
   const facing = opts.facing ?? 128;
+  // A side's own arms (targeting.js armsOf): kept for life, so a captured War Miner keeps its gun.
+  const faction = world.players[owner]?.faction;
+  const armedAs = faction && def.armedAs?.[/** @type {'coalition' | 'union'} */ (faction)] ? faction : undefined;
+  const weaponIds = armedAs ? /** @type {any} */ (def.armedAs)[armedAs].weapons : def.weapons;
   /** @type {Unit} */
   const u = world.entities.add((/** @type {number} */ id) => ({
     id, kind: 'unit', type, owner,
@@ -254,11 +256,11 @@ export function spawnUnit(world, type, owner, x, y, opts = {}) {
     cx: at.x, cy: at.y, spot: def.loco === 'foot' ? at.spot : -1,
     order: null, path: [], pathReq: 0, next: null, waited: 0, askedAside: false, sinceCell: 0, retries: 0, retryAt: 0,
     stance: 'guard', task: null, target: 0, fireCell: null, post: { x: at.x, y: at.y },
-    weapons: def.weapons.map((wid) => ({ cd: 0, burst: 0, burstCd: 0, charge: 0, ammo: WEAPONS[wid].ammo })),
+    weapons: weaponIds.map((/** @type {string} */ wid) => ({ cd: 0, burst: 0, burstCd: 0, charge: 0, ammo: WEAPONS[wid].ammo })),
+    ...(armedAs ? { armedAs } : {}),
     proneUntil: 0, lastAttacker: 0, waypoints: [], chase: null, repairAcc: 0, aegisUntil: 0,
     // Harvester state machine (systems/harvest.js); null for everything else.
     harv: def.tags.includes('harvester') ? { state: 'seekOre', ore: 0, gem: 0, last: -1, cell: -1, refinery: 0, timer: 0, auto: true } : null,
-    ...(def.tags.includes('mineLayer') ? { mines: SPECIALS.mineCarry, maxMines: SPECIALS.mineCarry } : {}),
     ...(def.capacity ? { cargo: [], unloading: false } : {}),
     ...(def.tags.includes('submarine') ? { sub: { state: 'submerged', until: 0, lastShot: -1e9 }, submerged: true } : {}),
   }));

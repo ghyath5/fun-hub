@@ -6,7 +6,7 @@ import { layMine, canMine, minesOf } from '../src/sim/mines.js';
 import { SPECIALS } from '../src/data/rules.js';
 
 test('a player may lay any number of mines (no 50 cap)', () => {
-  const w = sandbox({ seed: 1 });
+  const w = sandbox({ seed: 1, credits: 100000 });
   const layer = spawnUnit(w, 'mineLayer', 0, 3, 3);
   assert.equal(SPECIALS.minesMaxPerPlayer, Infinity);
   let laid = 0;
@@ -18,9 +18,8 @@ test('a player may lay any number of mines (no 50 cap)', () => {
 });
 
 test('a lay-mines order with more than 50 cells is kept whole', () => {
-  const w = sandbox({ seed: 2 });
+  const w = sandbox({ seed: 2, credits: 100000 });
   const layer = spawnUnit(w, 'mineLayer', 0, 6, 6);
-  layer.mines = layer.maxMines = 80;
   const cells = [];
   for (let k = 0; k < 70; k++) cells.push([8 + (k % 10), 8 + Math.floor(k / 10)]);
   order(w, 0, 'layMines', [layer.id], { cells });
@@ -31,14 +30,53 @@ test('a lay-mines order with more than 50 cells is kept whole', () => {
   assert.ok(minesOf(w, 0) > 50, `laid ${minesOf(w, 0)}`);
 });
 
-test('a Mine Layer lays the five mines it carries, then stops', () => {
-  const w = sandbox({ seed: 3 });
+test('each mine costs money; a Mine Layer lays as many as are paid for, with no load limit', () => {
+  const w = sandbox({ seed: 3, credits: 10000 });
   const layer = spawnUnit(w, 'mineLayer', 0, 6, 6);
-  const cells = [[10, 10], [11, 10], [12, 10], [13, 10], [14, 10], [15, 10], [16, 10]];
+  const cells = [];
+  for (let k = 0; k < 60; k++) cells.push([10 + (k % 10), 10 + Math.floor(k / 10)]);
+  const before = w.players[0].cash + w.players[0].stored;
   order(w, 0, 'layMines', [layer.id], { cells });
-  assert.equal(run(w, 15 * 40, invariants), null);
-  assert.equal(minesOf(w, 0), SPECIALS.mineCarry, 'laid what it carried');
-  assert.equal(layer.mines, 0);
+  assert.equal(run(w, 15 * 150, invariants), null);
+  assert.equal(minesOf(w, 0), 60, 'the whole field');
+  assert.equal(before - (w.players[0].cash + w.players[0].stored), 60 * SPECIALS.mineCost, 'paid for each');
+  assert.equal(layer.task, null, 'done');
+});
+
+test('out of money, the Mine Layer stops and says so', () => {
+  const w = sandbox({ seed: 9, credits: SPECIALS.mineCost * 4 + 10 });
+  const layer = spawnUnit(w, 'mineLayer', 0, 6, 6);
+  const broke = [];
+  w.events.on('insufficientFunds', (e) => broke.push(e.data.owner));
+  const cells = [];
+  for (let k = 0; k < 10; k++) cells.push([10 + k, 10]);
+  order(w, 0, 'layMines', [layer.id], { cells });
+  assert.equal(run(w, 15 * 40, (wd) => { wd.events.flush(); return invariants(wd); }), null);
+  assert.deepEqual(broke, [0], '"Insufficient funds" once');
+  assert.equal(minesOf(w, 0), 4, 'laid what it could pay for');
+  assert.equal(w.players[0].cash + w.players[0].stored, 10, 'never into debt');
+  assert.equal(layer.task, null, 'stopped');
+});
+
+test('several Mine Layers share one field side by side', () => {
+  const w = sandbox({ seed: 6, credits: 10000 });
+  const a = spawnUnit(w, 'mineLayer', 0, 6, 6);
+  const b = spawnUnit(w, 'mineLayer', 0, 6, 8);
+  const cells = [];
+  for (let k = 0; k < 40; k++) cells.push([12 + (k % 8), 12 + Math.floor(k / 8)]);
+  order(w, 0, 'layMines', [a.id, b.id], { cells });
+  run(w, 1);
+  assert.ok(a.task.cells.length === 20 && b.task.cells.length === 20, 'split, not doubled');
+  assert.equal(run(w, 15 * 60, invariants), null);
+  assert.equal(minesOf(w, 0), 40, 'the whole field');
+});
+
+test('shareCells: even runs in pick order, the spare ones to the first layers', async () => {
+  const { shareCells } = await import('../src/sim/commands.js');
+  const cells = Array.from({ length: 7 }, (_, k) => [k, 0]);
+  const parts = shareCells([{ id: 1 }, { id: 2 }, { id: 3 }], cells);
+  assert.deepEqual(parts.map(([u, c]) => [u.id, c.map((p) => p[0])]), [[1, [0, 1, 2]], [2, [3, 4]], [3, [5, 6]]]);
+  assert.deepEqual(shareCells([{ id: 1 }, { id: 2 }], [[0, 0]]).map(([u]) => u.id), [1], 'one cell, one layer');
 });
 
 test('anti-tank mines (coalition) stop enemy vehicles, spare infantry and friends', () => {

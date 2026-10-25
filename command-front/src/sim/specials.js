@@ -5,7 +5,7 @@
  * effect resolves the tick they reach an adjacent cell, and they are used
  * up); Commandos plant C4 (1 s) which destroys the building 3 s later
  * unless an Aegis Field covers it; Mine Layers drive to each queued cell and
- * lay a mine in 1 s.
+ * lay a mine in 1 s; Terror Drones inside vehicles chew them (infest.js).
  */
 import { SPECIALS } from '../data/rules.js';
 import { UNITS } from '../data/units.js';
@@ -16,7 +16,8 @@ import { setMove } from './systems/movement.js';
 import { captureStructure } from './capture.js';
 import { revealCircle } from './systems/shroud.js';
 import { repairBridge } from './terrainDamage.js';
-import { layMine, canMine } from './mines.js';
+import { layMine, canMine, canAffordMine } from './mines.js';
+import { infestSystem } from './infest.js';
 
 /** @typedef {import('./world.js').World} World */
 
@@ -200,19 +201,26 @@ function mineLaying(w) {
   for (const u of w.entities.all()) {
     if (u.dead || u.kind !== 'unit' || u.task?.type !== 'layMines') continue;
     const t = u.task;
-    while (t.cells.length && !canMine(w, u.owner, t.cells[0][0], t.cells[0][1])) { t.cells.shift(); t.until = 0; }
-    if (!t.cells.length || (u.mines ?? 0) <= 0) { u.task = null; continue; }
+    // Next cell: one already mined (by another layer, say) is skipped, as is one it cannot get to.
+    const next = () => { t.cells.shift(); t.until = 0; t.tries = 0; };
+    while (t.cells.length && !canMine(w, u.owner, t.cells[0][0], t.cells[0][1])) next();
+    if (!t.cells.length) { u.task = null; continue; }
     const [x, y] = t.cells[0];
     if (u.cx === x && u.cy === y && !u.next) {
       if (!t.until) { t.until = w.tick + LAY_TICKS; continue; }
       if (w.tick < t.until) continue;
-      if (layMine(w, u, x, y)) u.mines--;
-      t.cells.shift();
-      t.until = 0;
+      // Out of money: the layer stops where it is (the rest of the field is not laid).
+      if (!canAffordMine(w, u.owner)) {
+        u.task = null;
+        w.events.emit('insufficientFunds', w.tick, { owner: u.owner });
+        continue;
+      }
+      layMine(w, u, x, y);
+      next();
     } else if (!u.order && !u.next && !u.pathReq) {
+      if ((t.tries ?? 0) >= MAX_APPROACHES) { next(); continue; }
       setMove(w, u, x, y);
       t.tries = (t.tries ?? 0) + 1;
-      if (t.tries > MAX_APPROACHES * t.cells.length + MAX_APPROACHES) u.task = null;
     }
   }
 }
@@ -222,5 +230,6 @@ export function specialsSystem(w) {
   entries(w);
   demolitions(w);
   mineLaying(w);
+  infestSystem(w);
 }
 

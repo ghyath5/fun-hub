@@ -48,6 +48,12 @@ export const WAVES = Object.freeze({
   },
 });
 
+/** The fleet's make-up (unit type → share) when water links the bases. */
+export const FLEETS = Object.freeze({
+  coalition: { gunboat: 2, destroyer: 2, cruiser: 1 },
+  union: { submarine: 1 },
+});
+
 /** Cheap fast units for the early scout, best first. */
 export const SCOUTS = Object.freeze(['ranger', 'hound', 'rifleman']);
 

@@ -11,7 +11,7 @@ import { TURN_RATE, UNITS } from '../../data/units.js';
 import { WEAPONS, PROJECTILE_SPEED, reachCells } from '../../data/weapons.js';
 import { SIM, SPECIALS } from '../../data/rules.js';
 import { isqrt, facingOf, facingDelta, turnToward, ticks } from '../../core/fixed.js';
-import { weaponCanHit, effectiveness, layerOf, reachDist, weaponsOf } from '../targeting.js';
+import { weaponCanHit, effectiveness, layerOf, reachDist, weaponsOf, hasTurret } from '../targeting.js';
 import { stepSubmarine, subReady } from '../naval.js';
 import { combatDef } from '../defs.js';
 import { afterFiring, canControlMore } from '../unitPowers.js';
@@ -125,17 +125,18 @@ function fireUnit(w, u) {
     if (st.burstCd > 0) st.burstCd--;
   }
   const aim = aimOf(w, u);
+  const turret = hasTurret(u);
   if (!aim) {
-    if (cdef.turret && !structure) u.turret = turnToward(u.turret, u.facing, TURN_RATE.turret);
+    if (turret && !structure) u.turret = turnToward(u.turret, u.facing, TURN_RATE.turret);
     return;
   }
   const d = aim.e ? reachDist(u, aim.e) : isqrt((aim.x - u.x) ** 2 + (aim.y - u.y) ** 2);
   const want = facingOf(aim.x - u.x, aim.y - u.y);
-  if (cdef.turret) u.turret = turnToward(u.turret, want, TURN_RATE.turret);
+  if (turret) u.turret = turnToward(u.turret, want, TURN_RATE.turret);
   else if (!structure && !u.next && !steeredInFlight(u)) u.facing = turnToward(u.facing, want, def.turnRate);
-  const aimFacing = cdef.turret ? u.turret : u.facing;
+  const aimFacing = turret ? u.turret : u.facing;
   // Defenses without a turret (pillboxes, towers) fire in any direction.
-  const aligned = d === 0 || (structure && !cdef.turret) || Math.abs(facingDelta(aimFacing, want)) <= SIM.facingTolerance;
+  const aligned = d === 0 || (structure && !turret) || Math.abs(facingDelta(aimFacing, want)) <= SIM.facingTolerance;
 
   // Shots still owed by a burst in progress go first.
   for (let k = 0; k < states.length; k++) {

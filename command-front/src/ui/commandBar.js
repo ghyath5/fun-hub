@@ -7,6 +7,7 @@ import { html } from 'htm/preact';
 import { PressButton } from './press.js';
 import { healthBand } from '../sim/formulas/combat.js';
 import { GESTURE } from '../data/ui.js';
+import { SPECIALS } from '../data/rules.js';
 import { toUi } from './fit.js';
 import { t, textLang } from '../lib/i18n.js';
 
@@ -127,10 +128,17 @@ const BANNER_TEXT = {
   power: 'Aim the support power',
 };
 
-/** Banner while the next tap picks a target or a mode is on. @param {{ mode: string | null, cancel: () => void }} p */
-export function TargetBanner({ mode, cancel }) {
+/**
+ * Banner while the next tap picks a target or a mode is on; Lay Mines also counts the mines
+ * queued and what they will cost.
+ * @param {{ mode: string | null, count?: { queued: number, cost: number } | null, cancel: () => void }} p
+ */
+export function TargetBanner({ mode, count, cancel }) {
   if (!mode || mode === 'place') return null;
-  if (mode === 'power' || mode === 'mines' || mode === 'walls') return html`<div class=${`target-banner panel ${mode}`} role="status">${t(BANNER_TEXT[mode])}</div>`;
+  if (mode === 'power' || mode === 'mines' || mode === 'walls') {
+    const tally = mode === 'mines' && count?.queued ? html` <b class="mine-count">${count.queued} × $${SPECIALS.mineCost} = $${count.cost}</b>` : null;
+    return html`<div class=${`target-banner panel ${mode}`} role="status">${t(BANNER_TEXT[mode])}${tally}</div>`;
+  }
   const text = t(BANNER_TEXT[/** @type {keyof typeof BANNER_TEXT} */ (mode)] ?? 'Tap a target');
   return html`<div class=${`target-banner panel ${mode}`} role="status">${text}<button class="cmd" onClick=${cancel} aria-label=${t('Cancel')}>✕</button></div>`;
 }

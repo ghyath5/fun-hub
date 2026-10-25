@@ -28,6 +28,7 @@ import { sidebarModel, economyModel, structureCard, sameShape, powersModel, inte
 import { t, nameOf } from '../lib/i18n.js';
 import { drawMinimap, hasRadar } from '../ui/minimap.js';
 import { isTransport } from '../sim/transports.js';
+import { isMineLayer } from '../sim/specials.js';
 import { isAircraft } from '../sim/air.js';
 import { GAME_SPEEDS, SIM, RENDER, PRODUCTION } from '../data/rules.js';
 import { GESTURE, LAYOUT } from '../data/ui.js';
@@ -108,6 +109,8 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
     card: /** @type {{ name: string, hp: number, maxHp: number, owner: string } | null} */ (null),
     radial: /** @type {{ x: number, y: number, options: { id: string, label: string }[] } | null} */ (null),
     targetMode: /** @type {string | null} */ (null),
+    /** Lay Mines: cells queued and what they will cost. @type {{ queued: number, cost: number } | null} */
+    minesCount: null,
     alertCount: 0,
     sidebar: sidebarModel(world, human),
     icons: /** @type {Record<string, string>} */ ({}),
@@ -166,7 +169,7 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
   // ---- Modes: placement, walls, sell, repair, rally (they get gestures first).
   /** The intents' own target mode (attack-move); modes report theirs through `modes.mode`. */
   let intentTarget = /** @type {string | null} */ (null);
-  const syncMode = () => store.set({ targetMode: modes.mode?.kind ?? intentTarget, placeAt: modes.mode ? store.get().placeAt : null });
+  const syncMode = () => store.set({ targetMode: modes.mode?.kind ?? intentTarget, minesCount: modes.minesCount(), placeAt: modes.mode ? store.get().placeAt : null });
   const modes = createModes({
     world,
     human,
@@ -291,7 +294,7 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
     unload: () => intents.simple('unloadCargo', (u) => isTransport(u) && u.cargo?.length > 0),
     mines: () => {
       if (modes.mode?.kind === 'mines') { modes.cancel(); return; }
-      const ids = intents.selectedIds((u) => !!u.maxMines);
+      const ids = intents.selectedIds(isMineLayer);
       if (ids.length) { enterTarget(null); modes.mines(ids); }
     },
     returnPad: () => intents.simple('returnPad', isAircraft),

@@ -14,6 +14,7 @@
  * banking round in arcs — so an attack run overflies the target and loops
  * back, the way Red Alert 2's jets do.
  */
+import { hasTurret } from '../targeting.js';
 import { facingOf, facingDelta, turnToward, isqrt, DIR8, stepAlong } from '../../core/fixed.js';
 import { MOVEMENT, SIM, COMBAT, AIRCRAFT } from '../../data/rules.js';
 import { TURN_RATE } from '../../data/units.js';
@@ -469,14 +470,14 @@ function stepUnit(w, u) {
   if (dx !== 0 || dy !== 0) {
     const want = facingOf(dx, dy);
     u.facing = turnToward(u.facing, want, def.turnRate);
-    if (!def.turret) u.turret = u.facing;
+    if (!hasTurret(u)) u.turret = u.facing;
     if (Math.abs(facingDelta(u.facing, want)) > SIM.facingTolerance) {
       checkStuck(w, u);
       return;
     }
   }
   // Turrets follow the hull only while nothing is being aimed at (the weapon system aims them otherwise).
-  if (def.turret && !u.target && !u.fireCell) u.turret = turnToward(u.turret, u.facing, TURN_RATE.turret);
+  if (hasTurret(u) && !u.target && !u.fireCell) u.turret = turnToward(u.turret, u.facing, TURN_RATE.turret);
 
   const stepLen = speedOf(w, u);
   const dist = isqrt(dx * dx + dy * dy);
@@ -597,7 +598,7 @@ function flyUnit(w, u) {
     u.x += Math.trunc((dx * step) / dist);
     u.y += Math.trunc((dy * step) / dist);
   }
-  if (!def.turret) u.turret = u.facing;
+  if (!hasTurret(u)) u.turret = u.facing;
   settle(w, u);
 }
 
