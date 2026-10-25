@@ -24,11 +24,12 @@ const BASE = './assets/models/';
 /**
  * @typedef {object} Part
  * @property {string} name        body, turret, rotor0…, spin0…
- * @property {'body' | 'turret' | 'rotor' | 'spin' | 'wheel' | 'tread' | 'prop' | 'barrel' | 'limb'} role
+ * @property {'body' | 'turret' | 'rotor' | 'spin' | 'wheel' | 'tread' | 'drum' | 'prop' | 'barrel' | 'limb'} role
  *   prop: a propeller turning about the model's forward axis;
  *   wheel: rolls about its axle (x) as the unit drives; tread: track links that
- *   slide forward one `pitch` at a time as it drives; barrel: turns with the
- *   turret and kicks back when it fires; limb (legL/R, armL/R): swings (x) as it walks
+ *   slide forward one `pitch` at a time as it drives (or along `slide`, or round
+ *   `arc`); drum: a harvester's drum, turning (x) while it harvests; barrel: turns
+ *   with the turret and kicks back when it fires; limb (legL/R, armL/R): swings (x) as it walks
  * @property {THREE.BufferGeometry} geometry
  * @property {THREE.Vector3} pivot  where the part turns, in the model's frame (cells)
  * @property {THREE.Quaternion} [orient]  the part's own frame (a propeller stands on edge): it spins about its local y
@@ -36,6 +37,8 @@ const BASE = './assets/models/';
  * @property {boolean} [pbr]  lit physically (baked models carry metalness and roughness)
  * @property {number} [radius]  wheels: rolling radius, cells
  * @property {number} [pitch]  treads: spacing of the links, cells
+ * @property {THREE.Vector3} [slide]  treads: the way a straight run's links move as the unit drives forward
+ * @property {number} [arc]  treads: a bend's links turn round the part's pivot (about x) at this signed radius, cells
  */
 /**
  * @typedef {object} ModelDef
@@ -209,6 +212,7 @@ function roleOf(name) {
   if (name.startsWith('rotor')) return 'rotor';
   if (name.startsWith('wheel')) return 'wheel';
   if (name.startsWith('tread')) return 'tread';
+  if (name.startsWith('drum')) return 'drum';
   if (name.startsWith('prop')) return 'prop';
   if (/^(leg|arm)[LR]$/.test(name)) return 'limb';
   return 'spin';
@@ -257,7 +261,11 @@ function decodeBaked(index, bin, maps) {
       /** @type {Part} */
       const part = { name, role, geometry: g, pivot: new THREE.Vector3(...e.pivot), map, pbr: e.mr !== undefined };
       if (role === 'wheel') { g.computeBoundingBox(); part.radius = /** @type {THREE.Box3} */ (g.boundingBox).max.y; }
-      if (role === 'tread') part.pitch = e.pitch || 0.05;
+      if (role === 'tread') {
+        part.pitch = e.pitch || 0.05;
+        if (e.slide) part.slide = new THREE.Vector3(...e.slide);
+        if (e.arc) part.arc = e.arc;
+      }
       parts.push(part);
     }
     parts.sort((a, z) => (a.role === 'body' ? -1 : z.role === 'body' ? 1 : 0));

@@ -63,6 +63,11 @@ export const JOBS = [
   { id: 'robotTank', kind: 'unit', src: 'bl-robotTank.glb', named: true, budget: 6000, r: 0.45, size: 0.82 },
   { id: 'battleFortress', kind: 'unit', src: 'bl-battleFortress.glb', named: true, budget: 6000, r: 0.75, size: 1.36 },
   { id: 'harvester', kind: 'unit', src: 'bl-harvester.glb', named: true, budget: 6000, r: 0.72, size: 1.3 },
+  // Each side's own Harvester, rigged from finished models by tools/blender/rig.py: one
+  // 1024 px texture, wheels, running track links and a drum that turns while it harvests.
+  { id: 'harvester@union', kind: 'unit', src: 'bl-harvester@union.glb', named: true, budget: 14000, tile: 1024, r: 0.72, size: 1.3, team: RED },
+  // Team colour on the cab's blue only, not the chrono field's violet.
+  { id: 'harvester@coalition', kind: 'unit', src: 'bl-harvester@coalition.glb', named: true, budget: 14000, tile: 1024, r: 0.72, size: 1.3, team: { hue: 214, tol: 10, sat: 0.35, val: 0.2 } },
   { id: 'ranger', kind: 'unit', src: 'bl-ranger.glb', named: true, budget: 6000, r: 0.36, size: 0.66 },
   { id: 'mcv', kind: 'unit', src: 'bl-mcv.glb', named: true, budget: 6000, r: 0.61, size: 1.1 },
   { id: 'artillery', kind: 'unit', src: 'bl-artillery.glb', named: true, budget: 6000, r: 0.61, size: 1.1 },

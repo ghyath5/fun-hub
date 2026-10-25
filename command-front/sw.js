@@ -1,7 +1,7 @@
 /* Command Front service worker: cache-first, versioned. Hand-maintained list —
    add every file the game loads; ?debug warns at startup about any that are missing.
    Bump CACHE whenever a listed file changes. */
-const CACHE = 'command-front-v42';
+const CACHE = 'command-front-v43';
 
 const PRECACHE = [
   './',
@@ -25,6 +25,8 @@ const PRECACHE = [
   './assets/models/arcTower.webp',
   './assets/models/ballisticLauncher.webp',
   './assets/models/beamTower.webp',
+  './assets/models/harvester-coalition.webp',
+  './assets/models/harvester-union.webp',
   './assets/models/ifv.webp',
   './assets/models/models.bin',
   './assets/models/models.json',

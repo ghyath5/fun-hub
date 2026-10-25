@@ -22,7 +22,7 @@ const LUT = Uint8ClampedArray.from({ length: 256 }, (_, i) => Math.round(255 * l
  * @param {THREE.WebGLRenderer} renderer  the battlefield's renderer (shared context)
  * @param {import('./library.js').Library} lib
  * @param {number} tint  player colour
- * @param {string} faction  the viewer's faction: its own building looks
+ * @param {string} faction  the viewer's faction: its own building and unit looks
  * @param {() => void} restore  hand the context back to PixiJS
  * @returns {Promise<Record<string, string>>}
  */
@@ -59,7 +59,7 @@ export async function makeIcons3D(renderer, lib, tint, faction, restore) {
   /** @type {[string, string, boolean][]} */
   const jobs = [];
   for (const type of Object.keys(STRUCTURES)) jobs.push([type, faction ? `${type}@${faction}` : type, true]);
-  for (const type of Object.keys(UNITS)) jobs.push([type, type, false]);
+  for (const type of Object.keys(UNITS)) jobs.push([type, faction ? `${type}@${faction}` : type, false]);
 
   /** @type {Record<string, string>} */
   const out = {};

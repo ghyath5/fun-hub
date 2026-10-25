@@ -108,17 +108,21 @@ async function exportJob(job) {
   Object.assign(named, parts.extra ?? {});
   const meshes = Object.values(named).flat();
 
-  // ── Atlas: one tile per textured material, plus a white tile for solid colours.
+  // ── Atlas: one tile per texture (and base colour), plus a white tile for solid colours.
+  // `job.tile` asks for bigger tiles (a model whose one texture carries all its detail).
+  const tint = (mat) => mat.color?.getHexString() ?? 'ffffff';
   const mats = [];
   for (const m of meshes) {
     const mat = m.material;
-    if (mat.map?.image && !mats.includes(mat)) mats.push(mat);
+    if (mat.map?.image && !mats.some((o) => o === mat || (o.map.image === mat.map.image && tint(o) === tint(mat)))) mats.push(mat);
   }
-  const n = mats.length + 1;
+  const solids = meshes.some((m) => !m.material.map?.image);
+  const lead = solids || !mats.length ? 1 : 0;
+  const n = mats.length + lead;
   const cols = Math.ceil(Math.sqrt(n));
   const rows = Math.ceil(n / cols);
-  const want = job.kind === 'unit' ? 256 : 384;
-  const maxSide = job.kind === 'unit' ? 512 : 1024;
+  const want = job.tile ?? (job.kind === 'unit' ? 256 : 384);
+  const maxSide = Math.max(want, job.kind === 'unit' ? 512 : 1024);
   const T = Math.min(want, Math.floor(maxSide / cols));
   const size = THREE.MathUtils.ceilPowerOfTwo(cols * T);
   const atlasH = THREE.MathUtils.ceilPowerOfTwo(rows * T);
@@ -132,11 +136,15 @@ async function exportJob(job) {
     c.height = atlasH;
     const g = c.getContext('2d', { willReadFrequently: true });
     g.fillStyle = '#fff';
-    g.fillRect(0, 0, T, T);
+    if (lead) g.fillRect(0, 0, T, T);
     mats.forEach((mat, k) => {
-      const x = ((k + 1) % cols) * T;
-      const y = Math.floor((k + 1) / cols) * T;
+      const x = ((k + lead) % cols) * T;
+      const y = Math.floor((k + lead) / cols) * T;
       tileOf.set(mat, { x, y });
+      for (const m of meshes) {
+        const o = m.material;
+        if (o !== mat && o.map?.image === mat.map.image && tint(o) === tint(mat)) tileOf.set(o, { x, y });
+      }
       // The image inside the tile; its border pixels stretched over the padding (no mipmap bleed).
       const S = T - 2 * PAD;
       g.drawImage(mat.map.image, x + PAD, y + PAD, S, S);
@@ -163,7 +171,7 @@ async function exportJob(job) {
     for (let p = 0; p < rgba.length; p += 4) {
       const px = (p / 4) % size;
       const py = Math.floor(p / 4 / size);
-      const white = px < T && py < T;
+      const white = lead && px < T && py < T;
       const w = white ? 1 : teamWeight(rgba[p] / 255, rgba[p + 1] / 255, rgba[p + 2] / 255, team);
       rgba[p + 3] = Math.round(255 * w);
       if (grey && !white) {
@@ -214,6 +222,10 @@ async function exportJob(job) {
       if (tiled && !sampled.has(mat)) sampled.set(mat, pixelsOf(mat.map.image));
       const solid = mat.color ?? new THREE.Color(1, 1, 1);
       const [metal, rough] = metalRough(mat);
+      // A metalness/roughness map read at each vertex (baked models whose map varies over the atlas).
+      const mrMap = tile && uv && !tiled ? mat.metalnessMap ?? mat.roughnessMap : null;
+      if (mrMap && !sampled.has(mrMap)) sampled.set(mrMap, pixelsOf(mrMap.image));
+      const mrPx = mrMap ? sampled.get(mrMap) : null;
       // Emissive materials light themselves in game (`glow`, 0–1 of their own colour).
       const em = mat.emissive ? Math.max(mat.emissive.r, mat.emissive.g, mat.emissive.b) * (mat.emissiveIntensity ?? 1) : 0;
       const glow = Math.round(255 * Math.min(1, em));
@@ -227,7 +239,12 @@ async function exportJob(job) {
         P.push(v.x - pivot[0], v.y - pivot[1], v.z - pivot[2]);
         G.push(glow);
         if (vpbr) R.push(Math.round(255 * vpbr.getX(i)), Math.round(255 * Math.max(0.05, vpbr.getY(i))));
-        else R.push(metal, rough);
+        else if (mrPx) {
+          const u = Math.min(1, Math.max(0, uv.getX(i) - off[0])), w = Math.min(1, Math.max(0, uv.getY(i) - off[1]));
+          const k = (Math.min(mrPx.h - 1, Math.floor(w * mrPx.h)) * mrPx.w + Math.min(mrPx.w - 1, Math.floor(u * mrPx.w))) * 4;
+          const mm = mat.metalnessMap ? mrPx.data[k + 2] / 255 : 1, rr = mat.roughnessMap ? mrPx.data[k + 1] / 255 : 1;
+          R.push(Math.round(255 * Math.min(1, (mat.metalness ?? 0) * mm)), Math.round(255 * Math.min(1, Math.max(0.05, (mat.roughness ?? 1) * rr))));
+        } else R.push(metal, rough);
         if (nor) { v.fromBufferAttribute(nor, i).applyMatrix3(nm).normalize(); N.push(v.x, v.y, v.z); } else N.push(0, 1, 0);
         if (tile && uv && !tiled) {
           const u = Math.min(1, Math.max(0, uv.getX(i) - off[0]));
@@ -258,10 +275,16 @@ async function exportJob(job) {
       }
     }
     if (!P.length) continue;
-    // Treads: the spacing of their links (a Blender custom property, scaled like the model).
-    const pitch = node?.userData?.pitch ? node.userData.pitch * node.getWorldScale(new THREE.Vector3()).x : undefined;
+    // Treads: the spacing of their links (a Blender custom property, scaled like the model);
+    // `slide`, the way a run's links move (Blender axes → the model's), or `arc`, the signed
+    // radius of a bend's links round their wheel.
+    const scale = node ? node.getWorldScale(new THREE.Vector3()).x : 1;
+    const pitch = node?.userData?.pitch ? node.userData.pitch * scale : undefined;
+    const sl = node?.userData?.slide;
+    const slide = sl ? new THREE.Vector3(sl[0], sl[2], -sl[1]).applyQuaternion(holder.children[0].getWorldQuaternion(new THREE.Quaternion())).normalize().toArray().map((v) => +v.toFixed(4)) : undefined;
+    const arc = node?.userData?.arc ? node.userData.arc * scale : undefined;
     out[name] = {
-      pivot, pitch,
+      pivot, pitch, slide, arc,
       pos: toB64(new Float32Array(P)), nrm: toB64(new Float32Array(N)), uv: toB64(new Float32Array(U)),
       col: toB64(new Uint8Array(C)), mr: toB64(new Uint8Array(R)), idx: toB64(new Uint32Array(I)),
       gl: G.some((g) => g > 0) ? toB64(new Uint8Array(G)) : null,

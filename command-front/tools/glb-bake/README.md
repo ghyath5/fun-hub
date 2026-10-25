@@ -47,8 +47,12 @@ These are 3D-only: `bake.mjs` skips them and the Classic 2D view keeps its
 sprites.
 
 Job options for the 3D model only: `team3d` (team surfaces, when the sprite's
-rule — tuned on lit renders — does not suit unlit texels) and
-`look3d: { desaturate }` (grey what is not team paint, e.g. camouflage).
+rule — tuned on lit renders — does not suit unlit texels),
+`look3d: { desaturate }` (grey what is not team paint, e.g. camouflage) and
+`tile` (atlas tile size, px: a model whose one texture carries all its
+detail). Materials sharing an image share its tile; a model with no
+untextured surface has no white tile. A metalness/roughness map is read per
+vertex. Units may have a faction look too (`harvester@union`).
 
 ## Sprites (`bake.mjs` + `pack.py`)
 
