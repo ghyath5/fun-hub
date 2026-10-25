@@ -45,10 +45,21 @@ def preview(id, size=640, view='game'):
     three-quarter view of the face side), team paint in red."""
     sc = bpy.context.scene
     for m in bpy.data.materials:
+        b = next(n for n in m.node_tree.nodes if n.type == 'BSDF_PRINCIPLED')
         if m.get('team'):
-            b = next(n for n in m.node_tree.nodes if n.type == 'BSDF_PRINCIPLED')
             v = max(b.inputs['Base Color'].default_value[:3])
             b.inputs['Base Color'].default_value = (0.75 * v, 0.07 * v, 0.05 * v, 1)
+        # Show the baked colour (occlusion, camouflage) the game multiplies in.
+        nt = m.node_tree
+        vc = nt.nodes.new('ShaderNodeVertexColor')
+        vc.layer_name = 'Col'
+        mix = nt.nodes.new('ShaderNodeMix')
+        mix.data_type = 'RGBA'
+        mix.blend_type = 'MULTIPLY'
+        mix.inputs['Factor'].default_value = 1.0
+        mix.inputs[6].default_value = b.inputs['Base Color'].default_value
+        nt.links.new(vc.outputs['Color'], mix.inputs[7])
+        nt.links.new(mix.outputs[2], b.inputs['Base Color'])
     objs = kit.meshes()
     lo = [min((o.matrix_world @ v.co)[a] for o in objs for v in o.data.vertices) for a in range(3)]
     hi = [max((o.matrix_world @ v.co)[a] for o in objs for v in o.data.vertices) for a in range(3)]

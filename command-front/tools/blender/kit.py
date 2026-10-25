@@ -76,7 +76,20 @@ PAL = {
     'skinDark':  (0xb07a5c, 0.00, 0.70, 0, 0),
     'hair':      (0x2a1f17, 0.00, 0.85, 0, 0),
     'fur':       (0x5a4430, 0.00, 0.95, 0, 0),
+    # Army: camouflage (patches baked into the vertex colour; on the team
+    # uniform they come out as shades of the player's colour), armour, kit.
+    'camo':      (0xa4a49c, 0.00, 0.90, 1, 0),
+    'camoOlive': (0x6a6f4c, 0.00, 0.92, 0, 0),
+    'camoDark':  (0x3a3d34, 0.00, 0.92, 0, 0),
+    'plate':     (0x575c45, 0.05, 0.75, 0, 0),
+    'plateBlack': (0x1f2123, 0.05, 0.70, 0, 0),
+    'coyote':    (0x8a7656, 0.00, 0.90, 0, 0),
+    'tactical':  (0x26292c, 0.05, 0.80, 0, 0),
+    'hiVis':     (0xd8e030, 0.00, 0.60, 0, 0.15),
 }
+
+#: Materials whose faces get camouflage patches baked into their colour.
+CAMO = {'camo', 'camoOlive', 'camoDark'}
 
 
 def mat(name):
@@ -97,6 +110,7 @@ def mat(name):
         b.inputs['Emission Strength'].default_value = glow
     m.diffuse_color = (*c, 1)
     m['team'] = team
+    m['camo'] = 1 if name in CAMO else 0
     return m
 
 
@@ -414,12 +428,26 @@ def bake_ao(distance=0.12, samples=48, floor=True, strength=0.75):
         me = o.data
         ca = me.color_attributes['Col']
         team = [m.get('team', 0) if m else 0 for m in me.materials]
+        camo = [m.get('camo', 0) if m else 0 for m in me.materials]
+        mw = o.matrix_world
         for poly in me.polygons:
             t = team[poly.material_index] if team else 0
+            # Camouflage: each face takes one of three tones from a noise field
+            # over the model, so patches have crisp edges along the faces.
+            tone = camo_tone(mw @ poly.center) if camo and camo[poly.material_index] else 1.0
             for li in poly.loop_indices:
                 c = ca.data[li].color
-                ao = 1 - strength * (1 - c[0])
+                ao = (1 - strength * (1 - c[0])) * tone
                 ca.data[li].color = (ao, ao, ao, float(t))
+
+
+def camo_tone(p, scale=34.0):
+    """Woodland camouflage: dark, mid or light patch at a point (by noise)."""
+    from mathutils import noise
+    n = noise.noise(Vector((p.x * scale + 3.1, p.y * scale + 7.7, p.z * scale * 1.4)))
+    n2 = noise.noise(Vector((p.x * scale * 2.3 + 11.0, p.y * scale * 2.3, p.z * scale * 2.3)))
+    v = n * 0.75 + n2 * 0.35
+    return 0.5 if v < -0.12 else (0.74 if v < 0.16 else 1.0)
 
 
 def export(path):

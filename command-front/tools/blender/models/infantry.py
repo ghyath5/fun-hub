@@ -1,6 +1,7 @@
 # Infantry: real-proportioned soldiers grown from a joint skeleton (the Skin
-# modifier, smoothed), in uniform and field kit, holding their weapons in
-# proper poses. Front is +y, about 0.62 tall (7.5 heads); legs (legL/legR)
+# modifier, smoothed), dressed as an army — camouflage uniform, plate
+# carrier, combat helmet, knee pads — holding their weapons in proper poses
+# (only the Engineer is a civilian worker). Front is +y, about 0.62 tall (7.5 heads); legs (legL/legR)
 # hang from hip empties and swing as they walk, and unarmed soldiers swing
 # their arms (armL/armR). The jacket takes the player's colour.
 import math
@@ -102,13 +103,16 @@ def arms_down(k, uniform='uniform', gloves='gloves', carry=None, bulk=1.0):
             carry(e, (x * 1.08, 0.02, 0.26))
 
 
-def face(k, beard=False, moustache=False):
+def face(k, beard=False, moustache=False, mask=None):
     k.smooth(k.sphere(0.008, (0, 0.044, HEAD - 0.004), 'skin', 8, 4, scale=(0.8, 1.0, 1.1), name='nose'))
     for s in (1, -1):
         k.sphere(0.0045, (s * 0.013, 0.036, HEAD + 0.008), 'black', 6, 3, name='eye')
         k.smooth(k.sphere(0.009, (s * 0.032, 0.0, HEAD), 'skin', 8, 4, scale=(0.5, 0.8, 1.1), name='ear'))
     if beard:
         k.smooth(k.sphere(0.03, (0, 0.016, HEAD - 0.024), 'hair', 10, 5, scale=(1.0, 0.9, 0.8), name='beard'))
+    if mask:
+        # A balaclava or face wrap over the lower face (special forces).
+        k.smooth(k.sphere(0.034, (0, 0.012, HEAD - 0.014), mask, 14, 7, scale=(1.02, 1.06, 0.8), name='mask'))
     if moustache:
         k.box((0.024, 0.006, 0.006), (0, 0.041, HEAD - 0.014), 'hair', bevel=0.002, name='moustache')
 
@@ -120,6 +124,28 @@ def headgear(k, hat):
     if hat in ('cap', 'beret', 'redBeret', 'fedora'):
         # Hair under an open hat (cropped at the sides).
         k.smooth(k.sphere(0.034, (0, -0.004, HEAD + 0.006), 'hair', 14, 7, scale=(1.0, 1.08, 0.95), half=True, name='hair'))
+    if hat in ('combat', 'combatBlack'):
+        # A modern combat helmet: cut high over the ears, a cover, goggles on the band, a night-vision mount.
+        cover = 'camoOlive' if hat == 'combat' else 'plateBlack'
+        k.smooth(k.sphere(0.045, (0, -0.004, z - 0.002), cover, 16, 8, scale=(1.0, 1.1, 0.86), half=True, name='helmet'))
+        k.smooth(k.torus(0.045, 0.004, (0, -0.004, z), cover, 'z', 20, 5, name='helmetRim')).scale = (1.0, 1.1, 1)
+        k.smooth(k.torus(0.043, 0.005, (0, -0.004, z + 0.012), 'tactical', 'z', 18, 4, name='goggleBand')).scale = (1.0, 1.1, 1)
+        for s_ in (1, -1):
+            k.smooth(k.cyl(0.009, 0.008, (s_ * 0.014, 0.044, z + 0.016), 'glassDark', 'y', 10, name='goggle'))
+            k.box((0.006, 0.01, 0.036), (s_ * 0.034, 0.008, HEAD - 0.01), 'tactical', name='chinStrap')
+        k.box((0.016, 0.01, 0.012), (0, 0.046, z + 0.03), 'tactical', bevel=0.002, name='nvgMount')
+        k.box((0.012, 0.03, 0.01), (0.03, -0.01, z + 0.02), 'tactical', name='helmetLight')
+        return
+    if hat == 'boonie':
+        k.smooth(k.sphere(0.036, (0, -0.002, HEAD + 0.008), 'camoOlive', 14, 7, scale=(1.0, 1.06, 0.8), half=True, name='boonie'))
+        k.smooth(k.cyl(0.058, 0.005, (0, -0.002, HEAD + 0.01), 'camoOlive', 'z', 20, r2=0.062, name='boonieBrim'))
+        return
+    if hat == 'officer':
+        k.smooth(k.cyl(0.036, 0.016, (0, 0.0, HEAD + 0.02), 'uniform', 'z', 16, name='capBand'))
+        k.smooth(k.cyl(0.046, 0.012, (0, -0.004, HEAD + 0.034), 'uniform', 'z', 18, r2=0.044, name='capCrown'))
+        k.smooth(k.box((0.05, 0.03, 0.005), (0, 0.042, HEAD + 0.014), 'black', bevel=0.003, rot=(-14, 0, 0), name='visor'))
+        k.box((0.016, 0.004, 0.012), (0, 0.037, HEAD + 0.03), 'brass', name='capBadge')
+        return
     if hat in ('helmet', 'helmetBlack', 'helmetWhite', 'helmetTeam'):
         m = {'helmet': 'helmetOd', 'helmetBlack': 'black', 'helmetWhite': 'white', 'helmetTeam': 'uniform'}[hat]
         k.smooth(k.sphere(0.043, (0, -0.002, z), m, 16, 8, scale=(1.0, 1.08, 0.86), half=True, name='helmet'))
@@ -180,6 +206,34 @@ def webbing(k, bulk=1.0):
         k.smooth(k.box((0.022, 0.014, 0.022), (x * bulk, y * bulk, 0.348), 'webbing', bevel=0.005, name='pouch'))
     for s in (1, -1):
         k.box((0.008, 0.07 * bulk, 0.006), (s * 0.03 * bulk, 0.0, 0.47), 'webbing', name='brace')
+
+
+def plate_carrier(k, colour='plate', bulk=1.0, medic=False, bombs=False):
+    """A plate carrier: front and back plates, magazine and radio pouches,
+    shoulder straps and a cummerbund — the army's silhouette."""
+    b = bulk
+    k.smooth(k.box((0.1 * b, 0.026, 0.105), (0, 0.04 * b, 0.43), colour, bevel=0.012, name='frontPlate'))
+    k.smooth(k.box((0.1 * b, 0.024, 0.1), (0, -0.04 * b, 0.43), colour, bevel=0.012, name='backPlate'))
+    k.smooth(k.torus(0.058 * b, 0.012, (0, 0.0, 0.405), colour, 'z', 18, 5, name='cummerbund')).scale = (1.0, 0.72, 1.0)
+    for s in (1, -1):
+        k.box((0.022, 0.08 * b, 0.012), (s * 0.034 * b, 0.0, 0.485), colour, bevel=0.004, name='shoulderStrap')
+    if bombs:
+        for x in (-0.03, 0.0, 0.03):
+            k.smooth(k.cyl(0.011, 0.05, (x * b, 0.06 * b, 0.41), 'dark', 'z', 8, name='charge'))
+            k.sphere(0.004, (x * b, 0.072 * b, 0.43), 'redLamp', 6, 3, name='fuse')
+        k.box((0.08, 0.006, 0.006), (0, 0.062 * b, 0.43), 'redLamp', name='wire')
+    else:
+        for x in (-0.026, 0.0, 0.026):
+            k.smooth(k.box((0.022, 0.016, 0.034), (x * b, 0.058 * b, 0.402), colour, bevel=0.004, name='magPouch'))
+            k.box((0.014, 0.01, 0.01), (x * b, 0.058 * b, 0.424), 'gunmetal', name='magazineTop')
+    k.smooth(k.box((0.02, 0.016, 0.03), (0.034 * b, 0.058 * b, 0.452), colour, bevel=0.004, name='radioPouch'))
+    k.cyl(0.002, 0.07, (0.04 * b, 0.05 * b, 0.495), 'black', 'z', 4, name='radioWhip')
+    if medic:
+        k.box((0.05, 0.006, 0.05), (0, 0.055 * b, 0.452), 'white', name='medicPatch')
+        k.box((0.03, 0.008, 0.01), (0, 0.057 * b, 0.452), 'redLamp', name='cross')
+        k.box((0.01, 0.008, 0.03), (0, 0.057 * b, 0.452), 'redLamp', name='cross')
+    # Shoulder patch on the left arm (rank / unit).
+    k.box((0.006, 0.02, 0.022), (-0.095 * b, 0.0, 0.452), 'black', name='patch')
 
 
 def back(k, kind, bulk=1.0):
@@ -331,8 +385,11 @@ def pistol_out(k, uniform='uniform', trousers='trousers'):
     k.box((0.01, 0.014, 0.024), (0.045, 0.2, 0.425), 'gunmetal', name='pistolGrip')
 
 
-def soldier(k, hat='helmet', gun='rifle', pack='pack', uniform='uniform', trousers='trousers', boots='boots',
-            kneepads=None, bulk=1.0, gear=True, face_kw=None, extra=None):
+def soldier(k, hat='combat', gun='rifle', pack='pack', uniform='camo', trousers='camoOlive', boots='boots',
+            kneepads='plate', bulk=1.0, gear=True, vest='plate', medic=False, bombs=False, face_kw=None, extra=None):
+    """A soldier: by default an army infantryman in camouflage, plate carrier,
+    combat helmet and knee pads. `vest=None` leaves the carrier off (suits,
+    officers, the civilian Engineer)."""
     legs(k, trousers, boots, kneepads)
     if gun in (None, 'none'):
         body(k, None, None, uniform=uniform, trousers=trousers, bulk=bulk, arms=False)
@@ -353,6 +410,8 @@ def soldier(k, hat='helmet', gun='rifle', pack='pack', uniform='uniform', trouse
     headgear(k, hat)
     if gear:
         webbing(k, bulk)
+    if vest:
+        plate_carrier(k, vest, bulk, medic=medic, bombs=bombs)
     if pack:
         back(k, pack, bulk)
     if extra:
@@ -364,21 +423,25 @@ INF = dict(maxEdge=1.0, ao=0.05, aoStrength=0.7, view='front')
 
 @model('rifleman', **INF)
 def rifleman(k):
-    soldier(k, 'helmet', 'rifle', 'pack')
+    soldier(k, 'combat', 'rifle', 'pack')
 
 
 @model('rocketTrooper', **INF)
 def rocket_trooper(k):
-    soldier(k, 'helmet', 'tube', 'pack')
+    soldier(k, 'combat', 'tube', 'pack')
 
 
 @model('engineer', **INF)
 def engineer(k):
-    def kit_():
-        for s in (1, -1):
-            k.box((0.012, 0.006, 0.12), (s * 0.03, 0.04, 0.42), 'hazard', name='vestStripe')
-    soldier(k, 'hardhat', None, None, uniform='uniform', extra=kit_)
-    # A toolbox in the right hand (it swings with the arm).
+    """The one civilian: a construction worker in team overalls, hi-vis vest and hard hat."""
+    def workwear():
+        k.smooth(k.box((0.1, 0.026, 0.1), (0, 0.036, 0.43), 'hiVis', bevel=0.012, name='hiVisFront'))
+        k.smooth(k.box((0.1, 0.024, 0.1), (0, -0.036, 0.43), 'hiVis', bevel=0.012, name='hiVisBack'))
+        for z in (0.41, 0.44):
+            k.box((0.104, 0.064, 0.008), (0, 0.0, z), 'white', name='reflectiveStripe')
+        k.smooth(k.torus(0.05, 0.009, (0, 0.002, 0.345), 'leather', 'z', 18, 5, name='toolBelt')).scale = (1.0, 0.74, 1.0)
+        k.box((0.012, 0.012, 0.05), (0.05, 0.026, 0.33), 'steel', name='wrench')
+    soldier(k, 'hardhat', None, None, uniform='uniform', trousers='trousersDark', kneepads=None, gear=False, vest=None, extra=workwear)
     arm = k.bpy.data.objects['armR']
     k.smooth(k.box((0.05, 0.022, 0.04), (0.078, 0.02, 0.235), 'hazard', bevel=0.006, parent=arm, name='toolbox'))
     k.box((0.03, 0.006, 0.006), (0.078, 0.02, 0.26), 'black', parent=arm, name='handle')
@@ -386,98 +449,109 @@ def engineer(k):
 
 @model('grenadier', **INF)
 def grenadier(k):
-    soldier(k, 'ushanka', 'smg', 'bag', extra=lambda: [
-        k.smooth(k.sphere(0.012, (x, 0.04, 0.37), 'olive', 8, 4, name='grenade')) for x in (-0.03, -0.01, 0.01)])
+    def grenades():
+        for x in (-0.03, -0.01, 0.01, 0.03):
+            k.smooth(k.sphere(0.011, (x, 0.064, 0.448), 'olive', 8, 4, name='grenade'))
+    soldier(k, 'ushanka', 'smg', 'bag', extra=grenades)
 
 
 @model('flameTrooper', **INF)
 def flame_trooper(k):
-    soldier(k, 'gasmask', 'flame', 'tanks', trousers='trousersDark')
+    soldier(k, 'gasmask', 'flame', 'tanks', trousers='camoDark', vest='plateBlack')
 
 
 @model('medic', **INF)
 def medic(k):
     def armband():
-        k.box((0.06, 0.006, 0.02), (0, 0.042, 0.44), 'white', name='redCrossPatch')
-        k.box((0.03, 0.008, 0.01), (0, 0.043, 0.44), 'redLamp', name='cross')
-        k.box((0.01, 0.008, 0.03), (0, 0.043, 0.44), 'redLamp', name='cross')
-    soldier(k, 'helmetWhite', None, 'medkit', extra=armband)
+        k.box((0.008, 0.026, 0.02), (-0.094, 0.0, 0.43), 'white', name='armband')
+        k.box((0.009, 0.012, 0.004), (-0.095, 0.0, 0.43), 'redLamp', name='cross')
+    soldier(k, 'combat', None, 'medkit', medic=True, extra=armband)
 
 
 @model('spy', **INF)
 def spy(k):
+    """A military intelligence officer: service uniform, peaked cap, pistol drawn."""
     def tie():
-        k.box((0.02, 0.006, 0.06), (0, 0.042, 0.45), 'white', name='shirt')
-        k.box((0.008, 0.008, 0.05), (0, 0.044, 0.445), 'black', name='tie')
-    soldier(k, 'fedora', 'pistol', None, uniform='uniform', trousers='black', boots='black', gear=False, extra=tie)
+        k.box((0.02, 0.006, 0.05), (0, 0.044, 0.465), 'white', name='shirt')
+        k.box((0.008, 0.008, 0.045), (0, 0.046, 0.46), 'black', name='tie')
+        k.box((0.02, 0.006, 0.008), (0.035, 0.044, 0.465), 'brass', name='ribbons')
+    soldier(k, 'officer', 'pistol', None, uniform='uniform', trousers='trousersDark', boots='black', kneepads=None, vest=None, extra=tie)
 
 
 @model('thief', **INF)
 def thief(k):
-    soldier(k, 'hood', None, 'bag', trousers='black', boots='black', gear=False)
+    soldier(k, 'combatBlack', None, 'bag', trousers='camoDark', boots='black', vest='plateBlack', face_kw={'mask': 'tactical'})
 
 
 @model('guardTrooper', **INF)
 def guard_trooper(k):
-    soldier(k, 'helmet', 'guard', 'radio', kneepads='webbing')
+    soldier(k, 'combat', 'guard', 'radio')
 
 
 @model('marksman', **INF)
 def marksman(k):
-    soldier(k, 'beret', 'sniper', 'pack', trousers='olive', kneepads='webbing')
+    soldier(k, 'boonie', 'sniper', 'pack', vest='coyote', face_kw={'mask': 'camoOlive'})
 
 
 @model('shockTrooper', **INF)
 def shock_trooper(k):
-    soldier(k, 'shock', 'tesla', 'tesla', trousers='steelDark', boots='dark', bulk=1.25)
+    soldier(k, 'shock', 'tesla', 'tesla', trousers='steelDark', boots='dark', bulk=1.25, vest='plateBlack', kneepads='steelDark')
 
 
 @model('flakTrooper', **INF)
 def flak_trooper(k):
-    soldier(k, 'helmet', 'flak', 'pack')
+    soldier(k, 'combat', 'flak', 'pack', vest='coyote')
 
 
 @model('seal', **INF)
 def seal(k):
-    soldier(k, 'helmetBlack', 'smg', 'radio', trousers='black', boots='black', kneepads='black',
-            extra=lambda: k.smooth(k.box((0.03, 0.02, 0.05), (-0.05, -0.05, 0.4), 'hazard', bevel=0.006, name='c4')))
+    soldier(k, 'combatBlack', 'smg', 'radio', trousers='camoDark', boots='black', vest='plateBlack', kneepads='plateBlack',
+            face_kw={'mask': 'tactical'},
+            extra=lambda: k.smooth(k.box((0.03, 0.02, 0.05), (-0.05, -0.065, 0.4), 'hazard', bevel=0.006, name='c4')))
 
 
 @model('chronoTrooper', **INF)
 def chrono_trooper(k):
-    soldier(k, 'chrono', 'chrono', 'chrono', trousers='white', boots='steelDark', bulk=1.1, gear=False)
+    soldier(k, 'chrono', 'chrono', 'chrono', uniform='camo', trousers='white', boots='steelDark', bulk=1.1, gear=False, vest='white', kneepads='white')
 
 
 @model('rocketeer', **INF)
 def rocketeer(k):
-    soldier(k, 'helmet', 'smg', 'jet')
+    soldier(k, 'combat', 'smg', 'jet', vest='coyote')
 
 
 @model('desolator', **INF)
 def desolator(k):
-    soldier(k, 'rad', 'rad', 'rad', trousers='olive', bulk=1.15, gear=False)
+    soldier(k, 'rad', 'rad', 'rad', trousers='olive', bulk=1.15, gear=False, vest='plate', kneepads='olive')
 
 
 @model('ivan', **INF)
 def ivan(k):
-    soldier(k, 'ushanka', None, 'bombs', trousers='trousersDark', face_kw={'beard': True})
+    soldier(k, 'ushanka', None, 'bombs', vest='coyote', bombs=True, face_kw={'beard': True})
 
 
 @model('psiCommander', **INF)
 def psi_commander(k):
-    soldier(k, 'psi', 'pistol', 'cape', trousers='trousersDark', gear=False)
+    """A general in a greatcoat and psychic helmet, pistol in hand."""
+    def greatcoat():
+        k.smooth(k.box((0.12, 0.08, 0.16), (0, 0.0, 0.29), 'uniform', bevel=0.02, taper=(0.9, 0.95, 0), name='coatSkirt'))
+        for z in (0.36, 0.4, 0.44):
+            for s_ in (1, -1):
+                k.sphere(0.004, (s_ * 0.016, 0.045, z), 'brass', 6, 3, name='button')
+        for s_ in (1, -1):
+            k.box((0.03, 0.03, 0.008), (s_ * 0.066, 0.0, 0.49), 'brass', name='epaulette')
+    soldier(k, 'psi', 'pistol', 'cape', uniform='uniform', trousers='trousersDark', boots='black', kneepads=None, gear=False, vest=None, extra=greatcoat)
 
 
 @model('hero', **INF)
 def hero(k):
-    soldier(k, 'redBeret', 'rifle', 'pack', face_kw={'moustache': True},
+    soldier(k, 'redBeret', 'rifle', 'pack', vest='coyote', face_kw={'moustache': True},
             extra=lambda: k.box((0.016, 0.06, 0.13), (0.0, 0.0, 0.43), 'brass', rot=(0, 38, 0), name='bandolier'))
 
 
 @model('commando', **INF)
 def commando(k):
-    soldier(k, 'cap', 'sniper', 'radio', trousers='black',
-            extra=lambda: k.box((0.016, 0.06, 0.13), (0.0, 0.0, 0.43), 'leather', rot=(0, -38, 0), name='bandolier'))
+    soldier(k, 'beret', 'sniper', 'radio', trousers='camoDark', vest='plateBlack', face_kw={'mask': 'tactical'})
 
 
 @model('hound', **INF)
