@@ -13,6 +13,7 @@
  * + team weight) and `glow`; textured ones add `uv`. Sizes are in cells:
  * the renderer scales by the cell size when it places instances.
  */
+import { fetchBytes, track } from '../lib/progress.js';
 import * as THREE from 'three';
 import { UNIT_MODELS } from './models/units.js';
 import { STRUCTURE_MODELS, SCENERY_MODELS } from './models/structures.js';
@@ -280,13 +281,12 @@ async function loadBaked(/** @type {number} */ maxTexture) {
     const res = await fetch(`${BASE}models.json`);
     if (!res.ok) return null;
     const index = await res.json();
-    const binRes = await fetch(`${BASE}models.bin`);
-    if (!binRes.ok) return null;
-    const bin = await binRes.arrayBuffer();
+    // The big download (about 12 MB): the loading line shows how far it has got.
+    const bin = await fetchBytes(`${BASE}models.bin`, { weight: 4 });
     const names = [...new Set(Object.values(index.models).map((/** @type {any} */ m) => m.atlas).filter(Boolean))];
     /** @type {Map<string, THREE.Texture>} */
     const maps = new Map();
-    await Promise.all(names.map(async (name) => {
+    await track(Promise.all(names.map(async (name) => {
       const blob = await (await fetch(BASE + name)).blob();
       // Straight alpha (it is the team weight, not coverage), and small on small devices.
       let bmp = await createImageBitmap(blob, { premultiplyAlpha: 'none', colorSpaceConversion: 'none' });
@@ -303,7 +303,7 @@ async function loadBaked(/** @type {number} */ maxTexture) {
       t.anisotropy = 2;
       t.needsUpdate = true;
       maps.set(name, t);
-    }));
+    })));
     return decodeBaked(index, bin, maps);
   } catch (e) {
     console.warn('[3d] baked models unavailable, using procedural ones', e);

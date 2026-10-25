@@ -11,6 +11,7 @@ import { UNITS, FACING_FRAMES } from '../data/units.js';
 import { PLAYER_COLORS } from '../data/factions.js';
 import { RENDER, SIM } from '../data/rules.js';
 import { drawPips } from './healthPips.js';
+import { shakeOf } from './shake.js';
 
 const PX_PER_LEPTON = RENDER.cellPx / SIM.leptonsPerCell;
 const TAU = Math.PI * 2;
@@ -157,7 +158,9 @@ export function createUnitLayer(renderer, art = null) {
         v.root.alpha = hidden ? 0.45 : 1;
         const x = (e.px + (e.x - e.px) * alpha) * PX_PER_LEPTON;
         const y = (e.py + (e.y - e.py) * alpha) * PX_PER_LEPTON;
-        v.root.position.set(x, y);
+        // A Terror Drone inside: the whole vehicle rattles.
+        const shake = shakeOf(e, now);
+        v.root.position.set(x + shake.x * RENDER.cellPx, y + shake.y * RENDER.cellPx);
         // Aircraft in flight sit above their shadow and over everything on the ground.
         const flying = UNITS[e.type].loco === 'air' && !e.landed;
         const lift = flying ? ALTITUDE_PX : 0;
@@ -165,7 +168,7 @@ export function createUnitLayer(renderer, art = null) {
         if (v.turret) v.turret.position.y = -lift;
         v.root.zIndex = y + (flying ? 10000 : 0);
         const frames = framesFor(look.type);
-        v.body.rotation = rotationOf(e.facing, frames);
+        v.body.rotation = rotationOf(e.facing, frames) + shake.twist;
         if (v.turret) v.turret.rotation = rotationOf(e.turret, FACING_FRAMES.turret);
         if (v.shadow instanceof Graphics) v.shadow.alpha = flying ? 0.6 : 1;
         else {

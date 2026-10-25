@@ -34,7 +34,7 @@
  * @property {number} leap          Melee leap distance, cells
  * @property {'infantry' | 'friendlyInfantry' | 'ships' | 'subs' | null} only
  * @property {boolean} powered      Needs the owner's full power to fire
- * @property {'mindControl' | null} effect  Special effect on a direct hit instead of damage
+ * @property {'mindControl' | 'infest' | null} effect  Special effect on a direct hit instead of damage (infest: a Terror Drone gets inside a vehicle)
  */
 
 /**
@@ -59,6 +59,7 @@
  * @property {number} slots        Slots this unit takes in a naval transport
  * @property {string[]} tags       Behaviour flags
  * @property {'helipad' | 'airfield'} [pad]  Aircraft: the pad it is built on and rearms at (default: helipad for helicopters, airfield for planes)
+ * @property {Partial<Record<'coalition' | 'union', { weapons: string[], turret: boolean }>>} [armedAs]  A side's own arms for a unit both sides build (the Union's War Miner carries a gun)
  */
 
 /**

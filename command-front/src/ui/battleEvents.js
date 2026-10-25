@@ -51,6 +51,8 @@ export function wireBattleEvents(ctx) {
         ctx.alerts.raise('unitLost', { x: Math.floor(e.data.x / L), y: Math.floor(e.data.y / L) });
       }
     }),
+    // A Terror Drone tears its way into a vehicle.
+    ev.on('infested', (e) => { const h = entity(e.data.host); if (h) at('bite', h.x, h.y); }),
     ev.on('structureDestroyed', (e) => at(structureDef(e.data.type)?.wall ? 'small' : 'bigBoom', e.data.x, e.data.y, false)),
   ];
   return {

@@ -65,7 +65,9 @@ export const UNITS = Object.freeze({
   commando:      u({ id: 'commando', name: 'Commando', faction: 'coalition', line: INF, cost: 1200, hp: 100, armor: 'none', loco: 'foot', speed: 1.3, sight: 6, weapons: ['sniper'], requires: ['barracks', 'tech'], limit: 1, tags: ['c4'] }),
 
   // Vehicles
-  harvester:     u({ id: 'harvester', name: 'Harvester', faction: 'both', line: VEH, cost: 1400, hp: 600, armor: 'heavy', loco: 'track', speed: 1.0, sight: 4, crusher: 'sandbags', turnRate: TURN_RATE.heavy, requires: ['factory', 'refinery'], slots: 2, tags: ['harvester', 'noAutoAcquire', 'noRally'] }),
+  harvester:     u({ id: 'harvester', name: 'Harvester', faction: 'both', line: VEH, cost: 1400, hp: 600, armor: 'heavy', loco: 'track', speed: 1.0, sight: 4, crusher: 'sandbags', turnRate: TURN_RATE.heavy, requires: ['factory', 'refinery'], slots: 2, tags: ['harvester', 'noAutoAcquire', 'noRally', 'firesWhileWorking'],
+    // Red Alert 2's War Miner: the Union's harvester has a machine gun in a turret on its cab.
+    armedAs: { union: { weapons: ['minerGun'], turret: true } } }),
   mcv:           u({ id: 'mcv', name: 'MCV', faction: 'both', line: VEH, cost: 2500, hp: 600, armor: 'light', loco: 'wheel', speed: 1.0, sight: 4, turnRate: TURN_RATE.heavy, requires: ['factory', 'depot'], slots: 2, tags: ['mcv', 'noAutoAcquire', 'noRally'] }),
   mineLayer:     u({ id: 'mineLayer', name: 'Mine Layer', faction: 'both', line: VEH, cost: 800, hp: 100, armor: 'heavy', loco: 'track', speed: 1.8, sight: 5, crusher: 'infantry', requires: ['factory', 'depot'], tags: ['mineLayer', 'noAutoAcquire'] }),
   ranger:        u({ id: 'ranger', name: 'Ranger', faction: 'coalition', line: VEH, cost: 500, hp: 150, armor: 'light', loco: 'wheel', speed: 2.8, sight: 6, weapons: ['heavyMg'], turret: true, requires: ['factory'], tags: ['scout'] }),

@@ -40,6 +40,7 @@ const GAN = /** @type {import('../types.js').HitLayer[]} */ (['G', 'A', 'N']);
 
 /** @type {Record<string, WeaponDef>} */
 export const WEAPONS = Object.freeze({
+  minerGun:     w('minerGun', 'War Miner Gun', { damage: 12, range: 4.5, cooldown: 0.5, warhead: 'SA', hits: G }),
   rifle:        w('rifle', 'Rifle', { damage: 15, range: 3, cooldown: 1.2, warhead: 'SA', hits: GN }),
   heavyMg:      w('heavyMg', 'Heavy MG', { damage: 15, range: 4, cooldown: 0.8, warhead: 'SA', hits: GN }),
   pillboxMg:    w('pillboxMg', 'Pillbox MG', { damage: 25, range: 5, cooldown: 0.7, warhead: 'SA', hits: GN }),
@@ -90,7 +91,7 @@ export const WEAPONS = Object.freeze({
   mirageGun:    w('mirageGun', 'Mirage Cannon', { damage: 45, range: 5.5, cooldown: 2.4, warhead: 'HE', splash: 0.6, projectile: 'fastShell', hits: GN }),
   robotGun:     w('robotGun', 'Robot Cannon', { damage: 22, range: 4.75, cooldown: 1.0, warhead: 'AP', projectile: 'fastShell', hits: GN }),
   fortressGuns: w('fortressGuns', 'Fortress Guns', { damage: 18, burst: 3, burstGap: 0.15, range: 5, cooldown: 1.0, warhead: 'SA', hits: GN }),
-  droneClaws:   w('droneClaws', 'Drone Claws', { damage: 30, range: 0.75, leap: 1.5, cooldown: 0.5, warhead: 'Drone', projectile: 'melee', hits: G }),
+  droneClaws:   w('droneClaws', 'Drone Claws', { damage: 30, range: 0.75, leap: 2.5, cooldown: 0.5, warhead: 'Drone', projectile: 'melee', hits: G, effect: 'infest' }),
   demoCharge:   w('demoCharge', 'Demolition Charge', { damage: 1, range: 0.75, cooldown: 1, warhead: 'HE', projectile: 'melee', hits: G }),
   chopperCannon: w('chopperCannon', 'Chopper Cannon', { damage: 45, range: 5, cooldown: 1.2, ammo: 10, warhead: 'HE', splash: 0.5, projectile: 'fastShell', hits: GN }),
   migMissiles:  w('migMissiles', 'MiG Missiles', { damage: 55, burst: 2, range: 5, cooldown: 0.6, ammo: 4, warhead: 'AP', splash: 0.3, projectile: 'homing', hits: GAN }),

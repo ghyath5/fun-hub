@@ -22,6 +22,8 @@ import { setMove } from './movement.js';
 import { findSlot, reservedSlots, slotCell, slotHolders, slotPoint } from '../pads.js';
 import { DIR8 } from '../../core/fixed.js';
 import { spiral } from '../nav.js';
+import { cutOut } from '../infest.js';
+import { killUnit } from './damage.js';
 import { priceFor, clones } from '../bonuses.js';
 
 /** @typedef {import('../world.js').World} World */
@@ -424,8 +426,8 @@ const DEPOT_GIVE_UP_TICKS = ticks(20);
 
 /**
  * Service Depot (section 6): one vehicle at a time on the centre pad,
- * +5% max HP a second for unit cost × 0.0125 a step, and +1 mine per 2 s for
- * Mine Layers. Others wait beside it.
+ * +5% max HP a second for unit cost × 0.0125 a step; a Terror Drone inside is
+ * cut out first. Others wait beside it.
  * @param {World} w
  */
 function depotService(w) {
@@ -450,9 +452,11 @@ function depotService(w) {
       if (++u.depotWait > DEPOT_GIVE_UP_TICKS) { d.servicing = 0; u.depotWait = 0; }
       continue;
     }
-    if (u.next || (w.tick + u.id) % SECOND !== 0) continue;
+    if (u.next) continue;
+    // On the pad, a Terror Drone inside is cut out at once (the depot gets the kill).
+    if (u.infested) cutOut(w, u, d.id, killUnit);
+    if ((w.tick + u.id) % SECOND !== 0) continue;
     const def = UNITS[u.type];
-    const needsMines = def.tags.includes('mineLayer') && (u.mines ?? 0) < (u.maxMines ?? 0);
     if (u.hp < u.maxHp) {
       const p = w.players[u.owner];
       const milli = Math.round(def.cost * REPAIR.depotCostFractionPerStep * 1000);
@@ -465,8 +469,7 @@ function depotService(w) {
         u.hp = Math.min(u.maxHp, u.hp + Math.max(1, Math.floor(u.maxHp * REPAIR.depotHpFractionPerSecond)));
       }
     }
-    if (needsMines && Math.floor(w.tick / SECOND) % Math.round(REPAIR.depotMineReloadSeconds) === 0) u.mines++;
-    if (u.hp >= u.maxHp && !(def.tags.includes('mineLayer') && (u.mines ?? 0) < (u.maxMines ?? 0))) {
+    if (u.hp >= u.maxHp) {
       u.task = null;
       d.servicing = 0;
       leaveDepot(w, u, d);

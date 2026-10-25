@@ -16,9 +16,9 @@ import { itemInfo, countOwned, lineOf } from '../sim/catalog.js';
 import { structureDef, isActive, rolesOf } from '../sim/entities/structures.js';
 import { checkDeploy } from '../sim/placement.js';
 import { spiral } from '../sim/nav.js';
-import { BUILD_ORDER, WAVES, DIFFICULTY_RANK, UNIT_QUEUE_AHEAD, STRUCTURE_RESERVE } from './buildOrders.js';
+import { BUILD_ORDER, WAVES, FLEETS, DIFFICULTY_RANK, UNIT_QUEUE_AHEAD, STRUCTURE_RESERVE } from './buildOrders.js';
 import { choosePlacement, baseCentre } from './placement.js';
-import { thinkArmy, issue, updateKnowledge, armyOf } from './army.js';
+import { thinkArmy, issue, updateKnowledge, armyOf, fleetOf } from './army.js';
 
 /** @typedef {import('../sim/world.js').World} World */
 
@@ -44,6 +44,8 @@ export function createAiState(pid, difficulty) {
     lastStand: false,
     /** Does water link our base to an enemy's (naval build steps)? null = not worked out yet. @type {boolean | null} */
     naval: null,
+    /** No room for a naval yard by the water yet: naval steps wait until this tick, so the rest of the build order goes on. */
+    navalRetryAt: 0,
     /** Round-robin position in the wave mix. */
     mixCursor: 0,
     /** Where the base was last hit (planes strike there first), or null. @type {{x: number, y: number} | null} */
@@ -66,6 +68,7 @@ const startable = (w, pid, type) => {
 
 /** Water near our start connected to water near an enemy start (worked out once). @param {World} w @param {AiState} ai */
 function navalWorld(w, ai) {
+  if (w.tick < (ai.navalRetryAt ?? 0)) return false;
   if (ai.naval !== null) return ai.naval;
   const comps = (/** @type {{x: number, y: number}} */ s) => {
     const set = new Set();
@@ -129,6 +132,9 @@ function enemyDirection(w, ai) {
   return best;
 }
 
+/** How long naval steps wait after a naval yard found no spot. */
+const NAVAL_RETRY_TICKS = ticks(60);
+
 /** Keep the Structures and Defenses lines busy, and place what is READY. @param {World} w @param {AiState} ai */
 function manageBase(w, ai) {
   const p = w.players[ai.pid];
@@ -137,7 +143,11 @@ function manageBase(w, ai) {
     if (l?.ready) {
       const spot = choosePlacement(w, ai.pid, l.ready, enemyDirection(w, ai));
       if (spot) issue(w, ai, 'place', [], { type: l.ready, x: spot.x, y: spot.y });
-      else issue(w, ai, 'cancelReady', [], { line });
+      else {
+        issue(w, ai, 'cancelReady', [], { line });
+        // A naval yard with no water in reach yet: try again later, building the rest meanwhile.
+        if (structureDef(l.ready)?.water) ai.navalRetryAt = w.tick + NAVAL_RETRY_TICKS;
+      }
       continue;
     }
     if (l?.queue.length) continue;
@@ -218,12 +228,31 @@ function manageProduction(w, ai) {
     options.sort((a, b) => (have[a] ?? 0) / mix[a] - (have[b] ?? 0) / mix[b] || types.indexOf(a) - types.indexOf(b));
     issue(w, ai, 'build', [], { type: options[0], count: 1 });
   }
+  buildFleet(w, ai);
   // Hard keeps an Engineer around for captures.
   const engineerQueued = (p.lines.infantry?.queue ?? []).some((/** @type {any} */ q) => q.type === 'engineer');
   if (ai.cfg.engineerCapture && countOwned(w, ai.pid, 'engineer') === 0 && !engineerQueued && startable(w, ai.pid, 'engineer')
     && (p.lines.infantry?.queue.length ?? 0) < PRODUCTION.queueMax && ai.waveCount > 0) {
     issue(w, ai, 'build', [], { type: 'engineer', count: 1 });
   }
+}
+
+/** Warships up to the fleet size, by the faction's fleet make-up, when water links the bases. @param {World} w @param {AiState} ai */
+function buildFleet(w, ai) {
+  if (!ai.cfg.fleetSize || !navalWorld(w, ai)) return;
+  const p = w.players[ai.pid];
+  const queue = p.lines.naval?.queue ?? [];
+  if (queue.length >= UNIT_QUEUE_AHEAD) return;
+  const mix = FLEETS[/** @type {'coalition' | 'union'} */ (p.faction)] ?? {};
+  /** @type {Record<string, number>} */
+  const have = {};
+  for (const u of fleetOf(w, ai.pid)) have[u.type] = (have[u.type] ?? 0) + 1;
+  for (const q of queue) have[q.type] = (have[q.type] ?? 0) + 1;
+  if (Object.values(have).reduce((a, n) => a + n, 0) >= ai.cfg.fleetSize) return;
+  const types = Object.keys(mix).filter((t) => startable(w, ai.pid, t));
+  if (!types.length) return;
+  types.sort((a, b) => (have[a] ?? 0) / mix[a] - (have[b] ?? 0) / mix[b] || a.localeCompare(b));
+  issue(w, ai, 'build', [], { type: types[0], count: 1 });
 }
 
 /** One think for one AI player. @param {World} w @param {AiState} ai */

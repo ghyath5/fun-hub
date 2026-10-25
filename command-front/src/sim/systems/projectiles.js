@@ -15,6 +15,7 @@ import { damage, falloffPermille } from '../formulas/combat.js';
 import { armorOf, layerOf, isInfantryEntity, reachDist } from '../targeting.js';
 import { terrainImpact, scorchEarth } from '../terrainDamage.js';
 import { mindControl } from '../unitPowers.js';
+import { canInfest, infest } from '../infest.js';
 
 /** @typedef {import('../world.js').World} World */
 /** @typedef {import('./weapons.js').Projectile} Projectile */
@@ -47,9 +48,13 @@ export function detonate(w, p) {
   /** @param {any} victim @param {number} amount */
   const hit = (victim, amount) => w.damage.push({ victim: victim.id, amount, attacker: p.shooter, owner: p.owner });
 
-  if (wd.effect === 'mindControl') {
+  const shooter = w.entities.get(p.shooter);
+  if (wd.effect === 'infest' && direct && canInfest(w, shooter, direct)) {
+    // A Terror Drone's leap that lands on a vehicle takes it inside (infest.js); anything else it claws.
+    infest(w, shooter, direct);
+  } else if (wd.effect === 'mindControl') {
     // No damage: a direct hit turns the target (unitPowers.js).
-    if (direct) mindControl(w, w.entities.get(p.shooter), direct);
+    if (direct) mindControl(w, shooter, direct);
   } else if (!wd.warhead) {
     // Healing: a direct effect on its patient only.
     if (direct) hit(direct, wd.damage);
@@ -58,7 +63,7 @@ export function detonate(w, p) {
     const r = Math.round(wd.splash * L);
     if (r > 0) {
       for (const e of w.spatial.near(p.tx, p.ty, r + 2 * L)) {
-        if (e === direct || e.dead || e.immune) continue;
+        if (e === direct || e.dead || e.immune || e.inside) continue; // riders (passengers, drones) are out of reach
         const layer = layerOf(e);
         if (layer === 'A') continue;
         if (layer === 'S' && !wd.hits.includes('S')) continue;

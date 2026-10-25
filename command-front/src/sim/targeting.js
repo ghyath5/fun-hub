@@ -37,8 +37,17 @@ export const armorOf = (e) => combatDef(e.type).armor;
 /** @param {any} e */
 export const isInfantryEntity = (e) => e.kind === 'unit' && UNITS[e.type]?.loco === 'foot';
 
-/** Weapon ids of an entity (a defense has one, most structures none; a dug-in Rifleman his nest gun). @param {any} e */
-export const weaponsOf = (e) => dugWeapons(e) ?? combatDef(e.type).weapons;
+/** A side's own arms an entity carries (the Union's War Miner), or null. @param {any} e */
+export const armsOf = (e) => (e.armedAs ? UNITS[e.type]?.armedAs?.[e.armedAs] ?? null : null);
+
+/** Weapon ids of an entity (a defense has one, most structures none; a dug-in Rifleman his nest gun; a War Miner its gun). @param {any} e */
+export const weaponsOf = (e) => dugWeapons(e) ?? armsOf(e)?.weapons ?? combatDef(e.type).weapons;
+
+/** Does it aim with a turret that turns on its own? @param {any} e */
+export const hasTurret = (e) => combatDef(e.type).turret || !!armsOf(e)?.turret;
+
+/** Does this entity get inside vehicles (a Terror Drone)? @param {any} e */
+export const infests = (e) => weaponsOf(e).some((id) => WEAPONS[id].effect === 'infest');
 
 /**
  * Distance in leptons from a's centre to b: to b's centre for units, to the
@@ -143,5 +152,7 @@ export function autoTargetable(e, looker, visible) {
   if (def.wall || def.tags.includes('neutral')) return false;
   if (e.kind === 'unit' && UNITS[e.type].tags.includes('spy') && !UNITS[looker.type]?.tags.includes('detectsSpies')) return false;
   if (visible && !visible(e, looker)) return false;
+  // A vehicle that already has a drone inside is left to it; other drones look for another.
+  if (e.infested && infests(looker)) return false;
   return true;
 }

@@ -6,6 +6,8 @@
 import { startApp } from './game/app.js';
 import { showBlocking } from './ui/menus.js';
 import { watchFit } from './ui/fit.js';
+import { mountLoadingBar } from './ui/loadingBar.js';
+import { track } from './lib/progress.js';
 
 const debug = new URLSearchParams(location.search).has('debug');
 const $ = (/** @type {string} */ id) => /** @type {HTMLElement} */ (document.getElementById(id));
@@ -42,7 +44,7 @@ async function loadDebugTools() {
 }
 
 async function boot() {
-  await startApp({ hudEl: $('hud'), worldEl: $('world'), screensEl: $('screens'), debug });
+  await track(startApp({ hudEl: $('hud'), worldEl: $('world'), screensEl: $('screens'), debug }));
   for (const ev of ['gesturestart', 'dblclick']) document.addEventListener(ev, (e) => e.preventDefault(), { passive: false });
   if (debug) {
     loadDebugTools();
@@ -54,6 +56,7 @@ if (location.protocol === 'file:') {
   // index.html already shows the "serve this folder" card; nothing to start.
 } else {
   watchFit();
+  mountLoadingBar();
   registerServiceWorker();
   boot().catch((err) => {
     console.error(err);

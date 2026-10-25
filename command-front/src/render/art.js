@@ -15,6 +15,7 @@
  * renderer's teardown can never break the next match's art.
  */
 import { ImageSource, Rectangle, Texture } from 'pixi.js';
+import { track } from '../lib/progress.js';
 
 const BASE = './assets/art/';
 
@@ -74,7 +75,7 @@ export function artScale() {
 /** Fetch the atlas index and pages once (the service worker keeps them offline). @param {boolean} terrainOnly */
 function fetchArt(terrainOnly) {
   const kind = terrainOnly ? 'terrain' : 'all';
-  if (!downloads.has(kind)) downloads.set(kind, (async () => {
+  if (!downloads.has(kind)) downloads.set(kind, track((async () => {
     try {
       const res = await fetch(`${BASE}atlas.json`);
       if (!res.ok) return null;
@@ -94,7 +95,7 @@ function fetchArt(terrainOnly) {
       console.warn('[art] pre-rendered art unavailable, using code-drawn art', e);
       return null;
     }
-  })());
+  })()));
   return /** @type {Promise<any>} */ (downloads.get(kind));
 }
 

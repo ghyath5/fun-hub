@@ -18,8 +18,8 @@ export const WARHEADS = {
   Chrono:      { none: 100, wood: 70,  light: 100, heavy: 100, concrete: 50 },
   // Mind control: living crews only (no buildings); the weapon does no damage.
   Psi:         { none: 100, wood: 0,   light: 100, heavy: 100, concrete: 0 },
-  // Terror Drone claws: vehicles only.
-  Drone:       { none: 0,   wood: 0,   light: 100, heavy: 100, concrete: 0 },
+  // Terror Drone claws: vehicles (it climbs inside them) and infantry, never buildings.
+  Drone:       { none: 100, wood: 0,   light: 100, heavy: 100, concrete: 0 },
 };
 
 /** Warheads whose damage prone infantry halve (section 9). */

@@ -1,7 +1,7 @@
 /* Command Front service worker: cache-first, versioned. Hand-maintained list —
    add every file the game loads; ?debug warns at startup about any that are missing.
    Bump CACHE whenever a listed file changes. */
-const CACHE = 'command-front-v43';
+const CACHE = 'command-front-v44';
 
 const PRECACHE = [
   './',
@@ -564,6 +564,7 @@ const PRECACHE = [
   './src/lib/noise.js',
   './src/lib/pathfinder.js',
   './src/lib/rng.js',
+  './src/lib/progress.js',
   './src/lib/storage.js',
   './src/main.js',
   './src/map/generator.js',
@@ -591,6 +592,7 @@ const PRECACHE = [
   './src/render/terrainTiles.js',
   './src/render/units.js',
   './src/render/healthPips.js',
+  './src/render/shake.js',
   './src/render3d/app3d.js',
   './src/render3d/icons3d.js',
   './src/render3d/instances.js',
@@ -607,6 +609,7 @@ const PRECACHE = [
   './src/save/serialize.js',
   './src/sim/air.js',
   './src/sim/dig.js',
+  './src/sim/infest.js',
   './src/sim/baseCommands.js',
   './src/sim/bonuses.js',
   './src/sim/capture.js',
@@ -666,6 +669,7 @@ const PRECACHE = [
   './src/ui/hud.js',
   './src/ui/linkCard.js',
   './src/ui/menus.js',
+  './src/ui/loadingBar.js',
   './src/ui/minimap.js',
   './src/ui/model.js',
   './src/ui/pairScreens.js',

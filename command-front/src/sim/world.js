@@ -32,6 +32,7 @@ import { aiSystem } from './systems/ai.js';
 import { victorySystem } from './systems/victory.js';
 import { crateSystem } from './systems/crates.js';
 import { killUnit } from './systems/damage.js';
+import { infestDied } from './infest.js';
 import { SETUP_DEFAULTS } from '../data/rules.js';
 
 /** @typedef {import('../types.js').MapData} MapData */
@@ -99,6 +100,7 @@ export function createWorld({ map, seed, players, settings }) {
       (/** @type {any} */ w, /** @type {any} */ u) => { transportDied(w, u, killUnit); },
       (/** @type {any} */ w, /** @type {any} */ u) => { aircraftDied(w, u); },
       (/** @type {any} */ w, /** @type {any} */ u) => { unitPowerDied(w, u); },
+      (/** @type {any} */ w, /** @type {any} */ u) => { infestDied(w, u, killUnit); },
     ]),
     /** Can player `pid` see entity `e`? Replaced by the shroud system (milestone 6). */
     visibleTo: (/** @type {number} */ pid, /** @type {any} */ e) => true,
@@ -193,7 +195,8 @@ export function hashWorld(w) {
     h.int(e.id).str(e.type).int(e.owner).int(e.hp).int(e.x).int(e.y).int(e.facing).int(e.turret).int(e.cx).int(e.cy).int(e.spot)
       .int(e.path.length).int(e.order ? 1 : 0).int(e.next ? e.next.x * 4096 + e.next.y : -1)
       .int(e.target).int(e.proneUntil).str(e.task ? e.task.type : '-')
-      .int(e.harv ? e.harv.ore * 100 + e.harv.gem : -1).str(e.harv ? e.harv.state : '').int(e.dug ? 1 : 0);
+      .int(e.harv ? e.harv.ore * 100 + e.harv.gem : -1).str(e.harv ? e.harv.state : '').int(e.dug ? 1 : 0)
+      .int(e.inside ?? 0).int(e.infested ?? 0);
     for (const st of e.weapons) h.int(st.cd).int(st.burst).int(st.ammo);
   }
   for (const p of w.projectiles) h.int(p.id).int(p.x).int(p.y).int(p.tx).int(p.ty);

@@ -119,7 +119,6 @@ export const REPAIR = Object.freeze({
   costFractionPerStep: 0.005,
   depotHpFractionPerSecond: 0.05,
   depotCostFractionPerStep: 0.0125,
-  depotMineReloadSeconds: 2,
   padHpFractionPerSecond: 0.02,
   padRearmSeconds: 1,
 });
@@ -161,10 +160,22 @@ export const SPECIALS = Object.freeze({
   houndLeapRange: 2,
   houndLeapSeconds: 0.4,
   medicSight: 3,
-  mineLaySeconds: 1,
-  mineCarry: 5,
-  /** No cap on the mines a player may have down (Infinity); a Mine Layer still carries mineCarry per trip. */
+  mineLaySeconds: 0.6,
+  /** Credits each mine costs as it goes down; a Mine Layer carries no load and lays for as long as the money lasts. */
+  mineCost: 25,
+  /** No cap on the mines a player may have down (Infinity). */
   minesMaxPerPlayer: Infinity,
+});
+
+/**
+ * Terror Drones (Red Alert 2): a drone that lands on an enemy ground vehicle
+ * climbs inside and shreds it from within — chewDamage every chewSeconds, so
+ * a Heavy Tank lasts about 6 s — until the vehicle dies or a Service Depot
+ * cuts the drone out.
+ */
+export const DRONE = Object.freeze({
+  chewDamage: 20,
+  chewSeconds: 0.25,
 });
 
 export const TRANSPORT = Object.freeze({
@@ -290,17 +301,18 @@ export const SUPPORT_POWER_TECH_LEVEL = 10;
  * AI difficulty levels, easiest first. armyCap: most combat units it keeps
  * (it stops training at the cap); maxDefenses: most defense towers (walls not
  * counted); skipRoles: buildings it never builds; oreValueFactor: its income
- * per bale relative to a human's.
+ * per bale relative to a human's; fleetSize: warships it keeps when water links
+ * its base to an enemy's (0: no navy).
  */
 export const AI = Object.freeze({
   beginner: { thinkSeconds: 3,   harvestersPerRefinery: 1, maxRefineries: 1, firstAttackSeconds: 900, waveSeconds: 420, supportPowers: 'no', engineerCapture: false, oreValueFactor: 0.6, micro: 'none',
-    armyCap: 6, maxDefenses: 0, skipRoles: ['helipad', 'airfield', 'navalyard', 'tech', 'superA', 'superB', 'superC', 'superD', 'processor', 'industry', 'cloning', 'sensor'] },
+    armyCap: 6, fleetSize: 0, maxDefenses: 0, skipRoles: ['helipad', 'airfield', 'navalyard', 'tech', 'superA', 'superB', 'superC', 'superD', 'processor', 'industry', 'cloning', 'sensor'] },
   easy:   { thinkSeconds: 2,   harvestersPerRefinery: 1, maxRefineries: 1, firstAttackSeconds: 600, waveSeconds: 300, supportPowers: 'no', engineerCapture: false, oreValueFactor: 0.8, micro: 'none',
-    armyCap: 12, maxDefenses: 2, skipRoles: ['tech', 'superA', 'superB', 'superC', 'superD', 'cloning'] },
+    armyCap: 12, fleetSize: 0, maxDefenses: 2, skipRoles: ['tech', 'superA', 'superB', 'superC', 'superD', 'cloning'] },
   normal: { thinkSeconds: 1,   harvestersPerRefinery: 2, maxRefineries: 2, firstAttackSeconds: 360, waveSeconds: 210, supportPowers: 'yes', engineerCapture: false, oreValueFactor: 1.0, micro: 'retreat',
-    armyCap: 40, maxDefenses: 8, skipRoles: [] },
+    armyCap: 40, fleetSize: 3, maxDefenses: 8, skipRoles: [] },
   hard:   { thinkSeconds: 0.5, harvestersPerRefinery: 3, maxRefineries: 3, firstAttackSeconds: 240, waveSeconds: 150, supportPowers: 'timed', engineerCapture: true, oreValueFactor: 1.25, micro: 'full',
-    armyCap: 80, maxDefenses: 12, skipRoles: [] },
+    armyCap: 80, fleetSize: 5, maxDefenses: 12, skipRoles: [] },
   shared: {
     powerHeadroom: 1.1,
     siloAtFraction: 0.8,

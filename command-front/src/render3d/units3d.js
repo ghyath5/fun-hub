@@ -14,6 +14,7 @@ import { UNITS } from '../data/units.js';
 import { PLAYER_COLORS } from '../data/factions.js';
 import { RENDER, SIM } from '../data/rules.js';
 import { drawPips } from '../render/healthPips.js';
+import { shakeOf } from '../render/shake.js';
 import { CELL, LIFT, ALTITUDE, SQUASH } from './view.js';
 
 const PX_PER_LEPTON = RENDER.cellPx / SIM.leptonsPerCell;
@@ -125,8 +126,10 @@ export function createUnits3D(lib, inst) {
         const swing = Math.sin(st.walk) * 0.55 * st.moving;
         // A walking soldier bobs with each step; a vehicle rocks back a little when it fires.
         const bob = d.loco === 'foot' && !flying ? Math.abs(Math.sin(st.walk)) * 0.025 * st.moving * CELL : 0;
-        base.makeTranslation(x, y + bob, z);
-        const facing = (-e.facing / 256) * TAU;
+        // A Terror Drone inside: the whole vehicle rattles.
+        const shake = shakeOf(e, now);
+        base.makeTranslation(x + shake.x * CELL, y + bob, z + shake.y * CELL);
+        const facing = (-e.facing / 256) * TAU + shake.twist;
         // A dug-in Rifleman sits in a sandbag ring that faces where he looks.
         if (e.dug) for (const p of lib.get('sandbagNest').parts) {
           m.copy(base).multiply(rot.makeRotationY(facing)).multiply(S).multiply(part.makeTranslation(p.pivot.x, p.pivot.y, p.pivot.z));

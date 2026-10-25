@@ -12,7 +12,7 @@ import { DIR8 } from '../core/fixed.js';
 import { computeField, descend } from './flowField.js';
 import { MOVEMENT } from '../data/rules.js';
 import { defOf } from './entities/units.js';
-import { canAttack, layerOf } from './targeting.js';
+import { canAttack, layerOf, weaponsOf } from './targeting.js';
 import { UNITS } from '../data/units.js';
 import { WEAPONS } from '../data/weapons.js';
 import { harvesterManual, harvestAt, unloadAt } from './systems/harvest.js';
@@ -68,6 +68,27 @@ function clearIntent(w, u) {
   u.fireCell = null;
   u.chase = null;
   u.waypoints = [];
+}
+
+/**
+ * Share the cells of a lay-mines order among Mine Layers, so several sow one
+ * field side by side: each takes the next run of cells, in the order they
+ * were picked, the runs as even as they can be (earlier layers take the
+ * spare ones).
+ * @param {any[]} layers  in id order @param {number[][]} cells
+ * @returns {[any, number[][]][]}
+ */
+export function shareCells(layers, cells) {
+  /** @type {[any, number[][]][]} */
+  const out = [];
+  let k = 0;
+  layers.forEach((u, i) => {
+    const take = Math.ceil((cells.length - k) / (layers.length - i));
+    if (take <= 0) return;
+    out.push([u, cells.slice(k, k + take).map((p) => [p[0], p[1]])]);
+    k += take;
+  });
+  return out;
 }
 
 /** The live entity a command targets by id. @param {World} w @param {Command} c */
@@ -142,7 +163,7 @@ function moveGroup(w, units, t, kind) {
 }
 
 /** Can any of a unit's weapons reach this entity's layer (force-fire ignores ownership)? @param {Unit} u @param {any} e */
-const reaches = (u, e) => UNITS[u.type].weapons.some((id) => {
+const reaches = (u, e) => weaponsOf(u).some((id) => {
   const wd = WEAPONS[id];
   return wd.damage > 0 && !!wd.warhead && wd.hits.includes(layerOf(e));
 });
@@ -167,7 +188,7 @@ function forceFire(w, units, t) {
   if (!e && !cell) return false;
   let any = false;
   for (const u of units) {
-    if (e ? (e.id === u.id || !reaches(u, e)) : !UNITS[u.type].weapons.some((id) => WEAPONS[id].hits.includes('G') && WEAPONS[id].damage > 0)) continue;
+    if (e ? (e.id === u.id || !reaches(u, e)) : !weaponsOf(u).some((id) => WEAPONS[id].hits.includes('G') && WEAPONS[id].damage > 0)) continue;
     clearIntent(w, u);
     u.task = { type: 'forceFire', target: e ? e.id : 0, x: cell?.x ?? 0, y: cell?.y ?? 0 };
     u.target = e ? e.id : 0;
@@ -313,10 +334,9 @@ export function applyCommand(w, c) {
     case 'layMines': {
       const cells = Array.isArray(c.target?.cells) ? c.target.cells.filter((/** @type {any} */ p) => Array.isArray(p) && Number.isInteger(p[0]) && Number.isInteger(p[1])).slice(0, SPECIALS.minesMaxPerPlayer) : [];
       ok = false;
-      for (const u of units) {
-        if (!isMineLayer(u) || !cells.length) continue;
+      for (const [u, share] of shareCells(units.filter(isMineLayer), cells)) {
         clearIntent(w, u);
-        u.task = { type: 'layMines', cells: cells.map((/** @type {number[]} */ p) => [p[0], p[1]]), until: 0 };
+        u.task = { type: 'layMines', cells: share, until: 0 };
         ok = true;
       }
       break;

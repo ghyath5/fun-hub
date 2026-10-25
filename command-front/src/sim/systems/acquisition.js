@@ -20,7 +20,7 @@ import { UNITS } from '../../data/units.js';
 import { COMBAT, SPECIALS, SIM } from '../../data/rules.js';
 import { cellOf, chebyshev } from '../../core/fixed.js';
 import { targetScore } from '../formulas/combat.js';
-import { canAttack, maxRangeVs, maxRange, bestMultiplierPct, isInfantryEntity, reachDist, weaponsOf, autoTargetable, volleyDamage } from '../targeting.js';
+import { canAttack, maxRangeVs, maxRange, bestMultiplierPct, isInfantryEntity, reachDist, weaponsOf, autoTargetable, volleyDamage, infests, hasTurret } from '../targeting.js';
 import { combatDef } from '../defs.js';
 import { setMove, stopUnit } from './movement.js';
 
@@ -36,6 +36,13 @@ const hasTag = (/** @type {any} */ u, /** @type {string} */ tag) => combatDef(u.
 const armed = (/** @type {any} */ u) => weaponsOf(u).length > 0;
 const isMedic = (/** @type {any} */ u) => hasTag(u, 'medic');
 const isStructure = (/** @type {any} */ e) => e.kind === 'structure';
+/**
+ * Shoots what comes into range while it gets on with its work (the War Miner
+ * harvesting): never chases a target and never walks back to a post. An
+ * explicit attack order makes it fight like anyone else.
+ * @param {any} u
+ */
+const worksWhileFiring = (u) => hasTag(u, 'firesWhileWorking') && u.task?.type !== 'attack' && u.task?.type !== 'forceFire';
 
 /** @param {World} w @param {Unit} u */
 function becomeIdle(w, u) {
@@ -105,6 +112,8 @@ function validateTarget(w, u) {
   let keep = t && (forced || (isMedic(u) ? friendly && t.hp < t.maxHp && t.id !== u.id : !friendly && canAttack(u, t)));
   if (keep && !forced && !w.visibleTo(u.owner, t)) keep = false;
   if (keep && t.inside) keep = false;
+  // A drone already inside that vehicle: other drones find their own (unless ordered to this one).
+  if (keep && t.infested && t.infested !== u.id && infests(u) && u.task?.type !== 'attack') keep = false;
   if (keep) return false;
   const wasAuto = !(u.task && (u.task.type === 'attack' || u.task.type === 'forceFire'));
   setTarget(u, 0);
@@ -126,7 +135,9 @@ function returnToPost(w, u) {
  * @param {World} w @param {any} u @returns {'all' | 'range' | false}
  */
 function scans(w, u) {
-  if (!armed(u) || u.stance === 'holdFire' || hasTag(u, 'noAutoAcquire')) return false;
+  if (!armed(u) || u.stance === 'holdFire') return false;
+  if (worksWhileFiring(u)) return 'range';
+  if (hasTag(u, 'noAutoAcquire')) return false;
   if (u.landed || hasTag(u, 'plane')) return false; // planes fight only when ordered; nothing fights from a pad
   if (isStructure(u)) return u.buildUp === 0 && !u.selling ? 'all' : false;
   const task = u.task?.type ?? '';
@@ -138,7 +149,7 @@ function scans(w, u) {
 const FOCUSED_TASKS = new Set(['move', 'attack', 'forceFire', 'enter', 'c4', 'layMines', 'load', 'unloadAt', 'depot', 'returnPad']);
 
 /** Turrets and helicopters can shoot while they travel; infantry and fixed guns must stop. @param {any} u */
-const firesOnTheMove = (u) => combatDef(u.type).turret || hasTag(u, 'heli');
+const firesOnTheMove = (u) => hasTurret(u) || hasTag(u, 'heli');
 
 /**
  * Acquisition radius: sight for Guard (or the weapon's reach, when it shoots
@@ -258,7 +269,7 @@ function returnFire(w, u) {
   const a = w.entities.get(by);
   if (!a || a.inside || w.allied(a.owner, u.owner) || !canAttack(u, a) || !w.visibleTo(u.owner, a)) return;
   const reach = reachDist(u, a) <= maxRangeVs(u, a);
-  if ((u.stance === 'hold' || isStructure(u) || onTheMove) && !reach) return;
+  if ((u.stance === 'hold' || isStructure(u) || onTheMove || worksWhileFiring(u)) && !reach) return;
   if (u.target) {
     // Busy: switch only from a target it cannot hit yet to an attacker it can.
     const cur = w.entities.get(u.target);
@@ -276,6 +287,11 @@ const chaseCell = (t) => ({ x: cellOf(t.x), y: cellOf(t.y) });
 function engage(w, u) {
   if (hasTag(u, 'plane')) return; // planes fly their own passes (air.js)
   const t = u.target ? w.entities.get(u.target) : null;
+  if (worksWhileFiring(u)) {
+    // Keeps working: lets go of whatever moves out of reach.
+    if (t && reachDist(u, t) > (maxRangeVs(u, t) || maxRange(u))) setTarget(u, 0);
+    return;
+  }
   if (u.fireCell && !t) {
     const c = { x: u.fireCell.x * L + (L >> 1), y: u.fireCell.y * L + (L >> 1), kind: 'point' };
     const d = reachDist(u, c);
@@ -374,7 +390,7 @@ export function acquisitionSystem(w) {
       // A dead target is replaced at once — no walking back first.
       rescan(w, u);
     }
-    if (lost && !u.target) returnToPost(w, u);
+    if (lost && !u.target && !worksWhileFiring(u)) returnToPost(w, u);
     if (u.stance !== 'holdFire' || u.task?.type === 'attack' || u.task?.type === 'forceFire') engage(w, u);
   }
   aimsWorld = null;
