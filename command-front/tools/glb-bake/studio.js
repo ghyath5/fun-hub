@@ -107,20 +107,22 @@ async function renderUnit(job) {
   ground.visible = false;
   const cam = camera(-r, r, -r, r, false);
   const rotorMeshes = parts.rotors.flat();
+  // A named model's barrel turns with its turret, so it is drawn on the turret, not the body.
+  const turret = [...parts.turret, ...(parts.extra?.barrel ?? [])];
   const out = {};
-  setVisible(parts.turret, false);
+  setVisible(turret, false);
   setVisible(rotorMeshes, false);
   out.body = shoot(cam, 2 * r, 2 * r);
-  if (parts.turret.length) {
+  if (turret.length) {
     setVisible(parts.body, false);
-    setVisible(parts.turret, true);
+    setVisible(turret, true);
     out.turret = shoot(cam, 2 * r, 2 * r);
   }
   // Rotors: each on its own, centred on its hub; the game spins them.
   const rotors = [];
   parts.rotors.forEach((meshes, k) => {
     if (!meshes.length) return;
-    setVisible([...parts.body, ...parts.turret, ...rotorMeshes], false);
+    setVisible([...parts.body, ...turret, ...rotorMeshes], false);
     setVisible(meshes, true);
     const c = boundsOf(meshes).getCenter(new THREE.Vector3());
     const rr = job.rotors[k].r;

@@ -150,6 +150,12 @@ const KITS = {
   gunboat: (b, t) => { b.paint.poly([0, -11, 5, -4, 5, 10, -5, 10, -5, -4]).fill(PAINT); if (t) gunTurret(t, 2.4, 5); },
   destroyer: (b, t) => { b.paint.poly([0, -14, 6, -5, 6, 13, -6, 13, -6, -5]).fill(PAINT); if (t) gunTurret(t, 3, 6, true); },
   cruiser: (b, t) => { b.paint.poly([0, -18, 8, -6, 8, 17, -8, 17, -8, -6]).fill(PAINT); if (t) gunTurret(t, 4.5, 9, true, 2.2); },
+  seaScorpion: (b, t) => { b.paint.poly([0, -11, 5, -4, 5, 10, -5, 10, -5, -4]).fill(PAINT); b.detail.rect(-3, 1, 6, 5).fill(STEEL); if (t) gunTurret(t, 2.6, 5, true, 1.1); },
+  dreadnought: (b) => {
+    b.paint.poly([0, -20, 7, -8, 7, 19, -7, 19, -7, -8]).fill(PAINT);
+    b.detail.rect(-4, -8, 8, 9).fill(STEEL).circle(0, 4, 2.4).fill(DARK);
+    for (const y of [8, 14]) for (const x of [-2, 2]) b.detail.roundRect(x - 1.3, y - 2.5, 2.6, 6, 1.2).fill(0xe8e8e4);
+  },
   submarine: (b) => { b.paint.ellipse(0, 0, 3.5, 12).fill(PAINT); b.detail.roundRect(-1.5, -3, 3, 5, 1).fill(STEEL); },
   navalTransport: (b) => { b.paint.roundRect(-7, -12, 14, 24, 3).fill(PAINT); b.detail.rect(-4.5, -6, 9, 14).stroke({ width: 1, color: DARK, alpha: 0.6 }); },
 };

@@ -108,3 +108,68 @@ def naval_transport(k):
         k.torus(0.1, 0.02, (s * 0.14, -0.46, 0.32), 'dark', 'y', 16, 5)
         k.box((0.012, 0.02, 0.22), (s * 0.14, -0.46, 0.32), 'steelDark')
         k.propeller(f'prop{i}', 0.09, 4, (s * 0.14, -0.44, 0.32))
+
+
+def missile_rack(k, y, z, lift=30, length=0.17, r=0.026):
+    """A launcher on the aft deck: a base, a cradle raised `lift` degrees toward
+    the bow and two heavy missiles on it, team-painted noses forward."""
+    k.box((0.18, 0.12, 0.035), (0, y, z + 0.0175), 'steelDark', bevel=0.008)
+    for x in (-0.07, 0.07):
+        k.box((0.02, 0.06, 0.05), (x, y - 0.02, z + 0.06), 'steelDark', bevel=0.004)
+    a = math.radians(lift)
+    uy, uz = math.cos(a), math.sin(a)
+    k.box((0.15, length * 1.05, 0.016), (0, y, z + 0.07), 'steel', bevel=0.004, rot=(lift, 0, 0))
+    for x in (-0.038, 0.038):
+        c = (x, y, z + 0.07 + 0.008 + r)
+        k.cyl(r, length, c, 'white', verts=10, rot=(lift - 90, 0, 0))
+        nose = length / 2 + 0.024
+        k.cyl(r, 0.048, (x, c[1] + uy * nose, c[2] + uz * nose), 'team', verts=10, r2=0.004, rot=(lift - 90, 0, 0))
+        tail = -length / 2 + 0.02
+        k.box((0.075, 0.03, 0.006), (x, c[1] + uy * tail, c[2] + uz * tail), 'teamDark', rot=(lift, 0, 0))
+
+
+@model('dreadnought', **SEA)
+def dreadnought(k):
+    """Union battleship: a stepped bridge tower forward, a funnel and two heavy
+    missile launchers aft that lob missiles far inland."""
+    d = ship_hull(k, 1.0, 0.25, 0.14)
+    k.box((0.14, 0.03, 0.012), (0, 0.34, d + 0.006), 'steelDark')  # anchor deck
+    superstructure(k, 0.17, 0.24, 0.09, 0.1, d, 'concrete')
+    superstructure(k, 0.13, 0.15, 0.07, 0.12, d + 0.09, 'concrete')
+    superstructure(k, 0.09, 0.08, 0.05, 0.13, d + 0.16, 'concreteDark')
+    mast(k, 0.1, d + 0.21, 0.14)
+    sp = k.empty('spin0', (0, 0.1, d + 0.3))
+    k.box((0.12, 0.012, 0.04), (0, 0.1, d + 0.3), 'steel', parent=sp)
+    k.cyl(0.042, 0.13, (0, -0.05, d + 0.065), 'dark', 'z', 12, bevel=0.006)  # funnel
+    k.cyl(0.044, 0.022, (0, -0.05, d + 0.1), 'team', 'z', 12)
+    for x in (-0.09, 0.09):
+        k.cyl(0.012, 0.05, (x, 0.02, d + 0.025), 'steelDark', 'z', 6)  # deck vents
+    missile_rack(k, -0.2, d)
+    missile_rack(k, -0.36, d)
+
+
+def flak_turret(k, y, z, r, length=0.2, lift=25):
+    """A turret with twin quick-firing guns raised `lift` degrees: as good at
+    planes as at boats and the shore."""
+    tur = k.empty('turret', (0, y, z))
+    k.cyl(r, 0.03, (0, y, z + 0.015), 'steelDark', 'z', 12, parent=tur)
+    k.box((r * 1.7, r * 1.6, r * 0.8), (0, y - r * 0.1, z + 0.03 + r * 0.4), 'team', bevel=r * 0.2, parent=tur, taper=(0.82, 0.8, -r * 0.1))
+    zp = z + 0.03 + r * 0.6
+    gun = k.empty('barrel', (0, y + r * 0.5, zp), parent=tur)
+    a = math.radians(lift)
+    for x in (-r * 0.35, r * 0.35):
+        k.cyl(r * 0.15, length, (x, y + r * 0.5 + math.cos(a) * length / 2, zp + math.sin(a) * length / 2), 'gun', verts=8, rot=(lift - 90, 0, 0), parent=gun)
+    return tur
+
+
+@model('seaScorpion', **SEA)
+def sea_scorpion(k):
+    """Union fast attack boat: a low cabin aft and a twin flak turret on the
+    foredeck that also fires at boats and the shore."""
+    d = ship_hull(k, 1.0, 0.34, 0.12)
+    superstructure(k, 0.22, 0.22, 0.08, -0.12, d, 'concrete')
+    k.box((0.15, 0.11, 0.05), (0, -0.15, d + 0.105), 'concreteDark', bevel=0.01)
+    mast(k, -0.16, d + 0.13, 0.14)
+    for x in (-0.08, 0.08):
+        k.box((0.07, 0.1, 0.05), (x, -0.39, d + 0.025), 'steelDark', bevel=0.008)  # engines
+    flak_turret(k, 0.2, d, 0.075)

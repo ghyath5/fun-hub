@@ -38,24 +38,22 @@ export const CAMERA = Object.freeze({
 });
 
 /**
- * Seeing the battle on a small screen (src/render/readability.js). As the view
- * zooms out, units are drawn bigger than life (up to maxBoost) once a cell is
- * smaller than comfortCellPx on screen, and team-coloured discs under units
- * and plates under buildings fade in between aidFromCellPx and aidFullCellPx.
- * Zoomed right out, a cell never gets smaller than minCellPx.
+ * Seeing the battle on a small screen (src/render/readability.js). Units and
+ * buildings are drawn at one scale: the size chosen in Settings, times a
+ * gentle growth (up to maxZoomBoost) once a cell is smaller than
+ * comfortCellPx on screen. Team-coloured discs under units fade in between
+ * aidFromCellPx and aidFullCellPx. Zoomed right out, a cell never gets
+ * smaller than minCellPx.
  */
 export const READABILITY = Object.freeze({
   /** Settings → Unit and building size: the choices, and the one a new player starts with. */
-  objectSizes: Object.freeze([1, 1.15, 1.3, 1.45]),
+  objectSizes: Object.freeze([1, 1.15, 1.3]),
   defaultObjectSize: 1.15,
-  /** Buildings grow by this share of the chosen size (they must stay near their footprint), and never past maxBuildingSize. */
-  buildingShare: 0.7,
-  maxBuildingSize: 1.2,
   minCellPx: 9,
-  comfortCellPx: { infantry: 48, vehicle: 34, aircraft: 34 },
-  maxBoost: { infantry: 2.2, vehicle: 1.8, aircraft: 1.8 },
-  /** How fast units grow as cells shrink (1: keep their screen size; less: grow more gently). */
-  boostPower: 0.75,
+  comfortCellPx: 34,
+  maxZoomBoost: 1.25,
+  /** How fast things grow as cells shrink (1: keep their screen size; less: grow more gently). */
+  boostPower: 0.5,
   aidFromCellPx: 24,
   aidFullCellPx: 13,
 });

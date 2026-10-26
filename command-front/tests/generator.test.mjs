@@ -1,7 +1,7 @@
 // Random maps: always valid, most with a sea that reaches every base, mountains on every one.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { sandbox, createMatch, step, invariants, TPS } from './harness.mjs';
+import { sandbox, createMatch, step, invariants, TPS, UNITS } from './harness.mjs';
 import './importmap.mjs';
 import { T } from '../src/data/terrain.js';
 
@@ -63,11 +63,15 @@ test('the AI plays a generated sea map without breaking anything, and builds a n
   });
   let bad = null;
   let yards = 0;
+  /** Warships each side launched. @type {Record<string, Set<string>>} */
+  const ships = { coalition: new Set(), union: new Set() };
   for (let t = 0; t < 25 * 60 * TPS && !w.result && !bad; t++) {
     step(w);
     if (t % 5 === 0) bad = invariants(w);
     if (t % 300 === 0) yards = Math.max(yards, w.entities.all().filter((e) => e.kind === 'structure' && !e.dead && (e.type === 'navalYard' || e.type === 'subPen')).length);
+    if (t % 30 === 0) for (const e of w.entities.all()) if (e.kind === 'unit' && e.owner >= 0 && UNITS[e.type].line === 'naval') ships[w.players[e.owner].faction].add(e.type);
   }
   assert.equal(bad, null);
   assert.ok(yards >= 1, 'a naval yard went up by the sea');
+  assert.ok(ships.union.has('seaScorpion'), `the Union's fleet: ${[...ships.union]}`);
 });

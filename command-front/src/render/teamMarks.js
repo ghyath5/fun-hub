@@ -13,7 +13,7 @@ import { Graphics } from 'pixi.js';
 import { PLAYER_COLORS } from '../data/factions.js';
 import { RENDER, SIM } from '../data/rules.js';
 import { UNITS } from '../data/units.js';
-import { aidStrength, unitBoost } from './readability.js';
+import { aidStrength, objectScale } from './readability.js';
 
 const C = RENDER.cellPx;
 const PX_PER_LEPTON = C / SIM.leptonsPerCell;
@@ -57,7 +57,7 @@ export function createTeamMarks() {
         const loco = UNITS[e.type].loco;
         const x = (e.px + (e.x - e.px) * alpha) * PX_PER_LEPTON;
         const y = (e.py + (e.y - e.py) * alpha) * PX_PER_LEPTON;
-        const r = (loco === 'foot' ? DISC.foot : DISC.other) * C * unitBoost(loco, cellPx);
+        const r = (loco === 'foot' ? DISC.foot : DISC.other) * C * objectScale(cellPx);
         g.circle(x, y, r).fill({ color, alpha: 0.65 * s }).stroke({ width: rim, color: RIM, alpha: 0.7 * s });
       }
     },

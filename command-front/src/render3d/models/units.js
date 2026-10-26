@@ -469,6 +469,41 @@ export const UNIT_MODELS = {
       }, -0.52);
     },
   },
+  seaScorpion: {
+    size: 1.0,
+    build(g) {
+      const d = shipHull(g, 1.0, 0.34, 0.15);
+      box(g, 0.22, 0.1, 0.22, M.light, 0, d + 0.05, 0.14, 0.03);
+      box(g, 0.15, 0.05, 0.11, M.concreteDark, 0, d + 0.12, 0.15, 0.02);
+      mast(g, 0.14, 0, 0.17, d + 0.14);
+      for (const x of [-0.08, 0.08]) box(g, 0.07, 0.05, 0.1, M.dark, x, d + 0.025, 0.4, 0.01);
+      turret(g, d, (t) => {
+        cyl(t, 0.07, 0.08, 0.06, M.team, 0, 0.03, 0, 'y', 10);
+        for (const x of [-0.026, 0.026]) barrel(t, 0.2, 0.012, x, 0.06, -0.05);
+      }, -0.2);
+    },
+  },
+  dreadnought: {
+    size: 2.0,
+    build(g) {
+      const d = shipHull(g, 2.0, 0.5, 0.24);
+      box(g, 0.34, 0.18, 0.48, M.light, 0, d + 0.09, -0.2, 0.04);
+      box(g, 0.26, 0.14, 0.3, M.light, 0, d + 0.25, -0.24, 0.03);
+      box(g, 0.2, 0.05, 0.02, M.glass, 0, d + 0.28, -0.395);
+      mast(g, 0.3, 0, -0.2, d + 0.32);
+      stack(g, 0.08, 0.26, M.dark, 0, 0.1, d);
+      // Two launchers aft, each with a pair of heavy missiles raised toward the bow.
+      const lift = 0.5;
+      for (const z of [0.42, 0.72]) {
+        box(g, 0.34, 0.06, 0.24, M.steel, 0, d + 0.03, z, 0.02);
+        for (const x of [-0.075, 0.075]) {
+          cyl(g, 0.05, 0.05, 0.34, M.light, x, d + 0.14, z).rotation.x = Math.PI / 2 + lift;
+          const nose = cone(g, 0.05, 0.09, M.team, x, d + 0.14 + Math.sin(lift) * 0.215, z - Math.cos(lift) * 0.215, 10);
+          nose.rotation.x = -(Math.PI / 2 - lift);
+        }
+      }
+    },
+  },
   submarine: {
     size: 1.24,
     build(g) {

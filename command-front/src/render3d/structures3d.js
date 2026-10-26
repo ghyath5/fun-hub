@@ -16,7 +16,7 @@ import { healthBand } from '../sim/formulas/combat.js';
 import { drawPips } from '../render/healthPips.js';
 import { CELL, LIFT, SQUASH } from './view.js';
 import { teamColor } from './units3d.js';
-import { buildingSize } from '../render/readability.js';
+import { objectScale } from '../render/readability.js';
 
 const C = RENDER.cellPx;
 const TAU = Math.PI * 2;
@@ -43,6 +43,8 @@ export function createStructures3D(lib, inst) {
   /** @type {{ x: number, y: number, vx: number, vy: number, life: number, max: number, fire: boolean }[]} */
   let puffs = [];
   let last = performance.now();
+  /** The zoom of the last sync, for the battlefield's one scale (placement ghosts are drawn between syncs). */
+  let lastScale = 1;
   const m = new THREE.Matrix4();
   const tmp = new THREE.Matrix4();
 
@@ -50,15 +52,15 @@ export function createStructures3D(lib, inst) {
   const keyOf = (s) => (s.faction ? `${s.type}@${s.faction}` : s.type);
 
   /**
-   * Put a model's parts on a footprint corner, drawn at the building size chosen in Settings
-   * (grown about the footprint's middle, standing on the ground).
+   * Put a model's parts on a footprint corner, drawn at the battlefield's one scale
+   * (readability.js; grown about the footprint's middle, standing on the ground).
    * @param {import('./library.js').ModelDef} def @param {number} cx @param {number} cy
    * @param {THREE.Color} color @param {{ rise?: number, bright?: number, ghost?: boolean, turret?: number, spin?: number, w?: number, h?: number, wall?: boolean }} o
    *   w, h: the footprint in cells (1×1 when left out); wall: life size, so its arms meet the next wall's
    */
   function place(def, cx, cy, color, o = {}) {
     const rise = Math.max(0.02, o.rise ?? 1);
-    const k = o.wall ? 1 : buildingSize();
+    const k = o.wall ? 1 : objectScale(CELL * lastScale);
     const hw = (o.w ?? 1) / 2;
     const hh = (o.h ?? 1) / 2;
     for (const p of def.parts) {
@@ -113,6 +115,7 @@ export function createStructures3D(lib, inst) {
       const now = performance.now();
       const dt = Math.min(100, now - last);
       last = now;
+      lastScale = viewScale;
       marks.clear();
       flags.removeChildren();
       const alive = new Set();
@@ -141,7 +144,7 @@ export function createStructures3D(lib, inst) {
         const x0 = s.cx * C;
         const y0 = s.cy * C;
         const H = s.h * C;
-        const top = y0 - def.height * CELL * k * (sd?.role === 'wall' ? 1 : buildingSize()) * LIFT;
+        const top = y0 - def.height * CELL * k * (sd?.role === 'wall' ? 1 : objectScale(CELL * lastScale)) * LIFT;
         // The owner's flag flies over each Construction Yard (and changes hands with it).
         const flagWanted = s.type === 'constructionYard' && owner?.country ? owner.country : '';
         if (st.flagId !== flagWanted) {
@@ -196,7 +199,7 @@ export function createStructures3D(lib, inst) {
         if (!fog || !eyes) { memory.delete(id); continue; }
         if (!live || live.dead) { if (anyCell(g, eyes.seen)) { memory.delete(id); continue; } }
         if (!anyCell(g, eyes.explored) || !onScreen(g)) continue;
-        place(lib.get(g.key), g.cx, g.cy, g.color, { ghost: true, w: g.w, h: g.h });
+        place(lib.get(g.key), g.cx, g.cy, g.color, { ghost: true, w: g.w, h: g.h, wall: STRUCTURES[g.type]?.role === 'wall' });
       }
       for (const [id, st] of state) {
         if (alive.has(id)) continue;
@@ -219,7 +222,7 @@ export function createStructures3D(lib, inst) {
      */
     ghost(type, faction, cx, cy, tint) {
       const fp = /** @type {any} */ (STRUCTURES[type]);
-      place(lib.get(faction ? `${type}@${faction}` : type), cx, cy, new THREE.Color(tint), { ghost: true, w: fp?.w, h: fp?.h });
+      place(lib.get(faction ? `${type}@${faction}` : type), cx, cy, new THREE.Color(tint), { ghost: true, w: fp?.w, h: fp?.h, wall: fp?.role === 'wall' });
     },
   };
 }

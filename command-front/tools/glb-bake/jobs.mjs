@@ -113,6 +113,8 @@ export const JOBS = [
   { id: 'destroyer', kind: 'unit', src: 'bl-destroyer.glb', named: true, budget: 4000, r: 0.75, size: 1.36 },
   { id: 'cruiser', kind: 'unit', src: 'bl-cruiser.glb', named: true, budget: 4000, r: 1.02, size: 1.86 },
   { id: 'submarine', kind: 'unit', src: 'bl-submarine.glb', named: true, budget: 4000, r: 0.68, size: 1.24 },
+  { id: 'seaScorpion', kind: 'unit', src: 'bl-seaScorpion.glb', named: true, budget: 4000, r: 0.55, size: 1.0 },
+  { id: 'dreadnought', kind: 'unit', src: 'bl-dreadnought.glb', named: true, budget: 4500, r: 1.1, size: 2.0 },
   { id: 'navalTransport', kind: 'unit', src: 'bl-navalTransport.glb', named: true, budget: 4000, r: 0.61, size: 1.1 },
   { id: 'constructionYard@union', kind: 'structure', src: 'bl-constructionYard@union.glb', named: true, w: 3, h: 3, fill: 1, budget: 6000 },
   { id: 'barracks@union', kind: 'structure', src: 'bl-barracks@union.glb', named: true, w: 2, h: 2, fill: 1, budget: 6000 },

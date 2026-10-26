@@ -15,7 +15,7 @@ import { PLAYER_COLORS } from '../data/factions.js';
 import { RENDER, SIM } from '../data/rules.js';
 import { drawPips } from '../render/healthPips.js';
 import { shakeOf } from '../render/shake.js';
-import { unitBoost } from '../render/readability.js';
+import { objectScale } from '../render/readability.js';
 import { CELL, LIFT, ALTITUDE, SQUASH } from './view.js';
 
 const PX_PER_LEPTON = RENDER.cellPx / SIM.leptonsPerCell;
@@ -85,8 +85,8 @@ export function createUnits3D(lib, inst) {
     radiusOf: (type) => Math.max(5, lib.get(type).radius * CELL * 0.9),
     /** World-px height of a unit type. @param {string} type */
     heightOf: (type) => lib.get(type).height * CELL,
-    /** How much bigger than life a unit is drawn at the current zoom (readability.js). @param {any} e */
-    boostOf: (e) => unitBoost(UNITS[e.type].loco, CELL * lastScale),
+    /** How much bigger than life units are drawn at the current zoom (readability.js). */
+    boost: () => objectScale(CELL * lastScale),
     /**
      * @param {any} world @param {number} alpha  interpolation between ticks
      * @param {Set<number>} selected @param {number} viewScale
@@ -111,8 +111,8 @@ export function createUnits3D(lib, inst) {
         const flying = d.loco === 'air' && !e.landed;
         const y = flying ? ALTITUDE : 0;
         const color = teamColor(look.color);
-        // Zoomed out on a small screen, drawn bigger than life so it still reads.
-        const boost = unitBoost(d.loco, CELL * viewScale);
+        // Drawn at the battlefield's one scale (the size chosen in Settings, growing a little zoomed out).
+        const boost = objectScale(CELL * viewScale);
         S.makeScale(CELL * boost, CELL * boost, CELL * boost);
         // Submerged subs and disguised Mirage Tanks show see-through to their own side.
         const ghost = !!(e.submerged || (e.detect !== undefined && e.detect !== -1 && d.tags.includes('disguise')));

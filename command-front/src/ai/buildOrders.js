@@ -25,8 +25,8 @@ export const BUILD_ORDER = Object.freeze({
   union: [
     { type: 'powerPlant' }, { type: 'barracks' }, { type: 'refinery' }, { type: 'powerPlant' }, { type: 'warFactory' },
     { type: 'refinery', minDifficulty: 'normal' }, { type: 'radarDome' }, { type: 'sentryGun' }, { type: 'flameTower' },
-    { type: 'advPowerPlant' }, { type: 'serviceDepot' }, { type: 'techCenter' }, { type: 'kennel' }, { type: 'airfield' },
-    { type: 'subPen', naval: true }, { type: 'advPowerPlant' }, { type: 'missileSilo', minDifficulty: 'normal' },
+    { type: 'advPowerPlant' }, { type: 'serviceDepot' }, { type: 'techCenter' }, { type: 'subPen', naval: true }, { type: 'kennel' }, { type: 'airfield' },
+    { type: 'advPowerPlant' }, { type: 'missileSilo', minDifficulty: 'normal' },
     { type: 'aegisProjector', minDifficulty: 'normal' }, { type: 'refinery', minDifficulty: 'hard' }, { type: 'samSite' }, { type: 'arcTower' },
     { type: 'industrialPlant', minDifficulty: 'normal' }, { type: 'sensorArray', minDifficulty: 'normal' }, { type: 'cloneLab', minDifficulty: 'hard' },
   ],
@@ -51,7 +51,7 @@ export const WAVES = Object.freeze({
 /** The fleet's make-up (unit type → share) when water links the bases. */
 export const FLEETS = Object.freeze({
   coalition: { gunboat: 2, destroyer: 2, cruiser: 1 },
-  union: { submarine: 1 },
+  union: { seaScorpion: 2, submarine: 1, dreadnought: 1 },
 });
 
 /** Cheap fast units for the early scout, best first. */

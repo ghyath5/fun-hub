@@ -160,7 +160,6 @@ const ui = {
   'Original size': 'الحجم الأصلي',
   'A little bigger': 'أكبر قليلًا',
   'Large size': 'كبير',
-  'Extra large size': 'كبير جدًا',
   'Controls and sound': 'التحكم والصوت',
   'Left-handed layout': 'تخطيط لليد اليسرى',
   Haptics: 'الاهتزاز',
@@ -574,7 +573,7 @@ const names = {
   migFighter: 'ميغ مقاتلة', migInterceptor: 'ميغ اعتراضية', migBomber: 'ميغ قاذفة', harrier: 'هارير', eagleJet: 'نفاثة النسر الضاربة',
   siegeAirship: 'منطاد الحصار', supportPlane: 'طائرة الدعم',
   // Ships
-  gunboat: 'زورق حربي', destroyer: 'مدمّرة', cruiser: 'طرّاد', submarine: 'غواصة', navalTransport: 'ناقلة بحرية',
+  gunboat: 'زورق حربي', destroyer: 'مدمّرة', cruiser: 'طرّاد', submarine: 'غواصة', navalTransport: 'ناقلة بحرية', seaScorpion: 'عقرب البحر', dreadnought: 'المدرّعة البحرية',
   // Buildings
   constructionYard: 'ساحة البناء', powerPlant: 'محطة طاقة', advPowerPlant: 'محطة طاقة متقدمة', refinery: 'مصفاة الخام', silo: 'صومعة الخام',
   barracks: 'الثكنة', warFactory: 'مصنع الحرب', radarDome: 'قبة الرادار', serviceDepot: 'مركز الصيانة', techCenter: 'مركز التقنية',
@@ -601,7 +600,7 @@ const weapons = {
   twin120: 'مدفع مزدوج 120 ملم', titanMissiles: 'صواريخ العملاق', howitzer155: 'هاوتزر 155 ملم', ballistic: 'صاروخ باليستي', turretCannon: 'مدفع البرج',
   towerFlame: 'لهب البرج', longGunShell: 'قذيفة المدفع البعيد', towerBeam: 'شعاع البرج', arcBolt: 'صاعقة تسلا', flak: 'شظايا', sam: 'صاروخ أرض-جو',
   heliRockets: 'صواريخ المروحية', planeChaingun: 'رشاش الطائرة', jetMissiles: 'صواريخ النفاثة', deckGun: 'مدفع السطح', deckGunTwin: 'مدفع السطح (مزدوج)',
-  depthCharge: 'قنبلة أعماق', shipAa: 'دفاع جوي بحري', cruiserGun: 'مدفع الطرّاد', torpedo: 'طوربيد', tdCannon: 'مدفع قاتل الدبابات',
+  depthCharge: 'قنبلة أعماق', shipAa: 'دفاع جوي بحري', cruiserGun: 'مدفع الطرّاد', torpedo: 'طوربيد', scorpionCannon: 'مدفع مزدوج', dreadnoughtMissile: 'صاروخ المدرّعة البحرية', tdCannon: 'مدفع قاتل الدبابات',
   mirageGun: 'مدفع السراب', robotGun: 'مدفع آلي', fortressGuns: 'رشاشات القلعة', droneClaws: 'مخالب الطائرة العنكبوتية', demoCharge: 'شحنة تفجير',
   chopperCannon: 'مدفع المروحية', migMissiles: 'صواريخ الميغ', migBombs: 'قنابل الميغ', interceptorAa: 'صواريخ جو-جو', harrierMissiles: 'صواريخ الهارير',
   eagleBomb: 'قنبلة دقيقة', sealSmg: 'رشاش الكوماندوز', chronoRay: 'شعاع الزمن', rocketeerGun: 'رشاشات الحقيبة النفاثة', radBeam: 'شعاع إشعاعي',
@@ -676,6 +675,8 @@ const codex = {
   gunboat: { about: 'سفينة حربية صغيرة وسريعة بمدفع سطح وقنابل أعماق ضد الغواصات.', bestFor: 'حراسة السواحل وصيد الغواصات مبكرًا.', weakTo: 'السفن الأكبر وطوربيدات الغواصات.' },
   destroyer: { about: 'سفينة حربية بمدفعين وقنابل أعماق وصواريخ مضادة للطائرات. تكشف الغواصات المغمورة القريبة.', bestFor: 'مرافقة الأسطول: تحميه من الغواصات والطائرات.', weakTo: 'حشود الغواصات ونيران الطرادات البعيدة.' },
   cruiser: { about: 'سفينة حربية كبيرة بمدفع بعيد المدى (22 خانة) يقصف الشاطئ. لا تصيب ما هو أقرب من 4 خانات.', bestFor: 'قصف القواعد والدفاعات من البحر.', weakTo: 'الغواصات وكل ما يقترب منها.' },
+  seaScorpion: { about: 'زورق دورية سريع للاتحاد ببرج مضاد للطائرات مزدوج ومدفع مزدوج ضد الزوارق والشاطئ (6 خانات).', bestFor: 'حماية الأسطول من الجو والإغارة على السواحل.', weakTo: 'السفن الحربية الأكبر وطوربيدات الغواصات.' },
+  dreadnought: { about: 'بارجة للاتحاد تطلق زوجًا من الصواريخ الثقيلة على أهداف في البر أو البحر حتى 20 خانة. لا تصيب ما هو أقرب من 5 خانات.', bestFor: 'تدمير القواعد والدفاعات من عرض البحر.', weakTo: 'الغواصات والطائرات وكل ما يقترب منها.' },
   submarine: { about: 'تبقى مختفية تحت الماء حتى تطلق طوربيداتها، التي تصيب السفن فقط.', bestFor: 'إغراق سفن العدو.', weakTo: 'المدمرات والزوارق الحربية (قنابل الأعماق). لا تستطيع مهاجمة البر.' },
   navalTransport: { about: 'قارب غير مسلح ينقل 5 من المشاة (المركبات الكبيرة تأخذ مكانين) عبر الماء.', bestFor: 'الإنزال على شاطئ آخر.', weakTo: 'أي سفينة حربية أو غواصة أو طائرة.' },
 
