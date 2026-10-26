@@ -23,6 +23,9 @@ const BEAMS = /** @type {Record<string, { color: number, ms: number, width: numb
   Psi: { color: 0xc58aff, ms: 260, width: 1.8, jagged: true },
 });
 
+/** Highest a heavy missile climbs on screen, world px. */
+const ROCKET_LOFT_PX = 120;
+
 export function lookOf(id) {
   const w = WEAPONS[id];
   if (!w.warhead) return 'heal';
@@ -31,6 +34,8 @@ export function lookOf(id) {
   if (w.projectile === 'beam') return 'beam';
   if (w.warhead === 'HollowPoint') return 'snipe';
   if (w.projectile === 'instant' || w.projectile === 'strafe') return 'tracer';
+  // Heavy missiles (Dreadnought, Ballistic Launcher, the atomic strike) fly a high arc.
+  if (w.projectile === 'missile' && w.splash >= 1.5) return 'rocket';
   if (w.projectile === 'homing' || w.projectile === 'missile' || w.projectile === 'torpedo') return 'missile';
   if (w.projectile === 'arc') return 'arc';
   return 'shell';
@@ -146,7 +151,7 @@ export function createCombatFx(opts = {}) {
           const r = Math.max(4, w.splash * RENDER.cellPx * 0.5);
           explosion(x, y, r);
           if (w.splash >= 1) addScorch(x, y, r * 0.8);
-        } else if (look === 'shell' || look === 'missile') {
+        } else if (look === 'shell' || look === 'missile' || look === 'rocket') {
           explosion(x, y, 3);
         } else if (look === 'tracer') {
           add({ x, y, vx: (Math.random() - 0.5) * 0.02, vy: -0.015, max: 220, color: 0x9a8f78, size: 1.2 });
@@ -201,6 +206,22 @@ export function createCombatFx(opts = {}) {
           flying.circle(x, y, 1.6).fill({ color: 0x000000, alpha: 0.3 });
           y -= h;
           flying.circle(x, y, 2).fill(0xf6e7b0);
+        } else if (look === 'rocket') {
+          // Climbs, then dives on its target: on screen the arc rises by up to half its length.
+          const gx = (p.tx - p.sx) * PX;
+          const gy = (p.ty - p.sy) * PX;
+          const total = Math.hypot(gx, gy) || 1;
+          const t = Math.max(0, Math.min(1, 1 - (Math.hypot(p.tx - p.x, p.ty - p.y) * PX) / total));
+          const H = Math.min(ROCKET_LOFT_PX, total * 0.5);
+          const top = y - Math.sin(Math.PI * t) * H;
+          const a = Math.atan2(gy - Math.PI * Math.cos(Math.PI * t) * H, gx);
+          const c = Math.cos(a);
+          const s = Math.sin(a);
+          flying.ellipse(x, y, 3, 1.5).fill({ color: 0x000000, alpha: 0.25 });
+          flying.moveTo(x - c * 7, top - s * 7).lineTo(x + c * 4, top + s * 4).stroke({ width: 3, color: 0xe8e8dc });
+          flying.circle(x + c * 4, top + s * 4, 1.5).fill(0xc83a2a);
+          flying.circle(x - c * 8, top - s * 8, 1.7).fill(0xffb347);
+          if (Math.random() < 0.8) add({ x: x - c * 8, y: top - s * 8, max: 900, color: 0x9a978c, size: 1.8, grow: 5, alpha: 0.55 });
         } else if (look === 'missile') {
           const a = Math.atan2(p.ty - p.y, p.tx - p.x);
           flying.moveTo(x - Math.cos(a) * 4, y - Math.sin(a) * 4).lineTo(x + Math.cos(a) * 2, y + Math.sin(a) * 2).stroke({ width: 1.6, color: 0xe8e8dc });

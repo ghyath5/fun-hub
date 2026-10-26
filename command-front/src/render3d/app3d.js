@@ -37,7 +37,7 @@ import { makeIcons3D } from './icons3d.js';
 import { SQUASH, LIFT, RISE, ALTITUDE } from './view.js';
 import { disposeMaterials } from './material.js';
 import { createTeamMarks } from '../render/teamMarks.js';
-import { buildingSize } from '../render/readability.js';
+import { objectScale } from '../render/readability.js';
 import { createThreatRings } from '../render/threatRings.js';
 
 /** @typedef {import('../types.js').MapData} MapData */
@@ -104,9 +104,9 @@ export async function createRenderer3D(host, map, opts = {}) {
   const fx = createFx();
   /** Height of an entity's muzzle / middle above the ground, world px (before the view's lift). */
   const muzzle = (/** @type {any} */ e) => {
-    if (e.kind === 'structure') return structures.heightOf(e.faction ? `${e.type}@${e.faction}` : e.type) * buildingSize() * 0.8;
+    if (e.kind === 'structure') return structures.heightOf(e.faction ? `${e.type}@${e.faction}` : e.type) * objectScale(C * camera.scale) * 0.8;
     const flying = UNITS[e.type]?.loco === 'air' && !e.landed;
-    return (flying ? ALTITUDE : 0) + units.heightOf(e.type) * units.boostOf(e) * 0.6;
+    return (flying ? ALTITUDE : 0) + units.heightOf(e.type) * units.boost() * 0.6;
   };
   const combat = createCombatFx({ lift: (e) => muzzle(e) * LIFT });
   // Shots also kick the shooter's barrel back (cosmetic, read from the event only).
@@ -219,9 +219,9 @@ export async function createRenderer3D(host, map, opts = {}) {
      */
     liftOf(e) {
       const s = camera.scale * RISE;
-      if (e.kind === 'structure') return structures.heightOf(e.faction ? `${e.type}@${e.faction}` : e.type) * buildingSize() * s;
+      if (e.kind === 'structure') return structures.heightOf(e.faction ? `${e.type}@${e.faction}` : e.type) * objectScale(C * camera.scale) * s;
       const flying = UNITS[e.type]?.loco === 'air' && !e.landed;
-      return ((flying ? ALTITUDE : 0) + units.heightOf(e.type) * units.boostOf(e) * 0.5) * s;
+      return ((flying ? ALTITUDE : 0) + units.heightOf(e.type) * units.boost() * 0.5) * s;
     },
     /** Draw calls, triangles and GPU memory of the last 3D frame (perf overlay, tests). */
     stats() {

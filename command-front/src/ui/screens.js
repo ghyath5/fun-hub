@@ -16,7 +16,7 @@ import { LANGS, LANG_NAMES, t, int } from '../lib/i18n.js';
 import { READABILITY } from '../data/ui.js';
 
 /** Names of the unit and building sizes in Settings. */
-const SIZE_NAMES = Object.freeze({ '1': 'Original size', '1.15': 'A little bigger', '1.3': 'Large size', '1.45': 'Extra large size' });
+const SIZE_NAMES = Object.freeze({ '1': 'Original size', '1.15': 'A little bigger', '1.3': 'Large size' });
 
 /** @typedef {import('../game/matchSetup.js').SetupForm} SetupForm */
 
@@ -252,7 +252,7 @@ export function SettingsScreen({ settings, onChange, onBack, sounds }) {
       <h3>${t('Graphics')}</h3>
       <${Row} label=${t('Battlefield view')}><${Select} label=${t('Battlefield view')} value=${settings.graphics ?? '3d'} onChange=${(v) => set({ graphics: v })}
         options=${[{ value: '3d', label: t('3D') }, { value: '2d', label: t('Classic 2D') }]} /></${Row}>
-      <${Row} label=${t('Unit and building size')}><${Select} label=${t('Unit and building size')} value=${String(settings.objectSize ?? READABILITY.defaultObjectSize)}
+      <${Row} label=${t('Unit and building size')}><${Select} label=${t('Unit and building size')} value=${String(READABILITY.objectSizes.includes(settings.objectSize ?? 0) ? settings.objectSize : READABILITY.defaultObjectSize)}
         onChange=${(v) => set({ objectSize: Number(v) })}
         options=${READABILITY.objectSizes.map((k) => ({ value: String(k), label: `${t(SIZE_NAMES[/** @type {keyof typeof SIZE_NAMES} */ (String(k))] ?? 'Original size')} (${Math.round(k * 100)}%)` }))} /></${Row}>
       <p class="muted">${t('Applies from the next match.')}</p>

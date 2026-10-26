@@ -78,6 +78,8 @@ export const CODEX = Object.freeze({
   gunboat: { about: 'Small fast warship with a deck gun and depth charges against submarines.', bestFor: 'Patrolling coasts and hunting submarines early.', weakTo: 'Bigger ships and submarines\' torpedoes.' },
   destroyer: { about: 'Warship with twin guns, depth charges and anti-air missiles. Detects submerged submarines nearby.', bestFor: 'Escorting a fleet: it covers it against submarines and aircraft.', weakTo: 'Massed submarines and Cruisers\' long-range fire.' },
   cruiser: { about: 'Big warship with a long-range cannon (22 cells) that shells the shore. Cannot hit targets closer than 4 cells.', bestFor: 'Bombarding bases and defenses from the sea.', weakTo: 'Submarines and anything close in.' },
+  seaScorpion: { about: 'Fast Union patrol boat with a twin flak turret against aircraft and a twin cannon against boats and the shore (6 cells).', bestFor: 'Guarding the fleet from the air and raiding coasts.', weakTo: 'Bigger warships and submarines\' torpedoes.' },
+  dreadnought: { about: 'Union battleship that fires pairs of heavy missiles at targets on land or sea up to 20 cells away. Cannot hit anything closer than 5 cells.', bestFor: 'Destroying bases and defenses from far out at sea.', weakTo: 'Submarines, aircraft and anything that gets close.' },
   submarine: { about: 'Stays hidden underwater until it fires its torpedoes, which hit ships only.', bestFor: 'Sinking enemy ships.', weakTo: 'Destroyers and Gunboats (depth charges). Cannot attack land.' },
   navalTransport: { about: 'Unarmed boat that carries 5 infantry (large vehicles take two places) across water.', bestFor: 'Landings on another shore.', weakTo: 'Any warship, submarine or aircraft.' },
 

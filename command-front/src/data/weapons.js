@@ -85,6 +85,8 @@ export const WEAPONS = Object.freeze({
   shipAa:       w('shipAa', 'Ship AA', { damage: 50, range: 7, cooldown: 2.0, warhead: 'AP', projectile: 'homing', hits: A }),
   cruiserGun:   w('cruiserGun', 'Cruiser Gun', { damage: 500, burst: 2, range: 22, minRange: 4, cooldown: 10, warhead: 'HE', splash: 1.5, projectile: 'arc', scatter: 2.0, hits: GN }),
   torpedo:      w('torpedo', 'Torpedo', { damage: 90, range: 9, cooldown: 3.3, warhead: 'AP', projectile: 'torpedo', hits: ['N'], only: 'ships' }),
+  scorpionCannon: w('scorpionCannon', 'Twin Cannon', { damage: 30, burst: 2, range: 6, cooldown: 1.8, warhead: 'AP', splash: 0.25, projectile: 'fastShell', hits: GN }),
+  dreadnoughtMissile: w('dreadnoughtMissile', 'Dreadnought Missile', { damage: 450, burst: 2, burstGap: 1.2, range: 20, minRange: 5, cooldown: 11, warhead: 'HE', splash: 1.5, projectile: 'missile', speed: 6, scatter: 1.5, hits: GN }),
 
   // Red Alert 2 roster: tanks, specialists and the air wing.
   tdCannon:     w('tdCannon', 'Tank-Killer Cannon', { damage: 70, range: 5.5, cooldown: 2.6, warhead: 'AP', splash: 0.25, projectile: 'fastShell', hits: GN }),

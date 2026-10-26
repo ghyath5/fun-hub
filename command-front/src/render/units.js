@@ -12,7 +12,7 @@ import { PLAYER_COLORS } from '../data/factions.js';
 import { RENDER, SIM } from '../data/rules.js';
 import { drawPips } from './healthPips.js';
 import { shakeOf } from './shake.js';
-import { unitBoost } from './readability.js';
+import { objectScale } from './readability.js';
 
 const PX_PER_LEPTON = RENDER.cellPx / SIM.leptonsPerCell;
 const TAU = Math.PI * 2;
@@ -162,8 +162,8 @@ export function createUnitLayer(renderer, art = null) {
         // A Terror Drone inside: the whole vehicle rattles.
         const shake = shakeOf(e, now);
         v.root.position.set(x + shake.x * RENDER.cellPx, y + shake.y * RENDER.cellPx);
-        // Zoomed out on a small screen, drawn bigger than life so it still reads.
-        const boost = unitBoost(UNITS[e.type].loco, RENDER.cellPx * viewScale);
+        // Drawn at the battlefield's one scale (the size chosen in Settings, growing a little zoomed out).
+        const boost = objectScale(RENDER.cellPx * viewScale);
         v.root.scale.set(boost);
         // Aircraft in flight sit above their shadow and over everything on the ground (at their true height).
         const flying = UNITS[e.type].loco === 'air' && !e.landed;
