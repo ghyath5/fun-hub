@@ -94,11 +94,12 @@ async function createRenderer2D(host, map, opts = {}) {
   const boxG = new Graphics();
   /** Own and allied mines (enemies never see them), and crates. */
   const minesG = new Graphics();
-  const threats = createThreatRings();
-  overlay.addChild(minesG, structures.smoke, combat.layer, structures.marks, units.marks, threats.layer, fx.layer);
+  overlay.addChild(minesG, structures.smoke, combat.layer, structures.marks, units.marks, fx.layer);
   top.addChild(placement.layer, cursor, boxG);
   const team = createTeamMarks();
-  camera.view.addChild(terrain.layer, combat.ground, team.layer, structures.layer, units.layer, overlay, shroud.layer, top);
+  // The glow where the base is under attack lies on the ground, under buildings and units.
+  const threats = createThreatRings();
+  camera.view.addChild(terrain.layer, combat.ground, team.layer, threats.layer, structures.layer, units.layer, overlay, shroud.layer, top);
   let frame = 0;
 
   /** Cells currently on screen (with a margin). */

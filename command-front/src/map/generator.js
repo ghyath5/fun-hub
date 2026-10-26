@@ -10,11 +10,15 @@
  * battlefield rather than the same few features stretched out.
  *
  * 1. Base terrain from simplex noise: Clear, patches of Rough, tree clusters.
- * 2. Rock ridges as random walks, broken by gaps of 3+ cells (passes).
- * 3. Optional lakes with beaches (naval-capable when large enough).
- * 4. Ore fields, each round a mine that regrows it: a home field beside each
+ * 2. A sea (most seeds, GENERATOR.seaChance): a ragged coast round the whole
+ *    edge with beaches, coming in to meet every base, so one sea links them
+ *    all and ships can reach each one.
+ * 3. Mountains: rock massifs with rough foothills, and rock ridges as random
+ *    walks broken by gaps of 3+ cells (passes).
+ * 4. Optional lakes with beaches (naval-capable when large enough).
+ * 5. Ore fields, each round a mine that regrows it: a home field beside each
  *    start, expansion fields spread over the map, gems in the centre.
- * 5. Validate; on failure try the next seed, up to 20 times, then fall back to Duel Canyon.
+ * 6. Validate; on failure try the next seed, up to 20 times, then fall back to Duel Canyon.
  */
 import { createRng } from '../lib/rng.js';
 import { createNoise } from '../lib/noise.js';
@@ -48,6 +52,13 @@ export const GENERATOR = Object.freeze({
   homeFieldRadius: 3,
   fieldRadius: [2.2, 3.4],
   gemFieldRadius: 1.6,
+  /** Share of seeds whose map has a sea round its edge. */
+  seaChance: 0.7,
+  /** Open-sea depth from the map edge, cells (ragged between the two); by the bases it comes in to meet them. */
+  seaDepth: [3, 6],
+  /** Rock massifs per 64 cells of map side: from none up to this many. */
+  massifs: 3,
+  massifRadius: [2.5, 5],
 });
 
 /** Mine markers in the authoring grid; they become neutral mine structures on Clear ground. */
@@ -82,9 +93,13 @@ function imagesOf(N, players) {
     : [[x, y], [N - 1 - x, N - 1 - y]]);
 }
 
-/** Start positions for a size and player count. @param {number} N @param {2 | 4} players */
-function startsFor(N, players) {
-  const s = Math.max(8, Math.round(N * 0.16));
+/**
+ * Start positions for a size and player count. With a sea the bases stand
+ * further in, leaving room for a coast between the edge and the base square.
+ * @param {number} N @param {2 | 4} players @param {boolean} [sea]
+ */
+function startsFor(N, players, sea = false) {
+  const s = Math.max(sea ? VALIDATION.baseArea / 2 + GENERATOR.seaDepth[0] + 3 : 8, Math.round(N * 0.16));
   const far = N - 1 - s;
   return players === 4
     ? [{ x: s, y: s }, { x: far, y: s }, { x: s, y: far }, { x: far, y: far }]
@@ -102,13 +117,16 @@ export function generateDoc(o) {
   const noise = createNoise(rng);
   const trees = createNoise(rng);
   const blob = createNoise(rng);
+  const coast = createNoise(rng);
+  const rocky = createNoise(rng);
   const canon = canonOf(N, players);
   const images = imagesOf(N, players);
   /** Feature multiplier: 1 up to 64 cells, growing with the map's side. */
   const scale = Math.max(1, Math.round(N / 64));
   /** Codes of canonical cells (full grid; only canonical cells are authored). */
   const g = Array.from({ length: N }, () => new Array(N).fill('.'));
-  const starts = startsFor(N, players);
+  const hasSea = rng.float() < GENERATOR.seaChance;
+  const starts = startsFor(N, players, hasSea);
   const home = starts[0];
   const centre = (N - 1) / 2;
   const R = VALIDATION.baseArea / 2; // the base square reaches 6 cells from its start
@@ -133,7 +151,65 @@ export function generateDoc(o) {
     }
   }
 
-  // 2. Rock ridges: random walks broken into segments, leaving passes 3+ wide.
+  // 2. The sea: water out from every edge to a ragged depth, a beach behind it;
+  //    in front of a base the water comes in to the base square's margin, so
+  //    every base has its own shore on the one sea.
+  const isSea = (/** @type {number} */ x, /** @type {number} */ y) => get(x, y) === '~' || get(x, y) === 'b';
+  if (hasSea) {
+    const [d0, d1] = GENERATOR.seaDepth;
+    /** Depth of the open sea along an edge, from coordinate t on edge k. */
+    const depth = (/** @type {number} */ k, /** @type {number} */ t) => {
+      const n = coast(k * 37 + t / 9, k * 11) * 0.65 + coast(k * 53 + t / 3, k * 7 + 5) * 0.35; // a long swell and a ragged edge
+      return d0 + (d1 - d0) * (n * 0.5 + 0.5);
+    };
+    for (let y = 0; y < N; y++) {
+      for (let x = 0; x < N; x++) {
+        const [cx, cy] = canon(x, y);
+        if (cx !== x || cy !== y) continue;
+        // Distance to the nearest edge, and how deep the sea is there.
+        const edges = [[x, y, 0], [y, x, 1], [N - 1 - x, y, 2], [N - 1 - y, x, 3]];
+        let wet = false;
+        let shore = false;
+        for (const [d, t, k] of edges) {
+          let reach = depth(k, t);
+          // A rounded bay from each base's own nearest edges in to the base square, so every base has a shore.
+          for (const s of starts) {
+            const far = k === 0 ? s.x : k === 1 ? s.y : k === 2 ? N - 1 - s.x : N - 1 - s.y;
+            if (far >= N / 2) continue;
+            const along = Math.abs((k % 2 ? s.x : s.y) - t);
+            const f = Math.min(1, Math.max(0, 1 - (along - (R - 3)) / 9));
+            reach = Math.max(reach, reach + (far - R - reach) * f * f * (3 - 2 * f));
+          }
+          if (d < reach - 1) wet = true;
+          else if (d < reach) shore = true;
+        }
+        if (inBase(x, y)) continue;
+        if (wet) g[y][x] = '~';
+        else if (shore) g[y][x] = 'b';
+      }
+    }
+  }
+
+  // 3. Mountains: rock massifs (noise-ragged discs) with rough foothills, away from bases, sea and the centre.
+  const massifs = rng.int(GENERATOR.massifs + 1) * scale;
+  for (let m = 0, attempt = 0; m < massifs && attempt < massifs * 20; attempt++) {
+    const mx = 4 + rng.int(N - 8);
+    const my = 4 + rng.int(N - 8);
+    const [r0, r1] = GENERATOR.massifRadius;
+    const r = r0 + (rng.int(100) / 100) * (r1 - r0);
+    if (inBase(mx, my, Math.ceil(r) + 3) || isSea(mx, my) || Math.hypot(mx - centre, my - centre) < r + 4) continue;
+    for (let y = Math.floor(my - r - 2); y <= Math.ceil(my + r + 2); y++) {
+      for (let x = Math.floor(mx - r - 2); x <= Math.ceil(mx + r + 2); x++) {
+        if (!inside(x, y) || inBase(x, y) || isSea(x, y)) continue;
+        const d = Math.hypot(x - mx, y - my) + rocky(x / 3, y / 3) * 1.4;
+        if (d <= r) set(x, y, '^');
+        else if (d <= r + 1.6 && get(x, y) === '.') set(x, y, ',');
+      }
+    }
+    m++;
+  }
+
+  // Rock ridges: random walks broken into segments, leaving passes 3+ wide.
   const ridges = (1 + rng.int(3)) * scale;
   for (let r = 0; r < ridges; r++) {
     let x = Math.round(centre + (rng.int(N) - N / 2) * 0.6);
@@ -150,7 +226,7 @@ export function generateDoc(o) {
         continue;
       }
       if (x < 1 || y < 1 || x >= N - 1 || y >= N - 1) break;
-      if (!inBase(x, y)) { set(x, y, '^'); if (dx && dy) set(x + 1, y, '^'); }
+      if (!inBase(x, y) && !isSea(x, y)) { set(x, y, '^'); if (dx && dy && !isSea(x + 1, y)) set(x + 1, y, '^'); }
       run++;
       x += dx; y += dy;
       if (rng.int(5) === 0) { // wander a little
@@ -160,7 +236,7 @@ export function generateDoc(o) {
     }
   }
 
-  // 3. Lakes with a beach rim (sometimes): near the line between home and centre, more anywhere on big maps.
+  // 4. Lakes with a beach rim (sometimes): near the line between home and centre, more anywhere on big maps.
   const lake = (/** @type {number} */ lx, /** @type {number} */ ly, /** @type {number} */ r) => {
     for (let y = ly - r - 1; y <= ly + r + 1; y++) {
       for (let x = lx - r - 1; x <= lx + r + 1; x++) {
@@ -183,7 +259,7 @@ export function generateDoc(o) {
     if (!inBase(lx, ly, 6)) lake(lx, ly, 2 + rng.int(4));
   }
 
-  // 4. Ore fields, each round a mine. A field is a ragged disc; it overwrites
+  // 5. Ore fields, each round a mine. A field is a ragged disc; it overwrites
   //    open ground, rough and trees but never rock, water or a base.
   /** @type {number[][]} */
   const centres = [];

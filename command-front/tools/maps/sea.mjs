@@ -7,9 +7,12 @@
 //   node tools/maps/sea.mjs <map-id> start <k> <x> <y>   move start k to cell (x, y)
 //
 // Works on maps written as a `schematic`. It refuses to drown a start, a
-// neutral object or a bridge. Writes maps/<map-id>.json in place.
+// neutral object or a bridge. Writes maps/<map-id>.json in place, then runs the
+// map validator (the setup screen refuses maps that fail it) and reports what fails.
 import fs from 'node:fs';
 import path from 'node:path';
+import { parseMap } from '../../src/map/loader.js';
+import { validateMap, describe } from '../../src/map/validator.js';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../..');
 const WATER = '~';
@@ -75,4 +78,7 @@ if (process.argv[1] === new URL(import.meta.url).pathname) {
   else throw new Error(`unknown operation ${op}`);
   fs.writeFileSync(file, format(doc));
   console.log(`${id}: ${doc.width}×${doc.height}`);
+  // The setup screen refuses maps that fail the validator: say so now, not at the next match.
+  const report = validateMap(parseMap(doc));
+  if (!report.ok) { console.error(`${id} no longer passes the map validator:\n${describe(report.errors)}`); process.exitCode = 1; }
 }

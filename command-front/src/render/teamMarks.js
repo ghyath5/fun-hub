@@ -1,9 +1,10 @@
 // @ts-check
 /**
  * Team colours on the ground, for reading the battle zoomed out: a disc
- * under every unit and a plate under every building, in the owner's bright
- * colour with a dark rim (so green reads on grass). They fade in as the view
- * zooms out (readability.js aidStrength) and are not drawn at all close up.
+ * under every unit, in the owner's bright colour with a dark rim (so green
+ * reads on grass). Buildings get none: their own team colours and their size
+ * read well enough. The discs fade in as the view zooms out (readability.js
+ * aidStrength) and are not drawn at all close up.
  * Lives in the ground layer of either view, under the units and buildings.
  * Never gives away what the viewer should not know: disguised Spies and
  * Mirage Tanks and submerged submarines of other sides get no disc.
@@ -12,7 +13,6 @@ import { Graphics } from 'pixi.js';
 import { PLAYER_COLORS } from '../data/factions.js';
 import { RENDER, SIM } from '../data/rules.js';
 import { UNITS } from '../data/units.js';
-import { structureDef } from '../sim/entities/structures.js';
 import { aidStrength, unitBoost } from './readability.js';
 
 const C = RENDER.cellPx;
@@ -51,18 +51,8 @@ export function createTeamMarks() {
       if (!s) return;
       const rim = 1.4 / scale;
       for (const e of world.entities.all()) {
-        if (e.dead || e.owner < 0 || e.inside || !visible(e)) continue;
+        if (e.dead || e.kind !== 'unit' || e.owner < 0 || e.inside || !visible(e) || hidden(world, e, viewer)) continue;
         const color = BRIGHT[world.players[e.owner].color] ?? 0xffffff;
-        if (e.kind === 'structure') {
-          if (structureDef(e.type).wall) continue;
-          if (e.cx + e.w < cells.x0 || e.cx > cells.x1 || e.cy + e.h < cells.y0 || e.cy > cells.y1) continue;
-          const inset = C * 0.06;
-          g.rect(e.cx * C + inset, e.cy * C + inset, e.w * C - 2 * inset, e.h * C - 2 * inset)
-            .fill({ color, alpha: 0.3 * s })
-            .stroke({ width: rim * 2, color, alpha: 0.9 * s });
-          continue;
-        }
-        if (e.kind !== 'unit' || hidden(world, e, viewer)) continue;
         if (e.cx < cells.x0 || e.cx > cells.x1 || e.cy < cells.y0 || e.cy > cells.y1) continue;
         const loco = UNITS[e.type].loco;
         const x = (e.px + (e.x - e.px) * alpha) * PX_PER_LEPTON;

@@ -1,11 +1,12 @@
 // Reading the battle on a small screen: units grow as the view zooms out; attack spots and the arrows to them.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { unitBoost, aidStrength } from '../src/render/readability.js';
+import { unitBoost, aidStrength, setObjectSize, buildingSize } from '../src/render/readability.js';
 import { createThreats } from '../src/ui/threats.js';
 import { THREATS, READABILITY } from '../src/data/ui.js';
 
 test('units are life size close up, grow as cells shrink, and never past the cap', () => {
+  setObjectSize(1);
   assert.equal(unitBoost('track', 60), 1);
   assert.equal(unitBoost('foot', 60), 1);
   const mid = unitBoost('track', 20);
@@ -15,6 +16,19 @@ test('units are life size close up, grow as cells shrink, and never past the cap
   assert.ok(unitBoost('foot', 20) > unitBoost('track', 20), 'soldiers grow more: they are the smallest');
   let last = 0;
   for (let px = 60; px >= 4; px -= 2) { const b = unitBoost('wheel', px); assert.ok(b >= last); last = b; }
+});
+
+test('the size chosen in Settings scales units fully and buildings partly, within limits', () => {
+  setObjectSize(READABILITY.defaultObjectSize);
+  assert.equal(unitBoost('track', 60), READABILITY.defaultObjectSize, 'a little bigger by default');
+  assert.ok(buildingSize() > 1 && buildingSize() < READABILITY.defaultObjectSize);
+  setObjectSize(1.45);
+  assert.equal(unitBoost('foot', 60), 1.45);
+  assert.equal(buildingSize(), READABILITY.maxBuildingSize, 'buildings stay near their footprint');
+  setObjectSize(7);
+  assert.equal(unitBoost('track', 60), READABILITY.defaultObjectSize, 'an unknown size falls back to the default');
+  setObjectSize(1);
+  assert.equal(buildingSize(), 1);
 });
 
 test('team marks fade in only when zoomed out', () => {
@@ -55,6 +69,7 @@ test('arrows sit on the edge of the view, pointing at fights off screen only', a
   const up = arrowPlace({ x: 400, y: -500 }, area, inset);
   assert.ok(Math.abs(up.y - 70) < 1e-6 && Math.abs(up.x - 400) < 1e-6);
   assert.ok(Math.abs(up.angle + Math.PI / 2) < 1e-6, 'points up');
+  assert.equal(arrowPlace({ x: 10, y: 45 }, area, inset), null, 'in view by the edge: the glow shows it');
   const corner = arrowPlace({ x: -900, y: 900 }, area, { x: 64, y: 32 });
   assert.ok(corner.x >= 64 - 1e-6 && corner.y <= 368 + 1e-6, 'stays clear of the sides');
 });

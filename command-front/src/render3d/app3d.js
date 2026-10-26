@@ -37,6 +37,7 @@ import { makeIcons3D } from './icons3d.js';
 import { SQUASH, LIFT, RISE, ALTITUDE } from './view.js';
 import { disposeMaterials } from './material.js';
 import { createTeamMarks } from '../render/teamMarks.js';
+import { buildingSize } from '../render/readability.js';
 import { createThreatRings } from '../render/threatRings.js';
 
 /** @typedef {import('../types.js').MapData} MapData */
@@ -53,10 +54,12 @@ export function quality3D() {
   const memory = nav.deviceMemory ?? 8;
   const phone = matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 820;
   const tier = want === 'low' || want === 'medium' || want === 'high' ? want : memory <= 2 ? 'low' : phone || memory <= 4 ? 'medium' : 'high';
-  // Multisampling where pixels are big enough for jagged edges to show.
-  const antialias = tier !== 'low' && (tier === 'high' || (window.devicePixelRatio || 1) < 2);
+  // Smooth model edges everywhere but on the weakest devices (phone GPUs draw in tiles, where multisampling costs little).
+  const antialias = tier !== 'low';
   if (tier === 'low') return { tier, shadows: false, shadowSize: 512, receive: false, soft: false, antialias, detail: 0.55, maxTexture: 256, dpr: 1 };
-  if (tier === 'medium') return { tier, shadows: true, shadowSize: 1024, receive: false, soft: false, antialias, detail: 0.75, maxTexture: 512, dpr: 1.5 };
+  // Phones draw at up to twice the CSS resolution for crisp models and ground; one that cannot keep up
+  // in the first seconds drops to 1.5 (the frame-time watch, perfMonitor.js).
+  if (tier === 'medium') return { tier, shadows: true, shadowSize: 1024, receive: false, soft: false, antialias, detail: 0.9, maxTexture: memory <= 3 ? 512 : 1024, dpr: 2 };
   return { tier, shadows: true, shadowSize: 2048, receive: true, soft: true, antialias, detail: 1, maxTexture: 1024, dpr: PERF.dprCap };
 }
 
@@ -101,7 +104,7 @@ export async function createRenderer3D(host, map, opts = {}) {
   const fx = createFx();
   /** Height of an entity's muzzle / middle above the ground, world px (before the view's lift). */
   const muzzle = (/** @type {any} */ e) => {
-    if (e.kind === 'structure') return structures.heightOf(e.faction ? `${e.type}@${e.faction}` : e.type) * 0.8;
+    if (e.kind === 'structure') return structures.heightOf(e.faction ? `${e.type}@${e.faction}` : e.type) * buildingSize() * 0.8;
     const flying = UNITS[e.type]?.loco === 'air' && !e.landed;
     return (flying ? ALTITUDE : 0) + units.heightOf(e.type) * units.boostOf(e) * 0.6;
   };
@@ -122,9 +125,10 @@ export async function createRenderer3D(host, map, opts = {}) {
   const minesG = new Graphics();
   // Team discs and plates (zoomed out) lie on the ground, under the models.
   const team = createTeamMarks();
-  camera.ground.addChild(terrain.layer, combat.ground, team.layer);
+  // The glow where the base is under attack lies on the ground too.
   const threats = createThreatRings();
-  overlay.addChild(minesG, structures.smoke, combat.layer, structures.marks, units.marks, structures.flags, threats.layer, fx.layer);
+  camera.ground.addChild(terrain.layer, combat.ground, team.layer, threats.layer);
+  overlay.addChild(minesG, structures.smoke, combat.layer, structures.marks, units.marks, structures.flags, fx.layer);
   top.addChild(placement.layer, cursor, boxG);
   camera.view.addChild(overlay, shroud.layer, top);
   let frame = 0;
@@ -215,7 +219,7 @@ export async function createRenderer3D(host, map, opts = {}) {
      */
     liftOf(e) {
       const s = camera.scale * RISE;
-      if (e.kind === 'structure') return structures.heightOf(e.faction ? `${e.type}@${e.faction}` : e.type) * s;
+      if (e.kind === 'structure') return structures.heightOf(e.faction ? `${e.type}@${e.faction}` : e.type) * buildingSize() * s;
       const flying = UNITS[e.type]?.loco === 'air' && !e.landed;
       return ((flying ? ALTITUDE : 0) + units.heightOf(e.type) * units.boostOf(e) * 0.5) * s;
     },

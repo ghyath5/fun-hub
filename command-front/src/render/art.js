@@ -57,9 +57,10 @@ const downloads = new Map();
  * How much of the atlas resolution to keep on the GPU (1 = all of it). Every
  * page is 2048² RGBA (16 MB, 21 MB with mipmaps), so phones and low-memory
  * devices decode the pages smaller: ¾ keeps sprites sharp at normal zoom
- * for 56% of the memory, ½ for 25%. `?art=low|medium|full` overrides.
+ * for 56% of the memory, ½ for 25%. The 3D view loads only the ground
+ * pages and keeps them whole. `?art=low|medium|full` overrides.
  */
-export function artScale() {
+export function artScale(terrainOnly = false) {
   const want = new URLSearchParams(location.search).get('art');
   if (want === 'low') return 0.5;
   if (want === 'medium') return 0.75;
@@ -67,6 +68,8 @@ export function artScale() {
   const nav = /** @type {any} */ (navigator);
   const memory = nav.deviceMemory ?? 8; // GB (Chromium only; others report nothing)
   if (memory <= 2) return 0.5;
+  // The 3D view loads only the two ground pages (not the sprite atlases): keep them sharp.
+  if (terrainOnly) return 1;
   const phone = matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 820;
   if (memory <= 4 || phone) return 0.75;
   return 1;
@@ -114,7 +117,7 @@ export async function loadArt(opts = {}) {
   const res = json.pxPerCell / json.cellPx; // atlas px per world px
   const gj = json.terrain?.ground;
   const gres = gj ? gj.pxPerCell / json.cellPx : 1;
-  const scale = artScale();
+  const scale = artScale(!!opts.terrainOnly);
   /** @param {Blob} b @param {number} resolution */
   // WebGL ignores its premultiply-on-upload flag for ImageBitmaps, so the
   // bitmap is premultiplied as it is decoded and declared as such. On small

@@ -12,6 +12,7 @@ import { RENDER, SIM, PRODUCTION, SELL } from '../data/rules.js';
 import { STRUCTURES } from '../data/structures.js';
 import { healthBand } from '../sim/formulas/combat.js';
 import { drawPips } from './healthPips.js';
+import { buildingSize } from './readability.js';
 
 const C = RENDER.cellPx;
 const PX = C / SIM.leptonsPerCell;
@@ -145,7 +146,11 @@ export function createStructureLayer(renderer, art = null) {
         const x0 = s.cx * C;
         const y0 = s.cy * C;
         const H = s.h * C;
-        v.root.position.set(x0, y0);
+        // Drawn at the building size chosen in Settings, grown about the footprint's bottom middle.
+        const size = /** @type {any} */ (STRUCTURES[s.type])?.wall ? 1 : buildingSize();
+        v.root.pivot.set((s.w * C) / 2, H);
+        v.root.position.set(x0 + (s.w * C) / 2, y0 + H);
+        v.root.scale.set(size);
         v.root.zIndex = y0 + H;
         // Build-up rises from the ground; selling sinks back into it.
         let k = 1;
