@@ -208,6 +208,7 @@ export async function startApp({ hudEl, worldEl, screensEl, debug }) {
     session = await track(createSession({
       world, human, hudEl, worldEl, audio, speed: m.speed ?? 'normal', debug, hint, leftHanded: settings.leftHanded, net, edgePan: settings.edgePan !== false,
       graphics: settings.graphics ?? '3d',
+      objectSize: settings.objectSize,
       hooks: online ?? {
         save: () => slots('save', () => showScreen(screensEl, null)),
         load: () => slots('load', () => showScreen(screensEl, null)),

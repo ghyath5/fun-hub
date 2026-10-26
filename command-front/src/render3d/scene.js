@@ -19,6 +19,18 @@ const C = RENDER.cellPx;
 const SUN_DIR = new THREE.Vector3(-0.55, 1.25, -0.45).normalize();
 
 /**
+ * How the lit models' colours reach the screen. `?tone=none|neutral|aces|agx` picks another (for comparing).
+ * @type {Record<string, { mapping: THREE.ToneMapping, exposure: number }>}
+ */
+const TONE = {
+  none: { mapping: THREE.NoToneMapping, exposure: 1 },
+  neutral: { mapping: THREE.NeutralToneMapping, exposure: 1 },
+  aces: { mapping: THREE.ACESFilmicToneMapping, exposure: 1.15 },
+  agx: { mapping: THREE.AgXToneMapping, exposure: 1.2 },
+};
+const DEFAULT_TONE = 'none';
+
+/**
  * @typedef {{ shadows: boolean, shadowSize: number, receive: boolean, soft: boolean, antialias: boolean }} Quality
  */
 
@@ -33,7 +45,9 @@ export function createScene(map, quality) {
   });
   renderer.autoClear = false;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.toneMapping = THREE.NoToneMapping;
+  const tone = TONE[/** @type {keyof typeof TONE} */ (new URLSearchParams(location.search).get('tone') ?? DEFAULT_TONE)] ?? TONE[DEFAULT_TONE];
+  renderer.toneMapping = tone.mapping;
+  renderer.toneMappingExposure = tone.exposure;
   renderer.shadowMap.enabled = quality.shadows;
   renderer.shadowMap.type = quality.soft ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
   renderer.shadowMap.autoUpdate = true;

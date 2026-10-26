@@ -45,6 +45,12 @@ export const CAMERA = Object.freeze({
  * Zoomed right out, a cell never gets smaller than minCellPx.
  */
 export const READABILITY = Object.freeze({
+  /** Settings → Unit and building size: the choices, and the one a new player starts with. */
+  objectSizes: Object.freeze([1, 1.15, 1.3, 1.45]),
+  defaultObjectSize: 1.15,
+  /** Buildings grow by this share of the chosen size (they must stay near their footprint), and never past maxBuildingSize. */
+  buildingShare: 0.7,
+  maxBuildingSize: 1.2,
   minCellPx: 9,
   comfortCellPx: { infantry: 48, vehicle: 34, aircraft: 34 },
   maxBoost: { infantry: 2.2, vehicle: 1.8, aircraft: 1.8 },

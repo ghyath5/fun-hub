@@ -95,7 +95,8 @@ export const PRODUCTION = Object.freeze({
 
 export const PLACEMENT = Object.freeze({
   adjacency: 2,                // Chebyshev distance to an own completed non-wall structure
-  navalAdjacency: 4,
+  /** Naval yards reach further: a base's 12×12 build area keeps the coast a few cells off, so a yard by the shore is in reach of the Construction Yard itself. */
+  navalAdjacency: 7,
   clearWaitSeconds: 2,
   wallMaxCells: 20,
   mcvDeploySeconds: 2,

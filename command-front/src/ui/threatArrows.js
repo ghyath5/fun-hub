@@ -10,14 +10,15 @@ import { THREATS } from '../data/ui.js';
 import { t } from '../lib/i18n.js';
 
 /**
- * Where an arrow sits for a point, or null when the point is in view.
+ * Where an arrow sits for a point off screen (`inset` inside the edge), or null when the point is in view.
  * @param {{ x: number, y: number }} p  screen px
  * @param {{ x0: number, y0: number, x1: number, y1: number }} a  the play area
  * @param {{ x: number, y: number }} inset  px inside the area's sides and its top and bottom
  * @returns {{ x: number, y: number, angle: number } | null}
  */
 export function arrowPlace(p, a, inset) {
-  if (p.x >= a.x0 + inset.x && p.x <= a.x1 - inset.x && p.y >= a.y0 + inset.y && p.y <= a.y1 - inset.y) return null;
+  // On screen (even near the edge) the glow shows it: no arrow.
+  if (p.x >= a.x0 && p.x <= a.x1 && p.y >= a.y0 && p.y <= a.y1) return null;
   const cx = (a.x0 + a.x1) / 2;
   const cy = (a.y0 + a.y1) / 2;
   const dx = p.x - cx;

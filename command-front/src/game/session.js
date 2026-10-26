@@ -31,10 +31,10 @@ import { isTransport } from '../sim/transports.js';
 import { isMineLayer } from '../sim/specials.js';
 import { createThreats } from '../ui/threats.js';
 import { createThreatArrows } from '../ui/threatArrows.js';
-import { THREATS } from '../data/ui.js';
+import { setObjectSize } from '../render/readability.js';
 import { isAircraft } from '../sim/air.js';
 import { GAME_SPEEDS, SIM, RENDER, PRODUCTION } from '../data/rules.js';
-import { GESTURE, LAYOUT } from '../data/ui.js';
+import { GESTURE, LAYOUT, THREATS, READABILITY } from '../data/ui.js';
 import { PLAYER_COLORS, FACTIONS } from '../data/factions.js';
 import { itemDef, lineOf } from '../sim/catalog.js';
 import { structureDef, isActive, placeStructure } from '../sim/entities/structures.js';
@@ -75,10 +75,11 @@ const portraitPhone = () => matchMedia('(orientation: portrait) and (pointer: co
  *   world: any, human: number, hudEl: HTMLElement, worldEl: HTMLElement,
  *   audio: ReturnType<typeof import('../lib/audio.js').createAudio>,
  *   speed?: keyof typeof GAME_SPEEDS, debug?: boolean, hooks?: SessionHooks, hint?: string | null, leftHanded?: boolean,
- *   net?: import('../net/netMatch.js').NetPlay | null, edgePan?: boolean, graphics?: '3d' | '2d',
+ *   net?: import('../net/netMatch.js').NetPlay | null, edgePan?: boolean, graphics?: '3d' | '2d', objectSize?: number,
  * }} opts  net: a two-phone match — commands go through the lockstep and the pause is shared
  */
-export async function createSession({ world, human, hudEl, worldEl, audio, speed = 'normal', debug = false, hooks = {}, hint = null, leftHanded = false, net = null, edgePan = true, graphics = '3d' }) {
+export async function createSession({ world, human, hudEl, worldEl, audio, speed = 'normal', debug = false, hooks = {}, hint = null, leftHanded = false, net = null, edgePan = true, graphics = '3d', objectSize = READABILITY.defaultObjectSize }) {
+  setObjectSize(objectSize);
   const map = world.map;
   const view = await createRenderer(worldEl, map, { faction: world.players[human]?.faction ?? '', mode: graphics });
   const cam = view.camera;
@@ -753,6 +754,8 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
     screenOf: (e) => cam.toScreen((e.x * C) / L, (e.y * C) / L),
     /** Run n ticks at once (debugging and scripted play-tests). @param {number} n */
     advance: (n) => { for (let k = 0; k < n; k++) step(world); },
+    /** Where the base is under attack right now. */
+    threats: () => threats.active(),
   };
 
   return {

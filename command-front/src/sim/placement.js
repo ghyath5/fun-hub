@@ -4,7 +4,7 @@
  * cell inside the map, explored, buildable and free of structures, walls,
  * own mines and enemy or neutral units; friendly units only make a cell
  * amber (they will be asked to scatter). At least one cell within 2 of a
- * completed own non-wall structure (naval yards: all water, within 4).
+ * completed own non-wall structure (naval yards: all water, within 7).
  * Factory exits and refinery docks must be passable too.
  */
 import { PLACEMENT } from '../data/rules.js';

@@ -16,6 +16,7 @@ import { healthBand } from '../sim/formulas/combat.js';
 import { drawPips } from '../render/healthPips.js';
 import { CELL, LIFT, SQUASH } from './view.js';
 import { teamColor } from './units3d.js';
+import { buildingSize } from '../render/readability.js';
 
 const C = RENDER.cellPx;
 const TAU = Math.PI * 2;
@@ -49,14 +50,20 @@ export function createStructures3D(lib, inst) {
   const keyOf = (s) => (s.faction ? `${s.type}@${s.faction}` : s.type);
 
   /**
-   * Put a model's parts on a footprint corner.
+   * Put a model's parts on a footprint corner, drawn at the building size chosen in Settings
+   * (grown about the footprint's middle, standing on the ground).
    * @param {import('./library.js').ModelDef} def @param {number} cx @param {number} cy
-   * @param {THREE.Color} color @param {{ rise?: number, bright?: number, ghost?: boolean, turret?: number, spin?: number }} o
+   * @param {THREE.Color} color @param {{ rise?: number, bright?: number, ghost?: boolean, turret?: number, spin?: number, w?: number, h?: number, wall?: boolean }} o
+   *   w, h: the footprint in cells (1×1 when left out); wall: life size, so its arms meet the next wall's
    */
   function place(def, cx, cy, color, o = {}) {
     const rise = Math.max(0.02, o.rise ?? 1);
+    const k = o.wall ? 1 : buildingSize();
+    const hw = (o.w ?? 1) / 2;
+    const hh = (o.h ?? 1) / 2;
     for (const p of def.parts) {
-      m.makeTranslation(cx * C, 0, cy * C).multiply(tmp.makeScale(CELL, CELL * rise, CELL)).multiply(tmp.makeTranslation(p.pivot.x, p.pivot.y, p.pivot.z));
+      m.makeTranslation((cx + hw) * C, 0, (cy + hh) * C).multiply(tmp.makeScale(CELL * k, CELL * rise * k, CELL * k))
+        .multiply(tmp.makeTranslation(p.pivot.x - hw, p.pivot.y, p.pivot.z - hh));
       if (p.orient) m.multiply(tmp.makeRotationFromQuaternion(p.orient));
       if (p.role === 'turret' && o.turret !== undefined) m.multiply(tmp.makeRotationY((-o.turret / 256) * TAU));
       if (p.role === 'spin' || p.role === 'rotor') m.multiply(tmp.makeRotationY(o.spin ?? 0));
@@ -128,13 +135,13 @@ export function createStructures3D(lib, inst) {
         const sd = /** @type {any} */ (STRUCTURES[s.type]);
         const dim = !!(owner && owner.power.low && sd && (sd.tags.includes('radar') || sd.tags.includes('powered')));
         if (!dim && k === 1) st.spin += dt * SPIN_SPEED;
-        place(def, s.cx, s.cy, color, { rise: k, bright: dim ? 0.6 : 1, turret: s.turret, spin: st.spin });
+        place(def, s.cx, s.cy, color, { rise: k, bright: dim ? 0.6 : 1, turret: s.turret, spin: st.spin, w: s.w, h: s.h, wall: sd?.role === 'wall' });
         if (sd?.role === 'wall' && k === 1) wallArms(world, s, color);
 
         const x0 = s.cx * C;
         const y0 = s.cy * C;
         const H = s.h * C;
-        const top = y0 - def.height * CELL * k * LIFT;
+        const top = y0 - def.height * CELL * k * (sd?.role === 'wall' ? 1 : buildingSize()) * LIFT;
         // The owner's flag flies over each Construction Yard (and changes hands with it).
         const flagWanted = s.type === 'constructionYard' && owner?.country ? owner.country : '';
         if (st.flagId !== flagWanted) {
@@ -189,7 +196,7 @@ export function createStructures3D(lib, inst) {
         if (!fog || !eyes) { memory.delete(id); continue; }
         if (!live || live.dead) { if (anyCell(g, eyes.seen)) { memory.delete(id); continue; } }
         if (!anyCell(g, eyes.explored) || !onScreen(g)) continue;
-        place(lib.get(g.key), g.cx, g.cy, g.color, { ghost: true });
+        place(lib.get(g.key), g.cx, g.cy, g.color, { ghost: true, w: g.w, h: g.h });
       }
       for (const [id, st] of state) {
         if (alive.has(id)) continue;
@@ -211,7 +218,8 @@ export function createStructures3D(lib, inst) {
      * @param {number} cx @param {number} cy @param {number} tint  player colour
      */
     ghost(type, faction, cx, cy, tint) {
-      place(lib.get(faction ? `${type}@${faction}` : type), cx, cy, new THREE.Color(tint), { ghost: true });
+      const fp = /** @type {any} */ (STRUCTURES[type]);
+      place(lib.get(faction ? `${type}@${faction}` : type), cx, cy, new THREE.Color(tint), { ghost: true, w: fp?.w, h: fp?.h });
     },
   };
 }
