@@ -14,6 +14,7 @@ import { COLORS, ORE_GROWTH_OPTIONS, maxPlayersOf } from '../game/matchSetup.js'
 import { GENERATOR } from '../map/generator.js';
 import { LANGS, LANG_NAMES, t, int } from '../lib/i18n.js';
 import { READABILITY } from '../data/ui.js';
+import { SKILL_MIN, SKILL_MAX, skillName } from '../ai/skill.js';
 
 /** Names of the unit and building sizes in Settings. */
 const SIZE_NAMES = Object.freeze({ '1': 'Original size', '1.15': 'A little bigger', '1.3': 'Large size' });
@@ -21,7 +22,6 @@ const SIZE_NAMES = Object.freeze({ '1': 'Original size', '1.15': 'A little bigge
 /** @typedef {import('../game/matchSetup.js').SetupForm} SetupForm */
 
 const FACTION_IDS = /** @type {('coalition' | 'union')[]} */ (['coalition', 'union']);
-const DIFFICULTIES = ['beginner', 'easy', 'normal', 'hard'];
 const cap = (/** @type {string} */ s) => t(s[0].toUpperCase() + s.slice(1));
 /** A faction's name in the current language. @param {'coalition' | 'union'} f */
 export const factionName = (f) => t(FACTIONS[f].name);
@@ -46,6 +46,17 @@ const Select = ({ value, options, onChange, label }) => html`<select aria-label=
   }}>
   ${options.map((o) => html`<option key=${String(o.value)} value=${String(o.value)}>${o.label}</option>`)}
 </select>`;
+
+/**
+ * An AI opponent's experience, 0 (first game) to 10 (expert): how well it
+ * plays, never how much money or power it gets.
+ * @param {{ value: number, onChange: (v: number) => void, label?: string }} p
+ */
+const SkillSlider = ({ value, onChange, label }) => html`<label class="skill">
+  <span class="skill-head"><span class="muted">${t('Skill')}</span><b>${value} · ${t(skillName(value))}</b></span>
+  <input type="range" min=${SKILL_MIN} max=${SKILL_MAX} step="1" value=${value} aria-label=${label}
+    aria-valuetext=${`${value} · ${t(skillName(value))}`} onInput=${(/** @type {any} */ e) => onChange(Number(e.target.value))} />
+</label>`;
 
 /** @param {{ checked: boolean, onChange: (v: boolean) => void, label?: string }} p */
 const Toggle = ({ checked, onChange, label }) => html`<input type="checkbox" class="toggle" aria-label=${label} checked=${checked}
@@ -144,12 +155,12 @@ export function SetupScreen({ form, maps, error, onChange, onStart, onBack, onli
           <${CountryButton} compact label=${t('Opponent {n} country', { n: k + 1 })} value=${o.country} onPick=${(v) => opp(k, { country: v })} />
           <${Select} label=${t('Opponent {n} faction', { n: k + 1 })} value=${o.faction} onChange=${(v) => opp(k, { faction: v })} options=${FACTION_IDS.map((f) => ({ value: f, label: factionName(f) }))} />
           <${Select} label=${t('Opponent {n} colour', { n: k + 1 })} value=${o.color} onChange=${(v) => opp(k, { color: v })} options=${COLORS.map((c) => ({ value: c, label: cap(c) }))} />
-          <${Select} label=${t('Opponent {n} difficulty', { n: k + 1 })} value=${o.difficulty} onChange=${(v) => opp(k, { difficulty: v })} options=${DIFFICULTIES.map((d) => ({ value: d, label: cap(d) }))} />
           ${form.opponents.filter((x) => !x.remote).length > (online ? 0 : 1) ? html`<button class="cmd" aria-label=${t('Remove opponent')} onClick=${() => set({ opponents: form.opponents.filter((_, i) => i !== k) })}>✕</button>` : null}
+          <${SkillSlider} label=${t('Opponent {n} skill', { n: k + 1 })} value=${o.skill} onChange=${(v) => opp(k, { skill: v })} />
         </div>`)}
         ${form.opponents.length + 1 < maxPlayers ? html`<button class="btn" onClick=${() => set({ opponents: [...form.opponents, {
           faction: form.opponents.length % 2 ? 'coalition' : 'union', color: COLORS.find((c) => c !== form.color && !form.opponents.some((o) => o.color === c)) ?? 'green',
-          country: COUNTRIES.find((c) => c.id !== form.country && !form.opponents.some((o) => o.country === c.id))?.id ?? '', difficulty: 'normal' }] })}>${t('+ Add AI opponent')}</button>` : null}
+          country: COUNTRIES.find((c) => c.id !== form.country && !form.opponents.some((o) => o.country === c.id))?.id ?? '', skill: SETUP_DEFAULTS.skill }] })}>${t('+ Add AI opponent')}</button>` : null}
         ${teamOptions(form, online).length > 1 ? html`<${Row} label=${t('Teams')}><${Select} label=${t('Teams')} value=${form.teams} onChange=${(v) => set({ teams: v })}
           options=${teamOptions(form, online)} /></${Row}>` : null}
       </section>

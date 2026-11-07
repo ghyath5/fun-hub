@@ -27,8 +27,9 @@ import { mapForForm } from './mapForForm.js';
 import { snapshot, restore } from '../save/serialize.js';
 import { pack, unpack } from '../lib/storage.js';
 import { step } from '../sim/world.js';
-import { GAME_SPEEDS } from '../data/rules.js';
+import { GAME_SPEEDS, SETUP_DEFAULTS } from '../data/rules.js';
 import { FACTIONS } from '../data/factions.js';
+import { skillOf, skillName } from '../ai/skill.js';
 import { t } from '../lib/i18n.js';
 import { track } from '../lib/progress.js';
 import { showScreen, SetupScreen, EndScreen } from '../ui/screens.js';
@@ -214,7 +215,7 @@ export function createTwoPhones(app) {
   function hostStartForm() {
     const saved = app.prefs.get().form ?? defaultForm();
     const ais = saved.opponents.filter((o) => !o.remote);
-    const remote = saved.opponents.find((o) => o.remote) ?? { faction: me.faction, color: 'red', difficulty: /** @type {'normal'} */ ('normal') };
+    const remote = saved.opponents.find((o) => o.remote) ?? { faction: me.faction, color: 'red', skill: SETUP_DEFAULTS.skill };
     const f = { ...saved, opponents: [{ ...remote, remote: true }, ...ais] };
     return normaliseForm(f, maxPlayersOf(f, maps));
   }
@@ -345,7 +346,7 @@ export function createTwoPhones(app) {
     const mine = myId();
     const outcome = result.draw ? 'draw' : result.winners.some((id) => w.allied(id, mine)) ? 'victory' : 'defeat';
     const rows = w.players.map((/** @type {any} */ p) => ({
-      name: `${p.id === mine ? t('You') : p.human ? t('Other phone') : t('AI ({level})', { level: t(p.difficulty[0].toUpperCase() + p.difficulty.slice(1)) })} · ${t(FACTIONS[/** @type {'coalition' | 'union'} */ (p.faction)].name)}`,
+      name: `${p.id === mine ? t('You') : p.human ? t('Other phone') : t('AI ({level})', { level: `${skillOf(p)} · ${t(skillName(skillOf(p)))}` })} · ${t(FACTIONS[/** @type {'coalition' | 'union'} */ (p.faction)].name)}`,
       color: p.color, country: p.country, alive: p.alive, stats: p.stats,
     }));
     const theyLeft = s.store.get().link === 'left';

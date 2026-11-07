@@ -1,52 +1,55 @@
 // @ts-check
 /**
- * AI build orders and attack waves (section 16), per
- * faction and difficulty. Change these tables to change how the AI plays;
- * the code only walks them.
+ * Build orders (section 16), per faction and playstyle. Change these tables
+ * to change how the computer builds; the code only walks them. Every order
+ * opens the same way and then follows its style: a rusher gets its army and
+ * repairs going first, a turtle walls itself in with guns and races to its
+ * superweapon, a raider gets aircraft and fast units early.
+ *
+ * Repeated types mean "own this many". Refineries beyond what its skill
+ * keeps running, and towers beyond what its style builds, are skipped;
+ * `naval` steps only count when water links its base to an enemy's.
  */
 
-/**
- * Build order: each entry is a structure or defense type; repeated types
- * mean "own this many". `minDifficulty` entries are skipped below it, and
- * `naval` entries only when water connects the bases.
- * @typedef {{ type: string, minDifficulty?: 'normal' | 'hard', naval?: boolean }} BuildStep
- */
+/** @typedef {{ type: string, naval?: boolean }} BuildStep */
+/** @typedef {'balanced' | 'rusher' | 'turtle' | 'raider'} StyleId */
 
-/** @type {Record<'coalition' | 'union', BuildStep[]>} */
-export const BUILD_ORDER = Object.freeze({
-  coalition: [
-    { type: 'powerPlant' }, { type: 'barracks' }, { type: 'refinery' }, { type: 'powerPlant' }, { type: 'warFactory' },
-    { type: 'refinery', minDifficulty: 'normal' }, { type: 'radarDome' }, { type: 'pillbox' }, { type: 'gunTurret' },
-    { type: 'advPowerPlant' }, { type: 'serviceDepot' }, { type: 'techCenter' }, { type: 'airfield' },
-    { type: 'navalYard', naval: true }, { type: 'helipad', minDifficulty: 'hard' }, { type: 'advPowerPlant' }, { type: 'phaseShifter', minDifficulty: 'normal' },
-    { type: 'refinery', minDifficulty: 'hard' }, { type: 'gunTurret' }, { type: 'aaGun' }, { type: 'beamTower', minDifficulty: 'normal' },
-    { type: 'oreProcessor', minDifficulty: 'normal' }, { type: 'longGun', minDifficulty: 'normal' }, { type: 'stormGenerator', minDifficulty: 'hard' },
-  ],
-  union: [
-    { type: 'powerPlant' }, { type: 'barracks' }, { type: 'refinery' }, { type: 'powerPlant' }, { type: 'warFactory' },
-    { type: 'refinery', minDifficulty: 'normal' }, { type: 'radarDome' }, { type: 'sentryGun' }, { type: 'flameTower' },
-    { type: 'advPowerPlant' }, { type: 'serviceDepot' }, { type: 'techCenter' }, { type: 'subPen', naval: true }, { type: 'kennel' }, { type: 'airfield' },
-    { type: 'advPowerPlant' }, { type: 'missileSilo', minDifficulty: 'normal' },
-    { type: 'aegisProjector', minDifficulty: 'normal' }, { type: 'refinery', minDifficulty: 'hard' }, { type: 'samSite' }, { type: 'arcTower' },
-    { type: 'industrialPlant', minDifficulty: 'normal' }, { type: 'sensorArray', minDifficulty: 'normal' }, { type: 'cloneLab', minDifficulty: 'hard' },
-  ],
-});
+/** Openings: a rusher gets its factories up first; the others take a second refinery (and its free Harvester) early. */
+const RUSH = ['powerPlant', 'barracks', 'refinery', 'powerPlant', 'warFactory'];
+const ECONOMY = ['powerPlant', 'refinery', 'barracks', 'powerPlant', 'warFactory', 'refinery'];
+const navy = (/** @type {string} */ type) => ({ type, naval: true });
 
-/** Attack-wave compositions: unit type → count. */
-export const WAVES = Object.freeze({
+/** @type {Record<'coalition' | 'union', Record<StyleId, (string | BuildStep)[]>>} */
+const PLANS = {
   coalition: {
-    beginner: { rifleman: 3, lightTank: 1 },
-    easy: { lightTank: 2, rifleman: 4 },
-    normal: { mediumTank: 3, ifv: 2, tankDestroyer: 1, robotTank: 1, artillery: 1, rifleman: 5, guardTrooper: 2 },
-    hard: { mediumTank: 3, laserTank: 2, tankDestroyer: 2, mirageTank: 1, ifv: 2, salvoLauncher: 1, rifleman: 4, guardTrooper: 2, marksman: 1, chronoTrooper: 1, rocketeer: 2, attackHeli: 1, harrier: 1 },
+    balanced: [...ECONOMY, 'radarDome', 'pillbox', 'refinery', 'gunTurret', 'advPowerPlant', 'serviceDepot', 'techCenter', 'airfield',
+      navy('navalYard'), 'helipad', 'advPowerPlant', 'phaseShifter', 'gunTurret', 'aaGun', 'beamTower', 'oreProcessor', 'longGun', 'stormGenerator'],
+    rusher: [...RUSH, 'radarDome', 'serviceDepot', 'refinery', 'pillbox', 'advPowerPlant', 'airfield', 'helipad', 'techCenter',
+      navy('navalYard'), 'refinery', 'gunTurret', 'aaGun', 'advPowerPlant', 'phaseShifter', 'oreProcessor', 'stormGenerator'],
+    turtle: ['powerPlant', 'refinery', 'barracks', 'pillbox', 'powerPlant', 'warFactory', 'refinery', 'gunTurret', 'radarDome', 'gunTurret', 'aaGun',
+      'advPowerPlant', 'techCenter', navy('navalYard'), 'beamTower', 'serviceDepot', 'phaseShifter', 'oreProcessor', 'longGun', 'advPowerPlant', 'beamTower',
+      'stormGenerator', 'airfield', 'refinery', 'aaGun', 'longGun', 'pillbox'],
+    raider: [...ECONOMY, 'radarDome', 'refinery', 'airfield', 'serviceDepot', 'helipad', 'pillbox', 'advPowerPlant', 'techCenter',
+      navy('navalYard'), 'gunTurret', 'aaGun', 'phaseShifter', 'advPowerPlant', 'oreProcessor', 'stormGenerator'],
   },
   union: {
-    beginner: { rifleman: 3, flakTrack: 1 },
-    easy: { heavyTank: 1, rifleman: 4, flameTrooper: 1 },
-    normal: { heavyTank: 3, rotaryTank: 2, terrorDrone: 2, ballisticLauncher: 1, rifleman: 4, flakTrooper: 2, desolator: 1 },
-    hard: { heavyTank: 3, arcTank: 2, titanTank: 1, rotaryTank: 2, terrorDrone: 2, ballisticLauncher: 1, shockTrooper: 2, desolator: 2, ivan: 1, rifleman: 3, siegeChopper: 1, migFighter: 1, siegeAirship: 1 },
+    balanced: [...ECONOMY, 'radarDome', 'sentryGun', 'refinery', 'flameTower', 'advPowerPlant', 'serviceDepot', 'techCenter', navy('subPen'),
+      'kennel', 'airfield', 'advPowerPlant', 'missileSilo', 'aegisProjector', 'samSite', 'arcTower', 'industrialPlant', 'sensorArray', 'cloneLab'],
+    rusher: [...RUSH, 'kennel', 'radarDome', 'serviceDepot', 'refinery', 'sentryGun', 'advPowerPlant', 'airfield', 'techCenter',
+      navy('subPen'), 'refinery', 'flameTower', 'samSite', 'aegisProjector', 'advPowerPlant', 'industrialPlant', 'missileSilo'],
+    turtle: ['powerPlant', 'refinery', 'barracks', 'sentryGun', 'powerPlant', 'warFactory', 'refinery', 'flameTower', 'radarDome', 'flameTower', 'samSite',
+      'advPowerPlant', 'techCenter', navy('subPen'), 'arcTower', 'serviceDepot', 'aegisProjector', 'sensorArray', 'missileSilo', 'advPowerPlant', 'arcTower',
+      'industrialPlant', 'airfield', 'refinery', 'samSite', 'cloneLab', 'sentryGun'],
+    raider: [...ECONOMY, 'kennel', 'radarDome', 'refinery', 'airfield', 'serviceDepot', 'sentryGun', 'advPowerPlant', 'techCenter',
+      navy('subPen'), 'flameTower', 'samSite', 'aegisProjector', 'advPowerPlant', 'sensorArray', 'missileSilo', 'industrialPlant'],
   },
-});
+};
+
+/** @type {Readonly<Record<'coalition' | 'union', Readonly<Record<StyleId, readonly BuildStep[]>>>>} */
+export const BUILD_ORDER = /** @type {any} */ (Object.freeze(Object.fromEntries(Object.entries(PLANS).map(([faction, styles]) => [faction,
+  Object.freeze(Object.fromEntries(Object.entries(styles).map(([style, steps]) => [style,
+    Object.freeze(steps.map((s) => Object.freeze(typeof s === 'string' ? { type: s } : s)))]))),
+]))));
 
 /** The fleet's make-up (unit type → share) when water links the bases. */
 export const FLEETS = Object.freeze({
@@ -54,17 +57,11 @@ export const FLEETS = Object.freeze({
   union: { seaScorpion: 2, submarine: 1, dreadnought: 1 },
 });
 
-/** Cheap fast units for the early scout, best first. */
-export const SCOUTS = Object.freeze(['ranger', 'hound', 'rifleman']);
-
-/** Smallest wave worth sending (units). */
-export const MIN_WAVE = 3;
+/** Cheap fast units for scouting, best first. */
+export const SCOUTS = Object.freeze(['ranger', 'hound', 'terrorDrone', 'ifv', 'rifleman']);
 
 /** Production lines the AI keeps busy with units, and how many items it queues ahead on each. */
 export const UNIT_QUEUE_AHEAD = 2;
 
 /** Credits the AI keeps for the next structure before spending on more units. */
 export const STRUCTURE_RESERVE = 600;
-
-/** Rank of each difficulty, for `minDifficulty`. */
-export const DIFFICULTY_RANK = Object.freeze({ beginner: 0, easy: 1, normal: 2, hard: 3 });

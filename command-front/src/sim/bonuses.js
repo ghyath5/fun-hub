@@ -12,10 +12,9 @@ import { isActive, structureDef } from './entities/structures.js';
 /** Does the player own a working building of this role? @param {any} w @param {number} pid @param {string} role */
 export const hasWorking = (w, pid, role) => w.entities.all().some((e) => e.kind === 'structure' && !e.dead && e.owner === pid && isActive(e) && structureDef(e.type).role === role);
 
-/** Ore value factor in thousandths: the AI's handicap or bonus, times the Ore Processor's. @param {any} w @param {number} pid */
+/** Ore value factor in thousandths: the same for every player, raised by a working Ore Processor. @param {any} w @param {number} pid */
 export function oreValueK(w, pid) {
-  const base = w.players[pid].oreValueK ?? 1000;
-  return hasWorking(w, pid, 'processor') ? Math.round(base * BONUSES.processorOreFactor) : base;
+  return hasWorking(w, pid, 'processor') ? Math.round(1000 * BONUSES.processorOreFactor) : 1000;
 }
 
 /** What an item costs this player right now (structures never change). @param {any} w @param {number} pid @param {string} type @param {number} cost  list price */

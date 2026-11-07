@@ -8,7 +8,6 @@ import { STARTING_FORCE, SETUP_DEFAULTS, SHROUD } from '../data/rules.js';
 import { spiral } from './nav.js';
 import { revealCircle, rebuildVision } from './systems/shroud.js';
 import { installAi } from './systems/ai.js';
-import { AI } from '../data/rules.js';
 
 /**
  * @param {import('../types.js').MapData} map
@@ -34,11 +33,6 @@ export function createMatch(map, opts) {
     revealCircle(world, p.team, s.x, s.y, SHROUD.startRevealRadius);
   }
   rebuildVision(world);
-  for (const p of players) {
-    // Each AI level earns its own share of ore value (section 16): Beginner 0.6 up to Hard 1.25.
-    const level = /** @type {{ oreValueFactor?: number } | undefined} */ (AI[/** @type {keyof typeof AI} */ (p.difficulty)]);
-    if (!p.human) p.oreValueK = Math.round((level?.oreValueFactor ?? 1) * 1000);
-  }
   installAi(world);
   return world;
 }

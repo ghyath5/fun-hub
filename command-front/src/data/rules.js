@@ -299,33 +299,89 @@ export const TECH_LEVEL_OF_ROLE = Object.freeze({
 export const SUPPORT_POWER_TECH_LEVEL = 10;
 
 /**
- * AI difficulty levels, easiest first. armyCap: most combat units it keeps
- * (it stops training at the cap); maxDefenses: most defense towers (walls not
- * counted); skipRoles: buildings it never builds; oreValueFactor: its income
- * per bale relative to a human's; fleetSize: warships it keeps when water links
- * its base to an enemy's (0: no navy).
+ * Computer players (section 16). Every level plays by the human's rules: the
+ * same income per ore load, the same tech, the same units and the same fog.
+ * The 0–10 skill slider changes only how well it plays — like a person's
+ * experience. Each AI_SKILL entry is its value at skill 0, 5 and 10; levels in
+ * between are interpolated (ai/skill.js). Entries named "…Sense" are 0–1.
  */
+export const AI_SKILL = Object.freeze({
+  // Perception and attention
+  thinkSeconds:          [2.5, 1.2, 0.6],   // reaction time: seconds between looks at the battlefield
+  attention:             [2, 4, 9],         // jobs it can handle in one look (base, army, scouting, …)
+  // Economy
+  buildHesitation:       [14, 4, 0],        // seconds before it starts the next building
+  buildMistakes:         [0.35, 0.1, 0],    // chance to build something out of order
+  productionGaps:        [0.45, 0.12, 0],   // chance to leave a factory idle on a look
+  harvesters:            [2, 4, 8],         // Harvesters it keeps working (at most three per refinery)
+  earlyGuard:            [8, 4, 3],         // units it trains while setting up its economy (more delays the economy)
+  refineries:            [1, 2, 3],
+  oreSense:              [0, 0.5, 1],       // ≥ 0.5: new refineries go next to the ore
+  powerHeadroom:         [0.95, 1.05, 1.15], // < 1: notices power only once it runs short
+  siloAt:                [1.01, 0.9, 0.8],  // storage share that prompts a silo (> 1: never)
+  repairBelow:           [0.35, 0.6, 0.75],
+  // Information
+  scoutSeconds:          [0, 240, 150],     // seconds between scouting runs (0: never after the first look)
+  memorySeconds:         [20, 90, 240],     // how long it remembers enemy units it saw
+  judgmentError:         [0.5, 0.25, 0.1],  // ± share it misjudges strength by
+  // Strategy
+  attackAdvantage:       [0, 1, 1.3],       // its power over the enemy's it wants before attacking
+  minWave:               [3, 5, 6],         // fewest units it attacks with
+  patienceSeconds:       [60, 150, 180],    // how long it waits for an edge before it grows impatient
+  windowSense:           [0, 0.5, 1],       // notices openings: the enemy army away, or just beaten
+  targetSense:           [0, 0.5, 1],       // 0: nearest building; 1: economy and production, around the guns
+  routeSense:            [0, 0.5, 1],       // 0: straight line; 1: the safest side, with a feint
+  raidSense:             [0, 0.2, 0.7],     // small raids on lightly guarded Harvesters and refineries
+  counterSense:          [0, 0.5, 0.8],     // builds what beats the enemy's army instead of favourites
+  recallSense:           [0, 0.5, 1],       // brings the army home when the base is in real danger
+  defendRadius:          [10, 15, 22],      // cells round the base it keeps an eye on
+  learning:              [0, 0.4, 1],       // remembers what failed in this match (routes, confidence)
+  // Battle
+  retreatRatio:          [0, 0.4, 0.5],     // pulls out when its side of a fight drops below this
+  retreatLoss:           [0.9, 0.75, 0.65], // … or once an attack has lost this share of its value, unless it is clearly winning
+  regroup:               [0.2, 1, 1],       // ≥ 0.5: reinforcements gather and join as a group
+  focusFire:             [0, 0.5, 1],
+  pullBackHp:            [0, 0.25, 0.4],    // damaged vehicles go for repairs below this health
+  harvesterCare:         [0, 0.6, 1],       // loaded Harvesters under fire run for the refinery
+  captureSense:          [0, 0.3, 1],       // ≥ 0.6: Engineers take damaged buildings near the front
+  powerTiming:           [0, 0.5, 1],       // 0: fires superweapons at once; 1: at the best target, with an attack
+});
+
+/** Names of the skill levels, 0–10. */
+export const AI_SKILL_NAMES = Object.freeze([
+  'Recruit', 'Rookie', 'Novice', 'Casual', 'Regular', 'Skilled', 'Experienced', 'Veteran', 'Expert', 'Elite', 'Commander',
+]);
+
+/** Saves and settings from before the slider: their difficulty as a skill. */
+export const LEGACY_SKILL = Object.freeze({ beginner: 1, easy: 3, normal: 5, hard: 8 });
+
+/**
+ * Playstyles: each computer player picks one at random when the match starts
+ * (skill decides how well it plays it). aggression divides the advantage it
+ * wants; waveSize and patience scale its attacks; defenses: towers it builds;
+ * homeGuard: share of the army kept at home; raids and fast scale raiding and
+ * fast units in its production.
+ */
+export const AI_STYLES = Object.freeze({
+  balanced: { aggression: 1,    waveSize: 1,   patience: 1,   defenses: 6,  homeGuard: 0.2,  raids: 1,   fast: 1 },
+  rusher:   { aggression: 1.35, waveSize: 0.7, patience: 0.6, defenses: 2,  homeGuard: 0.1,  raids: 1,   fast: 1.3 },
+  turtle:   { aggression: 0.8,  waveSize: 1.5, patience: 1.7, defenses: 12, homeGuard: 0.35, raids: 0.5, fast: 0.8 },
+  raider:   { aggression: 1,    waveSize: 1,   patience: 1,   defenses: 4,  homeGuard: 0.2,  raids: 2.5, fast: 1.6 },
+});
+
+/** Rules every computer player shares, whatever its skill. */
 export const AI = Object.freeze({
-  beginner: { thinkSeconds: 3,   harvestersPerRefinery: 1, maxRefineries: 1, firstAttackSeconds: 900, waveSeconds: 420, supportPowers: 'no', engineerCapture: false, oreValueFactor: 0.6, micro: 'none',
-    armyCap: 6, fleetSize: 0, maxDefenses: 0, skipRoles: ['helipad', 'airfield', 'navalyard', 'tech', 'superA', 'superB', 'superC', 'superD', 'processor', 'industry', 'cloning', 'sensor'] },
-  easy:   { thinkSeconds: 2,   harvestersPerRefinery: 1, maxRefineries: 1, firstAttackSeconds: 600, waveSeconds: 300, supportPowers: 'no', engineerCapture: false, oreValueFactor: 0.8, micro: 'none',
-    armyCap: 12, fleetSize: 0, maxDefenses: 2, skipRoles: ['tech', 'superA', 'superB', 'superC', 'superD', 'cloning'] },
-  normal: { thinkSeconds: 1,   harvestersPerRefinery: 2, maxRefineries: 2, firstAttackSeconds: 360, waveSeconds: 210, supportPowers: 'yes', engineerCapture: false, oreValueFactor: 1.0, micro: 'retreat',
-    armyCap: 40, fleetSize: 3, maxDefenses: 8, skipRoles: [] },
-  hard:   { thinkSeconds: 0.5, harvestersPerRefinery: 3, maxRefineries: 3, firstAttackSeconds: 240, waveSeconds: 150, supportPowers: 'timed', engineerCapture: true, oreValueFactor: 1.25, micro: 'full',
-    armyCap: 80, fleetSize: 5, maxDefenses: 12, skipRoles: [] },
   shared: {
-    powerHeadroom: 1.1,
-    siloAtFraction: 0.8,
-    repairBelow: 0.75,
+    armyMax: 80,              // most combat units it keeps (phone performance; the same at every level)
+    fleetSize: 4,             // warships it keeps when water links its base to an enemy's
     repairMinCredits: 500,
-    defenseShare: 0.25,
-    defendRadius: 15,
     stagingDistance: 15,
-    retreatLossFraction: 0.7,
-    retreatHpFraction: 0.25,
     defenseEdgeDistance: 6,
-    budgetMsPerTick: 1,
+    gatherSeconds: 20,        // longest an attack waits at its staging point for stragglers
+    feintLeadSeconds: 8,      // how long a feint fights before the main attack goes in
+    regroupSeconds: 25,       // pause after an attack ends before the next is considered
+    techArmyShare: 0.75,      // a building costing 1000+ (not one that makes money or units) waits until the army is worth this × its price, or the money is there
+    raidSeconds: 150,         // average gap between raids at raid sense 1
   },
 });
 
@@ -341,7 +397,7 @@ export const STARTING_FORCE = Object.freeze({
 export const SETUP_DEFAULTS = Object.freeze({
   map: 'generated',
   opponents: 1,
-  difficulty: 'normal',
+  skill: 5,
   teams: 'ffa',
   startingCredits: 5000,
   startingCreditsOptions: [2500, 5000, 10000],

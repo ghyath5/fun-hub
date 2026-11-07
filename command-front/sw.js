@@ -1,7 +1,7 @@
 /* Command Front service worker: cache-first, versioned. Hand-maintained list —
    add every file the game loads; ?debug warns at startup about any that are missing.
    Bump CACHE whenever a listed file changes. */
-const CACHE = 'command-front-v47';
+const CACHE = 'command-front-v48';
 
 const PRECACHE = [
   './',
@@ -520,9 +520,16 @@ const PRECACHE = [
   './maps/duel-canyon.json',
   './maps/twin-rivers.json',
   './src/ai/army.js',
+  './src/ai/base.js',
   './src/ai/brain.js',
   './src/ai/buildOrders.js',
+  './src/ai/common.js',
+  './src/ai/dice.js',
+  './src/ai/intel.js',
   './src/ai/placement.js',
+  './src/ai/production.js',
+  './src/ai/skill.js',
+  './src/ai/tactics.js',
   './src/core/events.js',
   './src/core/fixed.js',
   './src/core/loop.js',

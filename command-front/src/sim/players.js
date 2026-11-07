@@ -4,6 +4,8 @@
  * Everything here is plain data so it saves and hashes like the rest of the sim.
  */
 
+import { skillOf } from '../ai/skill.js';
+
 /**
  * @typedef {object} PowerState
  * @property {number} produced
@@ -21,7 +23,7 @@
  * @property {string} country    Country whose flag the player flies (data/countries.js), '' for none; cosmetic
  * @property {number} team
  * @property {boolean} human
- * @property {string} difficulty beginner | easy | normal | hard (AI players)
+ * @property {number} skill      0–10, how well a computer player plays (ai/skill.js)
  * @property {number} start      Index into map.starts
  * @property {boolean} alive
  * @property {number} cash       Unlimited: starting credits, refunds, stolen money, crates
@@ -34,12 +36,11 @@
  * @property {Record<string, any>} powers   Support-power charge state (milestone 6)
  * @property {Record<string, number>} flags Once-only alert latches and intel timers
  * @property {Record<string, number>} stats End-screen counters
- * @property {number} [oreValueK]  Ore value factor in thousandths (Hard AI: 1250)
  * @property {number} [eliminatedAt]
  */
 
 /**
- * @param {{ faction: import('../types.js').FactionId, color: string, country?: string, team?: number, human?: boolean, start: number, difficulty?: string }[]} specs
+ * @param {{ faction: import('../types.js').FactionId, color: string, country?: string, team?: number, human?: boolean, start: number, skill?: number, difficulty?: string }[]} specs
  * @param {number} [startingCredits]
  * @returns {Player[]}
  */
@@ -51,7 +52,7 @@ export function createPlayers(specs, startingCredits = 0) {
     country: s.country ?? '',
     team: s.team ?? id,
     human: !!s.human,
-    difficulty: s.difficulty ?? 'normal',
+    skill: skillOf(s),
     start: s.start,
     alive: true,
     cash: startingCredits,
