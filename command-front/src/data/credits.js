@@ -13,10 +13,6 @@ export const CREDITS = Object.freeze([
     lines: [{ name: 'Ghiath Dar', note: 'Game idea, design and direction' }],
   },
   {
-    title: 'Built with',
-    lines: [{ name: 'Claude by Anthropic', note: 'Programming, 3D models, sound effects and voice direction' }],
-  },
-  {
     title: '3D models',
     lines: [
       { name: 'Ska-Ara', note: 'Apocalypse Tank, V3 Launcher, Prism Tower, Sentry Gun, Tesla Coil, Tesla Reactor · CC BY 4.0' },
