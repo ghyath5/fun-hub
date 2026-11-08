@@ -109,7 +109,6 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
     groupsCollapsed: (() => { try { return localStorage.getItem(GROUPS_FOLDED_KEY) === '1'; } catch { return false; } })(),
     barTop: false,
     addMode: false,
-    selectMode: false,
     card: /** @type {{ name: string, hp: number, maxHp: number, owner: string } | null} */ (null),
     radial: /** @type {{ x: number, y: number, options: { id: string, label: string }[] } | null} */ (null),
     targetMode: /** @type {string | null} */ (null),
@@ -198,7 +197,7 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
     },
     toast: (text) => toaster.show(text),
     changed: () => syncMode(),
-    setPan: (on) => cameraInput.setPanEnabled(on && !store.get().selectMode),
+    setPan: (on) => cameraInput.setPanEnabled(on),
   });
   const enterTarget = (/** @type {string | null} */ m) => {
     if (m) modes.cancel();
@@ -292,11 +291,6 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
     deselect: () => { selection.clear(); selectStructure(0); },
     narrow: (/** @type {string} */ t) => intents.narrowTo(t),
     toggleAdd: () => store.set({ addMode: !store.get().addMode }),
-    toggleSelect: () => {
-      const on = !store.get().selectMode;
-      store.set({ selectMode: on });
-      cameraInput.setPanEnabled(!on);
-    },
     stance: () => { if (intents.cycleStance()) setTimeout(refreshSelection, 120); },
     attackMove: () => enterTarget(intentTarget === 'attackMove' ? null : 'attackMove'),
     deploy: () => intents.simple('deploy', (u) => u.type === 'mcv' || canDig(u)),
@@ -666,7 +660,7 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
   // ---- Gestures: modes first, then intents.
   /** Last few gestures, for debugging input on real devices (window.__cf.gestures). */
   const gestureLog = /** @type {string[]} */ ([]);
-  const restorePan = () => cameraInput.setPanEnabled(!store.get().selectMode && !(modes.mode && ['place', 'walls', 'mines'].includes(modes.mode.kind)));
+  const restorePan = () => cameraInput.setPanEnabled(!(modes.mode && ['place', 'walls', 'mines'].includes(modes.mode.kind)));
   const gestures = attachGestures(view.app.canvas, (g) => {
     gestureLog.push(`${g.type}@${Math.round(g.x)},${Math.round(g.y)}`);
     if (gestureLog.length > 30) gestureLog.shift();
@@ -713,7 +707,7 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
         intents.handle(g);
         break;
     }
-  }, { dragIsBox: () => store.get().selectMode });
+  });
   const offZoom = cam.onZoom(() => store.set({ cellsVisible: cam.cellsVisible }));
 
   const onVisibility = () => {

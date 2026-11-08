@@ -30,12 +30,12 @@ const abbrev = (name) => {
 };
 
 /**
- * @param {{ sel: SelectionInfo, onTop: boolean, addMode: boolean, selectMode: boolean, targetMode: string | null,
+ * @param {{ sel: SelectionInfo, onTop: boolean, addMode: boolean, targetMode: string | null,
  *   act: { stop: () => void, scatter: () => void, same: () => void, deselect: () => void, narrow: (t: string) => void,
- *     toggleAdd: () => void, toggleSelect: () => void, stance: () => void, attackMove: () => void,
+ *     toggleAdd: () => void, stance: () => void, attackMove: () => void,
  *     deploy: () => void, harvest: () => void, unload: () => void, mines: () => void, returnPad: () => void } }} p
  */
-export function CommandBar({ sel, onTop, addMode, selectMode, targetMode, act }) {
+export function CommandBar({ sel, onTop, addMode, targetMode, act }) {
   if (!sel.count) return null;
   return html`<section class=${`cmdbar panel ${onTop ? 'top' : ''}`} aria-label=${t('Commands')}>
     <div class="cmd-row">
@@ -50,7 +50,6 @@ export function CommandBar({ sel, onTop, addMode, selectMode, targetMode, act })
       ${sel.can?.returnPad ? html`<button class="cmd ctx" onClick=${act.returnPad}>${t('Return')}</button>` : null}
       <button class="cmd" onClick=${act.same} title=${t('Select all of these types on screen')}>${t('Same')}</button>
       <button class=${`cmd ${addMode ? 'on' : ''}`} aria-pressed=${addMode} onClick=${act.toggleAdd} title=${t('Taps add or remove units')}>${t('Add')}</button>
-      <button class=${`cmd ${selectMode ? 'on' : ''}`} aria-pressed=${selectMode} onClick=${act.toggleSelect} title=${t('One-finger drag draws a selection box')}>${t('Box')}</button>
       <button class="cmd" onClick=${act.deselect} aria-label=${t('Deselect')}>✕</button>
     </div>
     <div class="sel-row">

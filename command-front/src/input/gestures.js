@@ -6,6 +6,11 @@
  * pinchStart / pinchMove / pinchEnd (midpoint and finger spread), secondary
  * (right click).
  *
+ * Box select on touch: tap with two fingers, then put two fingers down again
+ * and spread them — the box spans the two fingertips and selects when either
+ * lifts. A plain two-finger touch is still a pinch. (A mouse drag, or a
+ * long-press then drag, also draws a box.)
+ *
  * The recognizer is a plain state machine over `{ id, x, y, t }` samples so it
  * can be tested without a DOM; `attachGestures` wires it to an element.
  * The camera input (src/input/cameraInput.js) turns pan and pinch gestures
@@ -24,11 +29,15 @@ import { GESTURE } from '../data/ui.js';
 export function createRecognizer(emit, opts = GESTURE) {
   /** @type {Map<number, { x0: number, y0: number, x: number, y: number, t0: number, h0: number }>} */
   const pointers = new Map();
-  /** 'idle' | 'pending' | 'drag' | 'longPress' | 'box' | 'pinch' | 'afterPinch' */
+  /** 'idle' | 'pending' | 'drag' | 'longPress' | 'box' | 'pinch' | 'afterPinch' | 'twoBox' | 'spent' */
   let state = 'idle';
   let primary = -1;
   /** @type {{ x: number, y: number, t: number } | null} */
   let lastTap = null;
+  /** The current pinch could still be a two-finger tap: started then, nothing moved yet. @type {{ t: number } | null} */
+  let twoTap = null;
+  /** When the last two-finger tap ended (opens the two-finger box window). */
+  let lastTwoTapT = -Infinity;
   /** A mouse drag box-selects (desktop); a finger drag pans. */
   let mouse = false; // set per touch from Sample.mouse
 
@@ -38,11 +47,17 @@ export function createRecognizer(emit, opts = GESTURE) {
     const [a, b] = [...pointers.values()];
     return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, d: Math.hypot(a.x - b.x, a.y - b.y) };
   };
+  /** The two-finger box: one corner under each finger. */
+  const fingerBox = () => {
+    const [a, b] = [...pointers.values()];
+    return { x0: a.x, y0: a.y, x: b.x, y: b.y };
+  };
 
   function reset() {
     pointers.clear();
     state = 'idle';
     primary = -1;
+    twoTap = null;
   }
 
   return {
@@ -56,12 +71,22 @@ export function createRecognizer(emit, opts = GESTURE) {
         mouse = !!s.mouse;
         return;
       }
-      // Second finger: whatever the first was doing becomes a pinch.
+      // Second finger: whatever the first was doing becomes a pinch — or,
+      // right after a two-finger tap, a box between the two fingers.
       if (state === 'box') {
         const p = pointers.get(primary);
         emit({ type: 'boxCancel', x: p?.x ?? s.x, y: p?.y ?? s.y, t: s.t });
       }
       if (state === 'drag') emit({ type: 'panEnd', x: s.x, y: s.y, t: s.t });
+      if (state === 'spent') return;
+      if (state !== 'box' && state !== 'afterPinch' && s.t - lastTwoTapT <= opts.twoFingerBoxMs) {
+        lastTwoTapT = -Infinity;
+        lastTap = null;
+        state = 'twoBox';
+        emit({ type: 'boxStart', ...fingerBox(), t: s.t });
+        return;
+      }
+      twoTap = state === 'pending' && s.t - (pointers.get(primary)?.t0 ?? s.t) < opts.twoFingerTapMs ? { t: s.t } : null;
       state = 'pinch';
       emit({ type: 'pinchStart', ...spread(), t: s.t });
     },
@@ -72,10 +97,16 @@ export function createRecognizer(emit, opts = GESTURE) {
       if (!p) return;
       p.x = s.x;
       p.y = s.y;
+      if (state === 'twoBox') {
+        if (pointers.size === 2) emit({ type: 'boxMove', ...fingerBox(), t: s.t });
+        return;
+      }
       if (state === 'pinch') {
+        if (twoTap && moved(p) >= opts.moveTolerancePx) twoTap = null;
         if (pointers.size === 2) emit({ type: 'pinchMove', ...spread(), t: s.t });
         return;
       }
+      if (state === 'spent') return;
       if (s.id !== primary) return;
       if (state === 'pending' && moved(p) >= opts.moveTolerancePx && mouse) {
         state = 'box';
@@ -97,10 +128,26 @@ export function createRecognizer(emit, opts = GESTURE) {
     up(s) {
       const p = pointers.get(s.id);
       if (!p) return;
+      if (state === 'twoBox') {
+        // Either finger lifting selects; the other finger does nothing until it lifts too.
+        emit({ type: 'boxEnd', ...fingerBox(), t: s.t });
+        pointers.delete(s.id);
+        state = pointers.size ? 'spent' : 'idle';
+        return;
+      }
       pointers.delete(s.id);
+      if (state === 'spent') {
+        if (pointers.size === 0) state = 'idle';
+        return;
+      }
       if (state === 'pinch') {
+        // Both fingers up quickly without moving: a two-finger tap.
+        if (twoTap && moved(p) >= opts.moveTolerancePx) twoTap = null;
+        if (twoTap && s.t - twoTap.t > opts.twoFingerTapMs) twoTap = null;
         if (pointers.size === 0) {
           state = 'idle';
+          if (twoTap) lastTwoTapT = s.t;
+          twoTap = null;
           emit({ type: 'pinchEnd', x: s.x, y: s.y, t: s.t });
         } else {
           // The remaining finger keeps panning and can never become a tap.
@@ -126,6 +173,8 @@ export function createRecognizer(emit, opts = GESTURE) {
       } else if (state === 'box') {
         emit({ type: 'boxEnd', x: p.x, y: p.y, x0: p.x0, y0: p.y0, t: s.t });
       } else if (state === 'drag' || state === 'afterPinch') {
+        if (state === 'afterPinch' && twoTap && !far && s.t - twoTap.t <= opts.twoFingerTapMs) lastTwoTapT = s.t;
+        twoTap = null;
         emit({ type: 'panEnd', x: p.x, y: p.y, t: s.t });
       }
       if (pointers.size === 0) state = 'idle';
@@ -144,10 +193,11 @@ export function createRecognizer(emit, opts = GESTURE) {
 
     /** pointercancel, visibilitychange: drop every gesture in progress without acting. */
     cancel() {
-      if (state === 'box') emit({ type: 'boxCancel', x: 0, y: 0, t: 0 });
+      if (state === 'box' || state === 'twoBox') emit({ type: 'boxCancel', x: 0, y: 0, t: 0 });
       if (state !== 'idle') emit({ type: 'cancel', x: 0, y: 0, t: 0 });
       reset();
       lastTap = null;
+      lastTwoTapT = -Infinity;
     },
 
     get state() { return state; },
@@ -161,9 +211,8 @@ export function createRecognizer(emit, opts = GESTURE) {
  * relative to the element. Only touches that start on this element reach it.
  * @param {HTMLElement} el
  * @param {(g: Gesture) => void} emit
- * @param {{ dragIsBox?: () => boolean }} [opts]  Select mode: a finger drag box-selects like a mouse drag
  */
-export function attachGestures(el, emit, opts = {}) {
+export function attachGestures(el, emit) {
   /** Keyboard modifiers of the latest pointer event (desktop): Shift adds to the selection, Ctrl forces fire. */
   const mods = { shift: false, ctrl: false, mouse: false };
   const readMods = (/** @type {PointerEvent} */ e) => { mods.shift = e.shiftKey; mods.ctrl = e.ctrlKey || e.metaKey; mods.mouse = e.pointerType === 'mouse'; };
@@ -181,7 +230,7 @@ export function attachGestures(el, emit, opts = {}) {
   };
   const sample = (/** @type {PointerEvent} */ e) => {
     const r = el.getBoundingClientRect();
-    return { id: e.pointerId, x: e.clientX - r.left, y: e.clientY - r.top, t: when(e), h: performance.now(), mouse: e.pointerType === 'mouse' || !!opts.dragIsBox?.() };
+    return { id: e.pointerId, x: e.clientX - r.left, y: e.clientY - r.top, t: when(e), h: performance.now(), mouse: e.pointerType === 'mouse' };
   };
   /**
    * Right or middle mouse button held: a drag past a few pixels pans the map

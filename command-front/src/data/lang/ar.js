@@ -326,8 +326,6 @@ const ui = {
   'Select all of these types on screen': 'اختر كل الوحدات من هذه الأنواع على الشاشة',
   Add: 'إضافة',
   'Taps add or remove units': 'الضغطات تضيف الوحدات أو تزيلها',
-  Box: 'مربع',
-  'One-finger drag draws a selection box': 'السحب بإصبع واحد يرسم مربع اختيار',
   Deselect: 'ألغِ الاختيار',
   '{n} sel:': '{n} مختارة:',
   'Control groups': 'مجموعات التحكم',
