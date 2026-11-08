@@ -26,7 +26,7 @@ import { armyOf, fightValueOf } from './common.js';
 /** @typedef {import('../sim/world.js').World} World */
 
 /** Bumped when the brain's memory changes shape: older brains (from saves) start afresh. */
-export const AI_STATE_VERSION = 2;
+export const AI_STATE_VERSION = 3;
 
 const STYLE_IDS = /** @type {(keyof typeof AI_STYLES)[]} */ (Object.keys(AI_STYLES));
 
@@ -75,6 +75,10 @@ export function createAiState(w, pid, skill) {
     nextStrike: 0,
     /** Tick from which each build line may start its next item (its hesitation); 0 = not decided. */
     buildAt: { structures: 0, defenses: 0 },
+    /** Tick at which a finished building on each line gets placed (its hands); 0 = not decided. */
+    placeAt: { structures: 0, defenses: 0 },
+    /** Tick at which an MCV gets unfolded; 0 = not decided. */
+    deployAt: 0,
     /** When each Harvester was last sent running from an attack. @type {Record<string, number>} */
     fled: {},
     /** Last tick it sold a building to pay for a refinery. */
@@ -123,7 +127,7 @@ export function think(w, ai) {
   const cfg = skillProfile(ai.skill);
   const style = AI_STYLES[ai.style];
   updateIntel(w, ai, cfg);
-  if (manageYard(w, ai)) { lastStand(w, ai, cfg); return; }
+  if (manageYard(w, ai, cfg)) { lastStand(w, ai, cfg); return; }
   const army = armyOf(w, ai.pid);
   const threat = senseThreat(w, ai, cfg);
   keepHomeGuard(w, ai, style, army);

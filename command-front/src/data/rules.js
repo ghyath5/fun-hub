@@ -309,8 +309,9 @@ export const AI_SKILL = Object.freeze({
   // Perception and attention
   thinkSeconds:          [2.5, 1.2, 0.6],   // reaction time: seconds between looks at the battlefield
   attention:             [2, 4, 9],         // jobs it can handle in one look (base, army, scouting, …)
+  placeSeconds:          [8, 4, 2],         // hands: seconds to place a finished building or unfold an MCV, like tapping it into place
   // Economy
-  buildHesitation:       [14, 4, 0],        // seconds before it starts the next building
+  buildHesitation:       [14, 4, 1.5],      // seconds before it starts the next building (opening the menu and picking it)
   buildMistakes:         [0.35, 0.1, 0],    // chance to build something out of order
   productionGaps:        [0.45, 0.12, 0],   // chance to leave a factory idle on a look
   harvesters:            [2, 4, 8],         // Harvesters it keeps working (at most three per refinery)
