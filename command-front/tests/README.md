@@ -34,3 +34,22 @@ node --test 'tests/*.test.mjs'        # about 30 s
   crushing, transports, digging in, repair, combat, every unit type.
 * `match.test.mjs` — AI against AI on every map to the end, invariants every
   tick, and determinism (the same seed plays the same game).
+* `ai.test.mjs` — the computer player's 0–10 skill: every level earns the
+  same per ore load as a human, levels get steadily better at what experience
+  brings, old difficulty names become skill levels, a playstyle is picked per
+  match, its brain saves and loads mid-match, and skill 10 beats skill 0
+  without an attack ever stalling with the army idle at home.
+
+## Tuning the computer player
+
+`tools/ai-bench/` plays headless AI-against-AI matches to measure the skill
+levels (see `AI_SKILL` in `src/data/rules.js`):
+
+```sh
+node tools/ai-bench/match.mjs --map duel-canyon --seed 3 --skills 8,4
+node tools/ai-bench/ladder.mjs --pairs 10-8,8-6,6-4,4-2,2-0 --seeds 3,11,29
+node tools/ai-bench/ladder.mjs --pairs 10-5 --patch "10:raidSense=0.3"   # what one value is worth
+```
+
+A well-tuned ladder has each level beating the one two below it most of the
+time, but not always.

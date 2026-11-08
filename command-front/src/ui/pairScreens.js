@@ -13,6 +13,7 @@ import { COLORS, maxPlayersOf } from '../game/matchSetup.js';
 import { CountryButton, Flag } from './countryPicker.js';
 import { drawQr, scanQr, extractCode, CameraError, diagnostics } from '../net/link.js';
 import { t } from '../lib/i18n.js';
+import { skillOf, skillName } from '../ai/skill.js';
 
 /** @typedef {import('../game/matchSetup.js').SetupForm} SetupForm */
 
@@ -218,7 +219,7 @@ export function GuestLobby({ form, maps, me, onMe, onLeave }) {
         ${form ? html`
           <div class="row"><span class="row-label">${t('Map')}</span><span>${mapName}</span></div>
           <div class="row"><span class="row-label">${t('Host')}</span><span>${dot(form.color)} <${Flag} id=${form.country} /> ${t(FACTIONS[form.faction].name)}</span></div>
-          ${form.opponents.filter((o) => !o.remote).map((o, i) => html`<div class="row" key=${i}><span class="row-label">${t('AI {n}', { n: i + 1 })}</span><span>${dot(o.color)} <${Flag} id=${o.country} /> ${t(FACTIONS[o.faction].name)} · ${cap(o.difficulty)}</span></div>`)}
+          ${form.opponents.filter((o) => !o.remote).map((o, i) => html`<div class="row" key=${i}><span class="row-label">${t('AI {n}', { n: i + 1 })}</span><span>${dot(o.color)} <${Flag} id=${o.country} /> ${t(FACTIONS[o.faction].name)} · ${t('Skill')} ${skillOf(o)} · ${t(skillName(skillOf(o)))}</span></div>`)}
           <div class="row"><span class="row-label">${t('Teams')}</span><span>${teams}</span></div>
           <div class="row"><span class="row-label">${t('Credits · speed')}</span><span>$${form.startingCredits.toLocaleString('en-US')} · ${cap(form.speed)}</span></div>` : html`<p class="muted">${t('Waiting for the host…')}</p>`}
       </section>

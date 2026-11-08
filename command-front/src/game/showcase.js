@@ -39,7 +39,7 @@ export async function runShowcase({ hudEl, worldEl, screensEl, audio, mode }) {
     seed: 7,
     players: [
       { faction: 'coalition', color: 'blue', human: true, start: 0 },
-      { faction: 'union', color: 'red', human: !battle, start: 1, ...(battle ? { difficulty: 'normal' } : {}) },
+      { faction: 'union', color: 'red', human: !battle, start: 1, ...(battle ? { skill: 5 } : {}) },
     ],
     settings: { revealMap: true, victory: false, oreGrowthSeconds: 0 },
   });

@@ -7,11 +7,11 @@ import { loadMap, createMatch, step, hashWorld, invariants, TPS } from './harnes
 
 const COLORS = ['blue', 'red', 'green', 'yellow'];
 
-function aiMatch(mapId, seed, difficulty = 'hard') {
+function aiMatch(mapId, seed, skill = 8) {
   const map = loadMap(mapId);
   return createMatch(map, {
     seed,
-    players: map.starts.map((_, i) => ({ faction: i % 2 ? 'union' : 'coalition', color: COLORS[i], human: false, difficulty, start: i })),
+    players: map.starts.map((_, i) => ({ faction: i % 2 ? 'union' : 'coalition', color: COLORS[i], human: false, skill, start: i })),
     settings: { victory: true },
   });
 }
@@ -51,9 +51,9 @@ test('a different seed gives a different game', () => {
   assert.notEqual(hashWorld(a), hashWorld(b));
 });
 
-for (const difficulty of ['easy', 'normal']) {
-  test(`AI on ${difficulty} plays a sound game`, () => {
-    const w = aiMatch('crossroads', 9, difficulty);
+for (const skill of [0, 3, 5, 10]) {
+  test(`AI at skill ${skill} plays a sound game`, () => {
+    const w = aiMatch('crossroads', 9, skill);
     let bad = null;
     for (let t = 0; t < 15 * 60 * TPS && !w.result && !bad; t++) { step(w); bad = invariants(w); }
     assert.equal(bad, null);

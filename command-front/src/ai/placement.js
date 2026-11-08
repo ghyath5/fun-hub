@@ -3,8 +3,8 @@
  * Where the AI puts a building (section 16): valid cells only, compact (close
  * to the base centre), with a 1-cell lane around every building and never on
  * refinery docks, factory exits or the depot pad. Defenses go on the side
- * facing the enemy, within 6 cells of the base edge. Deterministic: ties go
- * to the lowest cell index.
+ * facing the enemy, within 6 cells of the base edge; a refinery can be pulled
+ * toward an ore field. Deterministic: ties go to the lowest cell index.
  */
 import { AI } from '../data/rules.js';
 import { checkPlacement, checkDeploy } from '../sim/placement.js';
@@ -64,9 +64,11 @@ function laneOk(w, x, y, def, keep) {
 
 /**
  * Best top-left cell for a structure, or null when nothing fits.
- * @param {World} w @param {number} pid @param {string} type @param {{ x: number, y: number } | null} enemy  Where the enemy is (for defenses)
+ * @param {World} w @param {number} pid @param {string} type
+ * @param {{ x: number, y: number } | null} enemy  Where the enemy is (defenses face it)
+ * @param {{ x: number, y: number } | null} [toward]  A spot to build as close to as the base reaches (a refinery's ore)
  */
-export function choosePlacement(w, pid, type, enemy) {
+export function choosePlacement(w, pid, type, enemy, toward = null) {
   const def = structureDef(type);
   const c = baseCentre(w, pid);
   const keep = keepClear(w, pid);
@@ -85,6 +87,8 @@ export function choosePlacement(w, pid, type, enemy) {
         const edge = Math.min(...own.map((s) => Math.max(Math.abs(s.cx - x), Math.abs(s.cy - y))));
         if (edge > AI.shared.defenseEdgeDistance) continue;
         score = de + dc * 0.25;
+      } else if (toward) {
+        score = (x + def.w / 2 - toward.x) ** 2 + (y + def.h / 2 - toward.y) ** 2 + dc * 0.1;
       }
       if (score >= bestScore) continue;
       if (!def.wall && !laneOk(w, x, y, def, keep)) continue;
@@ -92,6 +96,38 @@ export function choosePlacement(w, pid, type, enemy) {
       if (!check.ok || check.amber) continue;
       best = { x, y };
       bestScore = score;
+    }
+  }
+  return best;
+}
+
+/** How far round the base it looks for ore to build a refinery by (cells). */
+const ORE_SEARCH = 20;
+
+/**
+ * The richest patch of ore near the base that no refinery of ours sits by yet
+ * (null when there is none): the ore round each cell, discounted by distance.
+ * @param {World} w @param {number} pid
+ */
+export function orePatch(w, pid) {
+  const c = baseCentre(w, pid);
+  const W = w.map.width;
+  const H = w.map.height;
+  const refineries = ownBuildings(w, pid).filter((s) => structureDef(s.type).role === 'refinery');
+  let best = null;
+  let bestScore = 0;
+  for (let y = Math.max(0, c.y - ORE_SEARCH); y <= Math.min(H - 1, c.y + ORE_SEARCH); y++) {
+    for (let x = Math.max(0, c.x - ORE_SEARCH); x <= Math.min(W - 1, c.x + ORE_SEARCH); x++) {
+      if (!w.map.bales[y * W + x]) continue;
+      if (refineries.some((r) => Math.max(Math.abs(r.cx + 1 - x), Math.abs(r.cy + 1 - y)) <= 6)) continue;
+      let ore = 0;
+      for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx >= 0 && ny >= 0 && nx < W && ny < H) ore += w.map.bales[ny * W + nx];
+      }
+      const score = (ore * 64) / (8 + Math.max(Math.abs(x - c.x), Math.abs(y - c.y)));
+      if (score > bestScore) { bestScore = score; best = { x, y }; }
     }
   }
   return best;

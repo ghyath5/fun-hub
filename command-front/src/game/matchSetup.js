@@ -9,12 +9,13 @@ import { PLAYER_COLORS } from '../data/factions.js';
 import { createRng } from '../lib/rng.js';
 import { createMatch } from '../sim/setup.js';
 import { playersForSize } from '../map/generator.js';
+import { skillOf } from '../ai/skill.js';
 
-/** @typedef {'beginner' | 'easy' | 'normal' | 'hard'} Difficulty */
 /**
  * An opponent slot: an AI, or (`remote`) the second phone in a two-phone match,
- * whose player picks their own faction and colour.
- * @typedef {{ faction: 'coalition' | 'union', color: string, country?: string, difficulty: Difficulty, remote?: boolean }} OpponentForm
+ * whose player picks their own faction and colour. skill: the AI's 0–10
+ * experience (forms saved before the slider carry `difficulty` instead).
+ * @typedef {{ faction: 'coalition' | 'union', color: string, country?: string, skill: number, difficulty?: string, remote?: boolean }} OpponentForm
  */
 
 /**
@@ -52,7 +53,7 @@ export function defaultForm() {
     faction: 'coalition',
     color: 'blue',
     country: '',
-    opponents: [{ faction: 'union', color: 'red', country: 'eg', difficulty: /** @type {Difficulty} */ (SETUP_DEFAULTS.difficulty) }],
+    opponents: [{ faction: 'union', color: 'red', country: 'eg', skill: SETUP_DEFAULTS.skill }],
     teams: /** @type {'ffa'} */ (SETUP_DEFAULTS.teams),
     startingCredits: SETUP_DEFAULTS.startingCredits,
     startingUnits: /** @type {'mcv'} */ (SETUP_DEFAULTS.startingUnits),
@@ -76,9 +77,9 @@ export function maxPlayersOf(f, maps) {
   return maps.find((m) => m.id === f.map)?.maxPlayers ?? 2;
 }
 
-/** Keep the form consistent: opponents fit the map, colours are unique, 2v2 needs four players. @param {SetupForm} f @param {number} maxPlayers */
+/** Keep the form consistent: opponents fit the map, colours are unique, 2v2 needs four players, every AI has a 0–10 skill. @param {SetupForm} f @param {number} maxPlayers */
 export function normaliseForm(f, maxPlayers) {
-  const out = { ...f, opponents: f.opponents.slice(0, Math.max(1, maxPlayers - 1)).map((o) => ({ ...o })) };
+  const out = { ...f, opponents: f.opponents.slice(0, Math.max(1, maxPlayers - 1)).map(({ difficulty, ...o }) => ({ ...o, skill: skillOf({ skill: o.skill, difficulty }) })) };
   if (out.genPlayers !== 2 && out.genPlayers !== 4) out.genPlayers = maxPlayers === 4 ? 4 : 2; // forms saved before the choice existed
   const ais = out.opponents.filter((o) => !o.remote).length;
   if (out.teams === '2v2' && out.opponents.length + 1 < 4) out.teams = 'ffa';
@@ -98,8 +99,8 @@ export function normaliseForm(f, maxPlayers) {
  */
 export function matchOptions(f, map, seed) {
   const players = [
-    { faction: f.faction, color: f.color, country: f.country ?? '', human: true, difficulty: 'normal' },
-    ...f.opponents.map((o) => ({ faction: o.faction, color: o.color, country: o.country ?? '', human: !!o.remote, difficulty: o.difficulty })),
+    { faction: f.faction, color: f.color, country: f.country ?? '', human: true },
+    ...f.opponents.map((o) => ({ faction: o.faction, color: o.color, country: o.country ?? '', human: !!o.remote, skill: skillOf(o) })),
   ];
   const order = map.starts.map((_, i) => i);
   if (f.startPositions === 'random') {

@@ -58,7 +58,7 @@ test('the AI plays a generated sea map without breaking anything, and builds a n
   assert.ok(g, 'a sea map');
   const w = createMatch(g.map, {
     seed: 5,
-    players: g.map.starts.map((_, i) => ({ faction: i % 2 ? 'union' : 'coalition', color: ['blue', 'red'][i], human: false, difficulty: 'hard', start: i })),
+    players: g.map.starts.map((_, i) => ({ faction: i % 2 ? 'union' : 'coalition', color: ['blue', 'red'][i], human: false, skill: 8, start: i })),
     settings: { victory: true },
   });
   let bad = null;

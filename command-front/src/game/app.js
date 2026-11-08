@@ -18,6 +18,7 @@ import { showScreen, MainMenu, SetupScreen, SlotsScreen, SettingsScreen, EndScre
 import { html } from 'htm/preact';
 import { VICTORY } from '../data/rules.js';
 import { FACTIONS } from '../data/factions.js';
+import { skillOf, skillName } from '../ai/skill.js';
 import { createTwoPhones } from './twoPhones.js';
 import { inviteInUrl } from '../net/link.js';
 import { autoFullscreen, enterFullscreen, needsHomeScreen } from '../ui/fullscreen.js';
@@ -251,7 +252,7 @@ export async function startApp({ hudEl, worldEl, screensEl, debug }) {
     const w = session.world;
     const outcome = result.draw ? 'draw' : result.winners.some((id) => w.allied(id, HUMAN)) ? 'victory' : 'defeat';
     const rows = w.players.map((/** @type {any} */ p) => ({
-      name: `${p.human ? t('You') : t('AI ({level})', { level: t(p.difficulty[0].toUpperCase() + p.difficulty.slice(1)) })} · ${t(FACTIONS[/** @type {'coalition' | 'union'} */ (p.faction)].name)}`,
+      name: `${p.human ? t('You') : t('AI ({level})', { level: `${skillOf(p)} · ${t(skillName(skillOf(p)))}` })} · ${t(FACTIONS[/** @type {'coalition' | 'union'} */ (p.faction)].name)}`,
       color: p.color, country: p.country, alive: p.alive, stats: p.stats,
     }));
     stopSession();
