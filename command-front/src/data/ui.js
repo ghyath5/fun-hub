@@ -7,6 +7,8 @@ export const GESTURE = Object.freeze({
   doubleTapMs: 300,
   doubleTapPx: 24,
   longPressMs: 400,
+  twoFingerTapMs: 300,     // two fingers down and up this fast, without moving: a two-finger tap
+  twoFingerBoxMs: 450,     // two fingers down again within this of a two-finger tap: box select between them
   hapticTickMs: 10,
   panFriction: 0.92,
   cycleTapMs: 600,

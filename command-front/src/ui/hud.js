@@ -33,7 +33,6 @@ const mapLabel = (name) => name.replace(/^[A-Za-z][A-Za-z ]*?(?= \d|$)/, (w) => 
  * @property {boolean} groupsCollapsed The control-group column is folded away
  * @property {boolean} barTop         Command bar moved to the top so it never covers the selection
  * @property {boolean} addMode
- * @property {boolean} selectMode
  * @property {{ name: string, hp: number, maxHp: number, owner: string } | null} card
  * @property {{ x: number, y: number, options: { id: string, label: string }[] } | null} radial
  * @property {string | null} targetMode   attackMove | sell | repair | rally | place | walls
@@ -163,7 +162,7 @@ function Hud({ store, actions }) {
     <${Sidebar} model=${s.sidebar} icons=${s.icons} tab=${s.tab} collapsed=${s.collapsed || placing}
       mode=${s.targetMode} act=${actions.build} />
     ${placing ? null : html`
-      <${CommandBar} sel=${s.sel} onTop=${s.barTop} addMode=${s.addMode} selectMode=${s.selectMode} targetMode=${s.targetMode} act=${actions.cmd} />
+      <${CommandBar} sel=${s.sel} onTop=${s.barTop} addMode=${s.addMode} targetMode=${s.targetMode} act=${actions.cmd} />
       <${StructureBar} s=${s.sel.count ? null : s.structure} onTop=${s.barTop} sellArmed=${s.sellArmed}
         rallyMode=${s.targetMode === 'rally'} act=${actions.structure} />`}
     <${PlaceControls} at=${s.placeAt} place=${actions.place} cancel=${actions.cancelTarget} />

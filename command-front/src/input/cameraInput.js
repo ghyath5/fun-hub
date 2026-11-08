@@ -170,7 +170,7 @@ export function createCameraInput({ camera, canvas, edgePan, home }) {
 
   return {
     handle,
-    /** Stop one-finger panning (placement, box mode); pinch still zooms. @param {boolean} on */
+    /** Stop one-finger panning (placement modes); pinch still zooms. @param {boolean} on */
     setPanEnabled(on) { panEnabled = on; if (!on) last = null; },
     /** Keys, the screen edge, inertia and glides. Call once per frame. @param {number} dtMs */
     update(dtMs) {
