@@ -8,6 +8,9 @@ import assert from 'node:assert/strict';
 import { loadMap, createMatch, step, hashWorld, invariants, TPS } from './harness.mjs';
 import { snapshot, restore } from '../src/save/serialize.js';
 import { oreValueK } from '../src/sim/bonuses.js';
+import { buildTicks } from '../src/sim/formulas/production.js';
+import { costOf } from '../src/sim/systems/production.js';
+import { producersOf } from '../src/sim/catalog.js';
 import { skillProfile, skillOf, clampSkill, SKILL_MIN, SKILL_MAX } from '../src/ai/skill.js';
 import { AI_STYLES, AI_SKILL_NAMES } from '../src/data/rules.js';
 import { armyOf } from '../src/ai/common.js';
@@ -37,6 +40,39 @@ test('every skill level earns the same from an ore load as a human', () => {
     ],
   });
   assert.deepEqual(w.players.map((p) => oreValueK(w, p.id)), [1000, 1000, 1000]);
+});
+
+test('even the top level waits the full build time and places buildings at human speed', () => {
+  const w = createMatch(loadMap('duel-canyon'), {
+    seed: 3,
+    players: [
+      { faction: 'coalition', color: 'blue', human: false, skill: 10, start: 0 },
+      { faction: 'union', color: 'red', human: true, start: 1 },
+    ],
+  });
+  const p = w.players[0];
+  /** @type {Record<string, { item: any, start: number, serving: number }>} */
+  const running = {};
+  let readyAt = -1;
+  const placing = [];
+  for (let t = 0; t < 5 * 60 * TPS; t++) {
+    step(w);
+    for (const [id, line] of Object.entries(p.lines)) {
+      const head = line.queue[0];
+      const cur = running[id];
+      if (cur && head !== cur.item) {
+        const rule = buildTicks(costOf(cur.item.type), cur.serving, 1000);
+        assert.ok(w.tick - cur.start >= rule, `${cur.item.type} took ${w.tick - cur.start} ticks, the rules say ${rule}`);
+        delete running[id];
+      }
+      if (head && head.prog > 0 && !running[id]) running[id] = { item: head, start: w.tick - 1, serving: Math.max(1, producersOf(w, 0, head.type).length) };
+    }
+    const ready = p.lines.structures?.ready;
+    if (ready && readyAt < 0) readyAt = w.tick;
+    if (!ready && readyAt >= 0) { placing.push(w.tick - readyAt); readyAt = -1; }
+  }
+  assert.ok(placing.length >= 4, 'it built a base');
+  assert.ok(Math.min(...placing) >= TPS, `fastest placement ${Math.min(...placing)} ticks: no faster than a quick human`);
 });
 
 test('skill levels get steadily better at what experience brings', () => {

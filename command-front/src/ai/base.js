@@ -200,6 +200,10 @@ export function manageBase(w, ai, cfg, style, armyValue) {
   for (const line of /** @type {const} */ (['structures', 'defenses'])) {
     const l = p.lines[line];
     if (l?.ready) {
+      // Hands: a finished building takes a human's moment to tap into place (the line waits meanwhile, as a human's does).
+      if (!ai.placeAt[line]) ai.placeAt[line] = w.tick + ticks(jitter(ai, cfg.placeSeconds, 0.3));
+      if (w.tick < ai.placeAt[line]) continue;
+      ai.placeAt[line] = 0;
       const spot = placeFor(w, ai, cfg, l.ready);
       if (spot) issue(w, ai, 'place', [], { type: l.ready, x: spot.x, y: spot.y });
       else {
@@ -240,14 +244,20 @@ export function manageRepairs(w, ai, cfg) {
   }
 }
 
-/** No Construction Yard: deploy an MCV (walking it to open ground first), or build one. @param {World} w @param {any} ai @returns {boolean} the base is gone for good */
-export function manageYard(w, ai) {
+/**
+ * No Construction Yard: deploy an MCV (walking it to open ground first, and
+ * taking a human's moment to tap it), or build one.
+ * @param {World} w @param {any} ai @param {SkillProfile} cfg @returns {boolean} the base is gone for good
+ */
+export function manageYard(w, ai, cfg) {
   const roles = rolesOf(w, ai.pid);
   if (roles.has('yard')) return false;
   const mcv = ownUnits(w, ai.pid).find((u) => u.type === 'mcv' && !u.inside);
   if (mcv) {
     if (mcv.deploying || mcv.order || mcv.next) return false;
-    if (checkDeploy(w, mcv).ok) { issue(w, ai, 'deploy', [mcv.id], null); return false; }
+    if (!ai.deployAt) ai.deployAt = w.tick + ticks(jitter(ai, cfg.placeSeconds, 0.3));
+    if (w.tick < ai.deployAt) return false;
+    if (checkDeploy(w, mcv).ok) { issue(w, ai, 'deploy', [mcv.id], null); ai.deployAt = 0; return false; }
     // Find open ground near the old base for it.
     const c = baseCentre(w, ai.pid);
     for (const [x, y] of spiral(c.x, c.y, 8)) {
