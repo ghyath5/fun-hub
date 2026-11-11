@@ -9,7 +9,7 @@ import { FACTIONS, PLAYER_COLORS } from '../data/factions.js';
 import { CREDITS } from '../data/credits.js';
 import { CountryButton, Flag } from './countryPicker.js';
 import { COUNTRIES } from '../data/countries.js';
-import { GAME_SPEEDS, SETUP_DEFAULTS, SIM } from '../data/rules.js';
+import { CASH_BUTTON, GAME_SPEEDS, SETUP_DEFAULTS, SIM } from '../data/rules.js';
 import { COLORS, ORE_GROWTH_OPTIONS, maxPlayersOf } from '../game/matchSetup.js';
 import { GENERATOR } from '../map/generator.js';
 import { LANGS, LANG_NAMES, t, int } from '../lib/i18n.js';
@@ -108,6 +108,9 @@ export function teamOptions(form, online) {
   return out;
 }
 
+/** The cash-button rule's name, with what a press adds. */
+const cashLabel = () => t('Cash button (+{amount})', { amount: `$${int(CASH_BUTTON.amount)}` });
+
 /** @param {{ o: import('../game/matchSetup.js').OpponentForm }} p */
 const RemoteSlot = ({ o }) => html`<div class="opp remote">${colorDot(o.color)}<${Flag} id=${o.country} /><b>${t('Phone 2')}</b>
   <span class="muted">${factionName(o.faction)} · ${cap(o.color)} · ${t('chosen on their phone')}</span></div>`;
@@ -177,6 +180,7 @@ export function SetupScreen({ form, maps, error, onChange, onStart, onBack, onli
         <${Row} label=${t('Fog of war')}><${Toggle} label=${t('Fog of war')} checked=${form.fog} onChange=${(v) => set({ fog: v })} /></${Row}>
         <${Row} label=${t('Crates')}><${Toggle} label=${t('Crates')} checked=${form.crates} onChange=${(v) => set({ crates: v })} /></${Row}>
         <${Row} label=${t('Short game')}><${Toggle} label=${t('Short game')} checked=${form.shortGame} onChange=${(v) => set({ shortGame: v })} /></${Row}>
+        ${online ? null : html`<${Row} label=${cashLabel()}><${Toggle} label=${cashLabel()} checked=${!!form.cashButton} onChange=${(v) => set({ cashButton: v })} /></${Row}>`}
         <${Row} label=${t('Game speed')}><${Select} label=${t('Game speed')} value=${form.speed} onChange=${(v) => set({ speed: v })}
           options=${Object.entries(GAME_SPEEDS).map(([s, g]) => ({ value: s, label: t(g.name) }))} /></${Row}>
       </section>

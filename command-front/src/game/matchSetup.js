@@ -36,6 +36,7 @@ import { skillOf } from '../ai/skill.js';
  * @property {boolean} fog
  * @property {boolean} crates
  * @property {boolean} shortGame
+ * @property {boolean} [cashButton]     show the cash button in the match (against the computer only)
  * @property {keyof typeof GAME_SPEEDS} speed
  * @property {'random' | 'fixed'} startPositions
  */
@@ -62,6 +63,7 @@ export function defaultForm() {
     fog: SETUP_DEFAULTS.fog,
     crates: SETUP_DEFAULTS.crates,
     shortGame: SETUP_DEFAULTS.shortGame,
+    cashButton: SETUP_DEFAULTS.cashButton,
     speed: /** @type {'normal'} */ (SETUP_DEFAULTS.speed),
     startPositions: /** @type {'random'} */ (SETUP_DEFAULTS.startPositions),
   };
@@ -125,6 +127,7 @@ export function matchOptions(f, map, seed) {
       fog: f.fog,
       crates: f.crates,
       shortGame: f.shortGame,
+      cashButton: !!f.cashButton && !f.opponents.some((o) => o.remote),
       techLevel: f.techLevel,
     },
   };

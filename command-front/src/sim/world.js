@@ -46,6 +46,7 @@ import { SETUP_DEFAULTS } from '../data/rules.js';
  * @property {boolean} fog
  * @property {boolean} crates
  * @property {boolean} shortGame
+ * @property {boolean} cashButton        The lone human may press the cash button (sim/cashButton.js)
  * @property {number} techLevel
  * @property {boolean} classicBuild      48 s per 1000 credits instead of 40
  * @property {boolean} revealMap         Every team starts with the whole map explored (tests, debugging)
@@ -58,6 +59,7 @@ export const defaultSettings = () => ({
   fog: SETUP_DEFAULTS.fog,
   crates: SETUP_DEFAULTS.crates,
   shortGame: SETUP_DEFAULTS.shortGame,
+  cashButton: SETUP_DEFAULTS.cashButton,
   techLevel: SETUP_DEFAULTS.techLevel,
   classicBuild: false,
   revealMap: false,

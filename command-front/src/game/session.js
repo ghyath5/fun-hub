@@ -16,6 +16,7 @@ import { createModes } from '../input/modes.js';
 import { attachDesktop } from '../input/desktop.js';
 import { createCursor } from '../input/cursors.js';
 import { canDig } from '../sim/dig.js';
+import { cashButtonFor } from '../sim/cashButton.js';
 import { createCameraInput } from '../input/cameraInput.js';
 import { createStore } from '../ui/store.js';
 import { mountHud } from '../ui/hud.js';
@@ -33,7 +34,7 @@ import { createThreats } from '../ui/threats.js';
 import { createThreatArrows } from '../ui/threatArrows.js';
 import { setObjectSize } from '../render/readability.js';
 import { isAircraft } from '../sim/air.js';
-import { GAME_SPEEDS, SIM, RENDER, PRODUCTION } from '../data/rules.js';
+import { CASH_BUTTON, GAME_SPEEDS, SIM, RENDER, PRODUCTION } from '../data/rules.js';
 import { GESTURE, LAYOUT, THREATS, READABILITY } from '../data/ui.js';
 import { PLAYER_COLORS, FACTIONS } from '../data/factions.js';
 import { itemDef, lineOf } from '../sim/catalog.js';
@@ -95,6 +96,8 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
 
   const store = createStore({
     credits: 0,
+    cashButton: cashButtonFor(world, human),
+    cashReady: true,
     powerProduced: 0,
     powerDrain: 0,
     powerPreview: 0,
@@ -309,6 +312,17 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
     if (!selection.size && intentTarget) enterTarget(null);
   });
 
+  let cashTimer = 0;
+  /** The cash button: one press, then it refills. */
+  const pressCash = () => {
+    const s = store.get();
+    if (!s.cashButton || !s.cashReady) return;
+    issue('cash', null);
+    audio.play('tap', { bus: 'ui', volume: 0.5 });
+    store.set({ cashReady: false });
+    cashTimer = /** @type {any} */ (setTimeout(() => store.set({ cashReady: true }), CASH_BUTTON.cooldownMs));
+  };
+
   let sellTimer = 0;
   const structureActs = {
     sell: () => {
@@ -367,6 +381,7 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
 
   const hud = mountHud(hudEl, store, {
     pause: () => pauseMatch(),
+    cash: pressCash,
     resume: () => { userPaused = false; store.set({ paused: false, confirmSurrender: false }); net?.hold(false); loop.resetClock(); },
     // Two phones share one speed, set before the match.
     speed: net ? undefined : (/** @type {string} */ s) => {
@@ -561,6 +576,8 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
       Object.assign(patch, { credits: eco.credits, powerProduced: eco.powerProduced, powerDrain: eco.powerDrain });
     }
     if (me.power.low) alerts.raise('lowPower');
+    const cashButton = cashButtonFor(world, human);
+    if (cashButton !== cur.cashButton) patch.cashButton = cashButton;
     const attacked = threats.active().some((s) => s.kind === 'base');
     if (attacked !== cur.underAttack) patch.underAttack = attacked;
     const sb = sidebarModel(world, human);
@@ -775,6 +792,7 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
       offEnd.forEach((off) => off());
       document.removeEventListener('visibilitychange', onVisibility);
       window.visualViewport?.removeEventListener('resize', onViewport);
+      clearTimeout(cashTimer);
       hud.unmount();
       threatArrows.destroy();
       view.destroy();
