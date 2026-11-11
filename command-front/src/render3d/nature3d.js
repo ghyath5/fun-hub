@@ -12,7 +12,7 @@ import { CELL } from './view.js';
 
 const C = RENDER.cellPx;
 const ROCKS = ['rock:a', 'rock:b'];
-const BUSHES = ['bush:a', 'bush:b', 'bush:fern', 'bush:a'];
+const BUSHES = ['bush:a', 'bush:b'];
 const WHITE = new THREE.Color(1, 1, 1);
 
 /** How the forest is planted and how it moves. */

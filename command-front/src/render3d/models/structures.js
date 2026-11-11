@@ -582,7 +582,7 @@ function crown(g, clumps, tall = 0.92) {
 }
 
 /**
- * A palm or fern frond from `a` out to `b`: a long leaf, wide in the middle, folded along its spine.
+ * A palm frond from `a` out to `b`: a long leaf, wide in the middle, folded along its spine.
  * @param {THREE.Group} g @param {number[]} a @param {number[]} b @param {THREE.Material} mat @param {number} [width]
  */
 function frond(g, a, b, mat, width = 0.12) {
@@ -694,15 +694,6 @@ export const SCENERY_MODELS = {
   'bush:b': {
     size: 0.45,
     build(g) { crown(g, [[0, 0.14, 0, 0.18, M.leafOlive], [0.13, 0.1, -0.08, 0.13, M.leafDark], [-0.1, 0.18, 0.06, 0.1, M.leafLight]], 0.85); },
-  },
-  'bush:fern': {
-    size: 0.5,
-    build(g) {
-      for (let k = 0; k < 6; k++) {
-        const a = (k / 6) * Math.PI * 2;
-        frond(g, [0, 0.04, 0], [Math.cos(a) * 0.3, 0.14, Math.sin(a) * 0.3], k % 2 ? M.leafLight : M.leaf, 0.07);
-      }
-    },
   },
   'rock:a': {
     size: 0.7,

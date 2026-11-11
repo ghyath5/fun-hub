@@ -12,7 +12,7 @@
  * Decor: trees, boulders on rock, ore and gems, craters and rubble, drawn
  * row by row on top of the ground with their own baked shadows.
  * Between them lie the living layers of groundFx.js: the moving sea with its
- * foam, and the grass's patches and tufts.
+ * foam, and the grass's lighter and darker patches.
  *
  * Same interface as the chunk baker (terrainChunks.js), which remains the
  * fallback when the art cannot load.
@@ -53,13 +53,12 @@ function createPool() {
   return {
     layer,
     begin() { used = 0; },
-    /** @param {import('pixi.js').Texture} tex @param {number} x @param {number} y @param {number} [scale] */
-    put(tex, x, y, scale = 1) {
+    /** @param {import('pixi.js').Texture} tex @param {number} x @param {number} y */
+    put(tex, x, y) {
       let s = sprites[used];
       if (!s) { s = new Sprite(tex); sprites.push(s); layer.addChild(s); }
       s.texture = tex;
       s.position.set(x, y);
-      s.scale.set(scale);
       s.visible = true;
       used++;
     },
@@ -85,7 +84,6 @@ export function createTerrainTiles(map, art, visibleCells, opts = {}) {
     if (ORDER[k] === 'clear') layer.addChild(fx.land);
   });
   layer.addChild(decor.layer);
-  const putDecor = decor.put.bind(decor);
   const R = art.repeat;
   const hard = new Set(['bridge']);
   let win = '';
@@ -116,7 +114,6 @@ export function createTerrainTiles(map, art, visibleCells, opts = {}) {
           decor.put(d.tex, x * C + d.ox, y * C + d.oy);
         }
         const bales = map.bales[i];
-        if (bales <= 0 && (t === T.clear || t === T.tree)) fx.meadowAt(x, y, putDecor);
         if (bales > 0) {
           const list = art.decor[map.gem[i] ? 'gem' : 'ore'];
           if (list?.length) {

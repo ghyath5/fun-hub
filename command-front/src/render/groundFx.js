@@ -4,8 +4,7 @@
  *
  *   - the sea: turquoise shallows fading to deep navy away from land, sunlight
  *     rippling over it, and foam lapping at every shore;
- *   - the grass: sunny and shaded patches that break up the repeating tiles,
- *     with tufts of taller grass, thicker where it is lush.
+ *   - the grass: lighter and darker patches that break up the repeating tiles.
  *
  * Everything here is drawn once into small textures when the match starts
  * (no downloads); per frame only a few offsets and alphas move.
@@ -42,9 +41,6 @@ export const GROUND_FX = Object.freeze({
   patchCells: 9,
   sunny: { color: [124, 190, 84], alpha: 0.2 },
   shaded: { color: [14, 52, 22], alpha: 0.26 },
-  /** Share of grass cells with a tuft (more where the grass is lush). */
-  tufts: 0.27,
-  meadowCells: 7,
 });
 
 /** Stable 0..1 hash of a lattice point. @param {number} x @param {number} y @param {number} [salt] */
@@ -160,46 +156,9 @@ function overMap(tex, map) {
 }
 
 /**
- * Small sprites for the grass, drawn at `px` per cell: tufts of blades, all green.
- * @param {number} px
- */
-function meadowSprites(px) {
-  const u = px / 24;
-  /** @param {(ctx: CanvasRenderingContext2D, w: number, h: number) => void} draw @param {number} w @param {number} h  cells */
-  const make = (draw, w, h) => {
-    const { canvas, ctx } = canvasOf(Math.ceil(w * px), Math.ceil(h * px));
-    ctx.lineCap = 'round';
-    draw(ctx, canvas.width, canvas.height);
-    const tex = Texture.from(canvas);
-    return { tex, scale: C / px };
-  };
-  /** A clump of blades fanning out from one root. */
-  const tuft = (/** @type {string[]} */ colors, /** @type {number} */ seed, /** @type {number} */ blades) => make((ctx, w, h) => {
-    for (let k = 0; k < blades; k++) {
-      const lean = (hash01(k, seed, 31) - 0.5) * 1.5;
-      const len = h * (0.45 + hash01(k, seed, 32) * 0.5);
-      const rx = w / 2 + (hash01(k, seed, 33) - 0.5) * w * 0.3;
-      ctx.strokeStyle = colors[k % colors.length];
-      ctx.lineWidth = (1.1 + hash01(k, seed, 34) * 0.7) * u;
-      ctx.beginPath();
-      ctx.moveTo(rx, h - u);
-      ctx.quadraticCurveTo(rx + lean * w * 0.12, h - len * 0.6, rx + lean * w * 0.36, h - len);
-      ctx.stroke();
-    }
-  }, 0.5, 0.42);
-  return {
-    tufts: [
-      tuft(['#2f5a24', '#3f7030', '#52873a'], 1, 7), tuft(['#35602a', '#4a7a34', '#6a9a46'], 2, 6),
-      tuft(['#2a5022', '#3a682c'], 3, 8), tuft(['#56833c', '#7ba04c', '#3f7030'], 4, 5),
-    ],
-  };
-}
-
-/**
  * @param {import('../types.js').MapData} map
- * @param {{ decorPx?: number }} [opts]  decorPx: texture px per cell of the meadow sprites
  */
-export function createGroundFx(map, opts = {}) {
+export function createGroundFx(map) {
   const F = GROUND_FX;
   const W = map.width * C, H = map.height * C;
   /** @type {Texture[]} */
@@ -265,27 +224,11 @@ export function createGroundFx(map, opts = {}) {
     out[3] = tone.alpha * clamp01(Math.abs(k));
   })), map));
 
-  const meadow = meadowSprites(opts.decorPx ?? 48);
-  for (const list of Object.values(meadow)) for (const m of list) keep(m.tex);
-
   return {
     /** Goes right above the water tiles. */
     water,
     /** Goes right above the grass tiles. */
     land,
-    /**
-     * The tufts on a grass cell, if any: sprites with their place in world px.
-     * @param {number} x @param {number} y @param {(tex: Texture, wx: number, wy: number, scale: number) => void} put
-     */
-    meadowAt(x, y, put) {
-      const lush = valueNoise(x / F.meadowCells, y / F.meadowCells, 81);
-      const place = (/** @type {{ tex: Texture, scale: number }[]} */ list, /** @type {number} */ salt) => {
-        const m = list[Math.floor(hash01(x, y, salt) * list.length)];
-        put(m.tex, (x + hash01(x, y, salt + 1) * 0.6) * C, (y + hash01(x, y, salt + 2) * 0.55) * C, m.scale);
-      };
-      if (hash01(x, y, 82) < F.tufts * (0.5 + lush)) place(meadow.tufts, 83);
-      if (lush > 0.7 && hash01(x, y, 94) < F.tufts) place(meadow.tufts, 95);
-    },
     /** Move the water. @param {number} seconds  running time */
     update(seconds) {
       for (const r of ripples) r.sprite.tilePosition.set(r.vx * seconds, r.vy * seconds);
