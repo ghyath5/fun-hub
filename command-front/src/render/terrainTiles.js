@@ -12,7 +12,7 @@
  * Decor: trees, boulders on rock, ore and gems, craters and rubble, drawn
  * row by row on top of the ground with their own baked shadows.
  * Between them lie the living layers of groundFx.js: the moving sea with its
- * foam, and the grass's patches, tufts and flowers.
+ * foam, and the grass's patches and tufts.
  *
  * Same interface as the chunk baker (terrainChunks.js), which remains the
  * fallback when the art cannot load.

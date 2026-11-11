@@ -665,14 +665,6 @@ export const SCENERY_MODELS = {
       crown(g, [[0, 0.56, 0, 0.19, M.leafDark], [0.02, 0.84, 0.01, 0.17, M.leaf], [-0.01, 1.1, 0, 0.13, M.leafLight], [0, 1.3, 0, 0.08, M.leaf]], 1.7);
     },
   },
-  'tree:blossom': {
-    size: 0.75,
-    build(g) {
-      cyl(g, 0.04, 0.06, 0.34, M.bark, 0, 0.17, 0, 'y', 6);
-      limb(g, [0, 0.3, 0], [0.15, 0.46, 0.04], 0.022);
-      crown(g, [[0, 0.6, 0, 0.24, M.blossom], [0.17, 0.52, 0.05, 0.17, M.leafLight], [-0.16, 0.54, -0.04, 0.18, M.blossom], [0.02, 0.76, 0, 0.15, M.blossom], [-0.02, 0.5, 0.16, 0.14, M.leaf]]);
-    },
-  },
   // Grows where the forest meets a beach.
   'tree:palm': {
     size: 1.05,

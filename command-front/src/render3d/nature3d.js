@@ -21,7 +21,7 @@ export const NATURE = Object.freeze({
   groveCells: 7,
   conifers: ['tree:pine', 'tree:spruce', 'tree:pine', 'tree:birch'],
   mixed: ['tree:round', 'tree:pine', 'tree:birch', 'tree:oak', 'tree:poplar'],
-  broadleaf: ['tree:oak', 'tree:round', 'tree:oak', 'tree:poplar', 'tree:blossom'],
+  broadleaf: ['tree:oak', 'tree:round', 'tree:oak', 'tree:poplar', 'tree:birch'],
   /** Within this many cells of a beach, most trees are palms. */
   palmReach: 2,
   palmShare: 0.75,

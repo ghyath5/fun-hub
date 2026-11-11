@@ -5,7 +5,7 @@
  *   - the sea: turquoise shallows fading to deep navy away from land, sunlight
  *     rippling over it, and foam lapping at every shore;
  *   - the grass: sunny and shaded patches that break up the repeating tiles,
- *     with tufts, wildflowers and pebbles scattered in meadows.
+ *     with tufts of taller grass, thicker where it is lush.
  *
  * Everything here is drawn once into small textures when the match starts
  * (no downloads); per frame only a few offsets and alphas move.
@@ -40,12 +40,10 @@ export const GROUND_FX = Object.freeze({
   /** Grass patches: px per cell of the map-wide tint and how strong the sunny and shaded patches are. */
   patchDetail: 2,
   patchCells: 9,
-  sunny: { color: [214, 208, 96], alpha: 0.2 },
+  sunny: { color: [124, 190, 84], alpha: 0.2 },
   shaded: { color: [14, 52, 22], alpha: 0.26 },
-  /** Share of grass cells with a tuft, and of meadow cells with flowers. */
+  /** Share of grass cells with a tuft (more where the grass is lush). */
   tufts: 0.27,
-  flowers: 0.42,
-  pebbles: 0.05,
   meadowCells: 7,
 });
 
@@ -162,8 +160,7 @@ function overMap(tex, map) {
 }
 
 /**
- * Small sprites for the grass, drawn at `px` per cell: tufts, flowers and
- * pebbles, each with its offset from the cell's corner.
+ * Small sprites for the grass, drawn at `px` per cell: tufts of blades, all green.
  * @param {number} px
  */
 function meadowSprites(px) {
@@ -190,47 +187,11 @@ function meadowSprites(px) {
       ctx.stroke();
     }
   }, 0.5, 0.42);
-  /** A few flowers on short stems. */
-  const flowers = (/** @type {string} */ petal, /** @type {string} */ heart, /** @type {number} */ seed, /** @type {number} */ n) => make((ctx, w, h) => {
-    for (let k = 0; k < n; k++) {
-      const x = w * (0.14 + hash01(k, seed, 41) * 0.72), y = h * (0.2 + hash01(k, seed, 42) * 0.6);
-      const r = (1.05 + hash01(k, seed, 43) * 0.6) * u;
-      ctx.strokeStyle = '#3d6a2a';
-      ctx.lineWidth = 0.9 * u;
-      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 0.7 * u, y + 2.6 * u); ctx.stroke();
-      ctx.fillStyle = 'rgba(20, 36, 14, 0.35)';
-      ctx.beginPath(); ctx.ellipse(x + 0.9 * u, y + 1.1 * u, r, r * 0.7, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = petal;
-      for (let p = 0; p < 5; p++) {
-        const a = (p / 5) * Math.PI * 2 + seed;
-        ctx.beginPath(); ctx.arc(x + Math.cos(a) * r * 0.6, y + Math.sin(a) * r * 0.6, r * 0.55, 0, Math.PI * 2); ctx.fill();
-      }
-      ctx.fillStyle = heart;
-      ctx.beginPath(); ctx.arc(x, y, r * 0.42, 0, Math.PI * 2); ctx.fill();
-    }
-  }, 0.7, 0.6);
-  const pebbles = (/** @type {number} */ seed) => make((ctx, w, h) => {
-    for (let k = 0; k < 4; k++) {
-      const x = w * (0.2 + hash01(k, seed, 51) * 0.6), y = h * (0.3 + hash01(k, seed, 52) * 0.45);
-      const r = (1.3 + hash01(k, seed, 53) * 1.5) * u;
-      ctx.fillStyle = 'rgba(18, 22, 14, 0.4)';
-      ctx.beginPath(); ctx.ellipse(x + 0.8 * u, y + 0.8 * u, r, r * 0.7, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = k % 2 ? '#8f8a7c' : '#a9a393';
-      ctx.beginPath(); ctx.ellipse(x, y, r, r * 0.72, 0.4, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.28)';
-      ctx.beginPath(); ctx.ellipse(x - r * 0.25, y - r * 0.25, r * 0.4, r * 0.25, 0.4, 0, Math.PI * 2); ctx.fill();
-    }
-  }, 0.5, 0.4);
   return {
     tufts: [
       tuft(['#2f5a24', '#3f7030', '#52873a'], 1, 7), tuft(['#35602a', '#4a7a34', '#6a9a46'], 2, 6),
       tuft(['#2a5022', '#3a682c'], 3, 8), tuft(['#56833c', '#7ba04c', '#3f7030'], 4, 5),
     ],
-    flowers: [
-      flowers('#f4f1e4', '#e8b930', 1, 4), flowers('#f0cc3c', '#b9741c', 2, 3), flowers('#d8483c', '#2a1a14', 3, 3),
-      flowers('#b98be0', '#f0d860', 4, 4), flowers('#f4f1e4', '#e8b930', 5, 2),
-    ],
-    pebbles: [pebbles(1), pebbles(2)],
   };
 }
 
@@ -313,7 +274,7 @@ export function createGroundFx(map, opts = {}) {
     /** Goes right above the grass tiles. */
     land,
     /**
-     * What grows on a grass cell, if anything: sprites with their place in world px.
+     * The tufts on a grass cell, if any: sprites with their place in world px.
      * @param {number} x @param {number} y @param {(tex: Texture, wx: number, wy: number, scale: number) => void} put
      */
     meadowAt(x, y, put) {
@@ -323,8 +284,6 @@ export function createGroundFx(map, opts = {}) {
         put(m.tex, (x + hash01(x, y, salt + 1) * 0.6) * C, (y + hash01(x, y, salt + 2) * 0.55) * C, m.scale);
       };
       if (hash01(x, y, 82) < F.tufts * (0.5 + lush)) place(meadow.tufts, 83);
-      if (lush > 0.58 && hash01(x, y, 86) < F.flowers) place(meadow.flowers, 87);
-      else if (hash01(x, y, 90) < F.pebbles) place(meadow.pebbles, 91);
       if (lush > 0.7 && hash01(x, y, 94) < F.tufts) place(meadow.tufts, 95);
     },
     /** Move the water. @param {number} seconds  running time */
