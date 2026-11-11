@@ -30,15 +30,28 @@ const abbrev = (name) => {
 };
 
 /**
- * @param {{ sel: SelectionInfo, onTop: boolean, addMode: boolean, targetMode: string | null,
+ * The folded command bar: one small tab in the corner, so the whole battlefield
+ * can be tapped. Tapping it brings the buttons back.
+ * @param {{ label: string, onTop: boolean, unfold: () => void }} p
+ */
+const FoldedBar = ({ label, onTop, unfold }) => html`<button class=${`cmdbar-tab panel ${onTop ? 'top' : ''}`}
+  aria-expanded="false" aria-label=${t('Show commands')} onClick=${unfold}><span dir="ltr">▴</span> ${label}</button>`;
+
+/** The button that folds the command bar away. @param {{ fold: () => void }} p */
+const FoldButton = ({ fold }) => html`<button class="cmd fold" aria-expanded="true" aria-label=${t('Hide commands')} title=${t('Hide commands')} onClick=${fold}><span dir="ltr">▾</span></button>`;
+
+/**
+ * @param {{ sel: SelectionInfo, onTop: boolean, folded: boolean, addMode: boolean, targetMode: string | null,
  *   act: { stop: () => void, scatter: () => void, same: () => void, deselect: () => void, narrow: (t: string) => void,
- *     toggleAdd: () => void, stance: () => void, attackMove: () => void,
+ *     toggleAdd: () => void, stance: () => void, attackMove: () => void, fold: () => void,
  *     deploy: () => void, harvest: () => void, unload: () => void, mines: () => void, returnPad: () => void } }} p
  */
-export function CommandBar({ sel, onTop, addMode, targetMode, act }) {
+export function CommandBar({ sel, onTop, folded, addMode, targetMode, act }) {
   if (!sel.count) return null;
+  if (folded) return html`<${FoldedBar} label=${`× ${sel.count}`} onTop=${onTop} unfold=${act.fold} />`;
   return html`<section class=${`cmdbar panel ${onTop ? 'top' : ''}`} aria-label=${t('Commands')}>
     <div class="cmd-row">
+      <${FoldButton} fold=${act.fold} />
       <button class="cmd" onClick=${act.stop}>${t('Stop')}</button>
       <button class="cmd" onClick=${act.stance} title=${t('Guard → Hold Position → Hold Fire')}>${t(STANCE_LABEL[sel.stance ?? 'guard'])}</button>
       <button class=${`cmd ${targetMode === 'attackMove' ? 'on' : ''}`} aria-pressed=${targetMode === 'attackMove'} onClick=${act.attackMove} title=${t('Next tap: attack-move there')}>${t('A-Move')}</button>
@@ -149,11 +162,12 @@ export function TargetBanner({ mode, count, cancel }) {
 /**
  * Command bar for a selected structure (section 14): Sell, Repair, Rally,
  * Set Primary, and the HP / power readout.
- * @param {{ s: StructureInfo | null, onTop: boolean, sellArmed: boolean, rallyMode: boolean,
- *   act: { sell: () => void, repair: () => void, rally: () => void, primary: () => void, deselect: () => void } }} p
+ * @param {{ s: StructureInfo | null, onTop: boolean, folded: boolean, sellArmed: boolean, rallyMode: boolean,
+ *   act: { sell: () => void, repair: () => void, rally: () => void, primary: () => void, deselect: () => void, fold: () => void } }} p
  */
-export function StructureBar({ s, onTop, sellArmed, rallyMode, act }) {
+export function StructureBar({ s, onTop, folded, sellArmed, rallyMode, act }) {
   if (!s) return null;
+  if (folded) return html`<${FoldedBar} label=${s.name} onTop=${onTop} unfold=${act.fold} />`;
   const band = healthBand(s.hp, s.maxHp);
   const pw = s.power > 0 ? `+${s.power}` : `${s.power}`;
   return html`<section class=${`cmdbar panel ${onTop ? 'top' : ''}`} aria-label=${t('{name} commands', { name: s.name })}>
@@ -161,8 +175,10 @@ export function StructureBar({ s, onTop, sellArmed, rallyMode, act }) {
       <span class="sb-name">${s.name}${s.primary ? html` <b class="sb-prim">${t('PRIMARY')}</b>` : null}</span>
       <span class="ic-bar sb-hp"><span class=${`ic-fill ${band}`} style=${`width:${Math.round((s.hp / s.maxHp) * 100)}%`}></span></span>
       <span class="sb-nums">${s.hp}/${s.maxHp}${s.power ? html` · ${t('PWR')} ${pw}` : null}</span>
+      ${s.own ? null : html`<${FoldButton} fold=${act.fold} />`}
     </div>
     ${s.own ? html`<div class="cmd-row">
+      <${FoldButton} fold=${act.fold} />
       <button class=${`cmd ${sellArmed ? 'danger' : ''}`} disabled=${!s.canSell} onClick=${act.sell}>${sellArmed ? t('Confirm') : t('Sell')}</button>
       <button class=${`cmd ${s.repairing ? 'on' : ''}`} aria-pressed=${s.repairing} disabled=${!s.canRepair} onClick=${act.repair}>${t('Repair')}</button>
       ${s.canRally ? html`<button class=${`cmd ${rallyMode ? 'on' : ''}`} onClick=${act.rally}>${t('Rally')}</button>` : null}

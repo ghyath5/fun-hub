@@ -11,6 +11,8 @@
  * texture, so equal neighbours continue the same texture.
  * Decor: trees, boulders on rock, ore and gems, craters and rubble, drawn
  * row by row on top of the ground with their own baked shadows.
+ * Between them lie the living layers of groundFx.js: the moving sea with its
+ * foam, and the grass's lighter and darker patches.
  *
  * Same interface as the chunk baker (terrainChunks.js), which remains the
  * fallback when the art cannot load.
@@ -18,6 +20,7 @@
 import { Container, Sprite } from 'pixi.js';
 import { T } from '../data/terrain.js';
 import { RENDER } from '../data/rules.js';
+import { createGroundFx } from './groundFx.js';
 
 const C = RENDER.cellPx;
 
@@ -74,7 +77,12 @@ export function createTerrainTiles(map, art, visibleCells, opts = {}) {
   layer.label = 'terrain';
   const ground = ORDER.map(() => createPool());
   const decor = createPool();
-  for (const p of ground) layer.addChild(p.layer);
+  const fx = createGroundFx(map);
+  ground.forEach((p, k) => {
+    layer.addChild(p.layer);
+    if (ORDER[k] === 'water') layer.addChild(fx.water);
+    if (ORDER[k] === 'clear') layer.addChild(fx.land);
+  });
   layer.addChild(decor.layer);
   const R = art.repeat;
   const hard = new Set(['bridge']);
@@ -126,6 +134,7 @@ export function createTerrainTiles(map, art, visibleCells, opts = {}) {
     invalidate(/** @type {number} */ _x, /** @type {number} */ _y) { dirty = true; },
     /** Rebuild the sprites when the view moves to other cells or something changed. Call every frame. */
     update() {
+      if (fx.animated) fx.update(performance.now() / 1000);
       const r = visibleCells();
       const key = `${r.x0},${r.y0},${r.x1},${r.y1}`;
       if (key === win && !dirty) return;
@@ -133,6 +142,6 @@ export function createTerrainTiles(map, art, visibleCells, opts = {}) {
       dirty = false;
       rebuild(r);
     },
-    destroy() { layer.destroy({ children: true }); },
+    destroy() { layer.destroy({ children: true }); fx.destroy(); },
   };
 }

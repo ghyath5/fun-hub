@@ -129,6 +129,16 @@ html.too-small .card.too-small { display: grid; }
   padding: 3px; display: flex; flex-direction: column; gap: 3px;
 }
 .cmdbar.top { bottom: auto; top: calc(38px + var(--sat)); }
+/* Folded: a small tab beside the minimap, so every part of the battlefield can be tapped */
+.cmd.fold { color: var(--accent); }
+.cmdbar-tab {
+  position: absolute; left: calc(var(--mm) + 10px + var(--sal)); bottom: calc(4px + var(--sab));
+  height: 30px; padding: 0 10px; color: var(--ink); font: 600 12px var(--mono); white-space: nowrap; opacity: .9;
+}
+.cmdbar-tab span { color: var(--accent); }
+.cmdbar-tab.top { bottom: auto; top: calc(38px + var(--sat)); }
+.hud.left .cmdbar-tab { left: auto; right: calc(var(--mm) + 10px + var(--sar)); }
+.hud.watching .cmdbar-tab { display: none; }
 .cmd-row, .sel-row { display: flex; gap: 6px; align-items: center; }
 .cmd-row { overflow-x: auto; scrollbar-width: none; }
 .sel-row { overflow-x: auto; scrollbar-width: none; }

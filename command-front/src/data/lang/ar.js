@@ -85,6 +85,8 @@ const ui = {
   'Fog of war': 'ضباب الحرب',
   Crates: 'الصناديق',
   'Short game': 'مباراة قصيرة',
+  'Hide commands': 'إخفاء الأوامر',
+  'Show commands': 'إظهار الأوامر',
   'Cash button (+{amount})': 'زر المال (+{amount})',
   'Add {amount} credits': 'أضف {amount} إلى الرصيد',
   'Game speed': 'سرعة اللعب',
