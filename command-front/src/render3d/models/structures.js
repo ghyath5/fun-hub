@@ -551,35 +551,165 @@ export const STRUCTURE_MODELS = {
 };
 
 /**
+ * A branch or trunk segment from `a` to `b`, in cells.
+ * @param {THREE.Group} g @param {number[]} a @param {number[]} b @param {number} r @param {THREE.Material} [mat]
+ */
+function limb(g, a, b, r, mat = M.bark) {
+  const from = new THREE.Vector3(a[0], a[1], a[2]);
+  const to = new THREE.Vector3(b[0], b[1], b[2]);
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.8, r, from.distanceTo(to) * 1.06, 5), mat);
+  m.position.copy(from).lerp(to, 0.5);
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), to.clone().sub(from).normalize());
+  g.add(m);
+}
+
+/**
+ * A crown of leaves: faceted clumps `[x, y, z, radius, material]`, each turned
+ * a little differently so no two catch the light alike. `tall` stretches them upward.
+ * @param {THREE.Group} g @param {[number, number, number, number, THREE.Material][]} clumps @param {number} [tall]
+ */
+function crown(g, clumps, tall = 0.92) {
+  clumps.forEach(([x, y, z, r, mat], k) => {
+    const m = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 1), mat);
+    m.position.set(x, y, z);
+    m.rotation.set(k * 1.3, k * 2.1, k * 0.7);
+    const holder = new THREE.Group();
+    holder.scale.set(1, tall, 1);
+    holder.position.y = y * (1 - tall);
+    holder.add(m);
+    g.add(holder);
+  });
+}
+
+/**
+ * A palm or fern frond from `a` out to `b`: a long leaf, wide in the middle, folded along its spine.
+ * @param {THREE.Group} g @param {number[]} a @param {number[]} b @param {THREE.Material} mat @param {number} [width]
+ */
+function frond(g, a, b, mat, width = 0.12) {
+  const from = new THREE.Vector3(a[0], a[1], a[2]);
+  const to = new THREE.Vector3(b[0], b[1], b[2]);
+  const mid = from.clone().lerp(to, 0.5);
+  mid.y += from.distanceTo(to) * 0.22; // arches up, then droops
+  const side = new THREE.Vector3().subVectors(to, from).cross(new THREE.Vector3(0, 1, 0)).normalize().multiplyScalar(width / 2);
+  const P = [from, mid.clone().add(side), mid.clone().sub(side), to, mid.clone().setY(mid.y + width * 0.25)];
+  const tri = [[0, 4, 1], [0, 2, 4], [4, 3, 1], [4, 2, 3], [0, 1, 4], [0, 4, 2], [4, 1, 3], [4, 3, 2]];
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(tri.flat().flatMap((i) => [P[i].x, P[i].y, P[i].z]), 3));
+  geo.computeVertexNormals();
+  g.add(new THREE.Mesh(geo, mat));
+}
+
+/**
  * Scenery and pieces: trees, boulders, crates, wall joints. `size` is the
  * ground extent in cells (the renderer scales again per instance).
  * @type {Record<string, { size?: number, raw?: boolean, build: (g: THREE.Group) => void, footprint?: { w: number, h: number, fill?: number } }>}
  */
 export const SCENERY_MODELS = {
+  // Trees: a trunk and a crown of faceted clumps that catch the sun on one side.
   'tree:pine': {
-    size: 0.8,
+    size: 0.85,
     build(g) {
-      cyl(g, 0.05, 0.07, 0.3, M.bark, 0, 0.15, 0, 'y', 6);
-      cone(g, 0.36, 0.5, M.pine, 0, 0.45, 0, 8);
-      cone(g, 0.28, 0.42, M.pine, 0, 0.72, 0, 8);
-      cone(g, 0.18, 0.34, M.leafDark, 0, 0.96, 0, 8);
+      cyl(g, 0.045, 0.075, 0.34, M.bark, 0, 0.17, 0, 'y', 6);
+      const tiers = [[0.4, 0.4, 0.42, M.pine], [0.33, 0.38, 0.62, M.pineLight], [0.26, 0.36, 0.82, M.pine], [0.19, 0.32, 1.0, M.pineLight], [0.11, 0.3, 1.18, M.pine]];
+      tiers.forEach(([r, h, y, mat], k) => cone(g, r, h, mat, (k % 2 ? 0.015 : -0.015), y, (k % 3 ? -0.012 : 0.02), 9));
+    },
+  },
+  'tree:spruce': {
+    size: 0.6,
+    build(g) {
+      cyl(g, 0.04, 0.065, 0.3, M.bark, 0, 0.15, 0, 'y', 6);
+      for (let k = 0; k < 6; k++) cone(g, 0.31 - k * 0.042, 0.36, k % 2 ? M.leafDeep : M.pine, 0, 0.42 + k * 0.2, 0, 8);
     },
   },
   'tree:round': {
-    size: 0.9,
+    size: 0.95,
     build(g) {
-      cyl(g, 0.05, 0.08, 0.34, M.bark, 0, 0.17, 0, 'y', 6);
-      sphere(g, 0.32, M.leaf, 0, 0.56, 0, 0.9, 9);
-      sphere(g, 0.22, M.leafDark, 0.14, 0.48, 0.12, 0.9, 8);
-      sphere(g, 0.2, M.leaf, -0.14, 0.66, -0.06, 0.9, 8);
+      cyl(g, 0.055, 0.085, 0.42, M.bark, 0, 0.21, 0, 'y', 7);
+      limb(g, [0, 0.36, 0], [0.16, 0.56, 0.05], 0.028);
+      limb(g, [0, 0.34, 0], [-0.14, 0.54, -0.07], 0.028);
+      crown(g, [
+        [0, 0.72, 0, 0.3, M.leaf], [0.2, 0.62, 0.1, 0.22, M.leafDark], [-0.2, 0.64, -0.08, 0.23, M.leaf],
+        [0.04, 0.6, -0.2, 0.2, M.leafDark], [-0.06, 0.62, 0.2, 0.21, M.leafLight], [0.1, 0.9, 0.02, 0.2, M.leafLight], [-0.12, 0.86, 0.04, 0.18, M.leaf],
+      ]);
+    },
+  },
+  'tree:oak': {
+    size: 1.1,
+    build(g) {
+      cyl(g, 0.07, 0.11, 0.36, M.bark, 0, 0.18, 0, 'y', 7);
+      limb(g, [0, 0.3, 0], [0.24, 0.5, 0.06], 0.035);
+      limb(g, [0, 0.3, 0], [-0.22, 0.48, 0.1], 0.035);
+      limb(g, [0, 0.3, 0], [0.02, 0.5, -0.22], 0.03);
+      crown(g, [
+        [0, 0.66, 0, 0.3, M.leafDark], [0.28, 0.58, 0.08, 0.24, M.leaf], [-0.27, 0.56, 0.12, 0.24, M.leafDark], [0.04, 0.58, -0.27, 0.23, M.leaf],
+        [0.02, 0.56, 0.26, 0.22, M.leafOlive], [0.16, 0.8, -0.06, 0.22, M.leaf], [-0.15, 0.8, 0.04, 0.21, M.leafOlive], [0, 0.94, 0, 0.16, M.leafLight],
+      ]);
     },
   },
   'tree:birch': {
+    size: 0.65,
+    build(g) {
+      cyl(g, 0.03, 0.045, 0.62, M.birch, 0, 0.31, 0, 'y', 6);
+      for (const y of [0.14, 0.3, 0.44]) cyl(g, 0.041, 0.043, 0.025, M.dark, 0, y, 0, 'y', 6);
+      limb(g, [0, 0.5, 0], [0.12, 0.66, 0.03], 0.016, M.birch);
+      crown(g, [
+        [0, 0.8, 0, 0.21, M.leafLight], [0.13, 0.68, 0.06, 0.16, M.leafOlive], [-0.12, 0.7, -0.05, 0.16, M.leafLight],
+        [0.02, 0.98, 0, 0.15, M.leafLight], [-0.03, 0.64, 0.13, 0.13, M.leaf],
+      ], 1.25);
+    },
+  },
+  'tree:poplar': {
+    size: 0.4,
+    build(g) {
+      cyl(g, 0.035, 0.055, 0.3, M.bark, 0, 0.15, 0, 'y', 6);
+      crown(g, [[0, 0.56, 0, 0.19, M.leafDark], [0.02, 0.84, 0.01, 0.17, M.leaf], [-0.01, 1.1, 0, 0.13, M.leafLight], [0, 1.3, 0, 0.08, M.leaf]], 1.7);
+    },
+  },
+  'tree:blossom': {
     size: 0.75,
     build(g) {
-      cyl(g, 0.035, 0.05, 0.5, M.light, 0, 0.25, 0, 'y', 6);
-      sphere(g, 0.24, M.leaf, 0, 0.66, 0, 1.3, 8);
-      sphere(g, 0.16, M.leafDark, 0.1, 0.52, 0.08, 1.1, 7);
+      cyl(g, 0.04, 0.06, 0.34, M.bark, 0, 0.17, 0, 'y', 6);
+      limb(g, [0, 0.3, 0], [0.15, 0.46, 0.04], 0.022);
+      crown(g, [[0, 0.6, 0, 0.24, M.blossom], [0.17, 0.52, 0.05, 0.17, M.leafLight], [-0.16, 0.54, -0.04, 0.18, M.blossom], [0.02, 0.76, 0, 0.15, M.blossom], [-0.02, 0.5, 0.16, 0.14, M.leaf]]);
+    },
+  },
+  // Grows where the forest meets a beach.
+  'tree:palm': {
+    size: 1.05,
+    build(g) {
+      // A trunk that leans, in short ringed segments.
+      const top = [0.16, 0.92, 0.04];
+      for (let k = 0; k < 6; k++) {
+        const t0 = k / 6, t1 = (k + 1) / 6;
+        const at = (/** @type {number} */ t) => /** @type {[number, number, number]} */ ([top[0] * t * t, top[1] * t, top[2] * t * t]);
+        limb(g, at(t0), at(t1), 0.05 - k * 0.004, k % 2 ? M.palmTrunk : M.bark);
+      }
+      for (let k = 0; k < 8; k++) {
+        const a = (k / 8) * Math.PI * 2 + 0.3;
+        const reach = 0.42 + (k % 3) * 0.05;
+        const droop = k % 2 ? 0.2 : 0.11;
+        frond(g, top, [top[0] + Math.cos(a) * reach, top[1] - droop, top[2] + Math.sin(a) * reach], k % 2 ? M.palm : M.palmDark);
+      }
+      sphere(g, 0.045, M.bark, top[0] + 0.03, top[1] - 0.05, top[2], 1, 6);
+      sphere(g, 0.04, M.bark, top[0] - 0.04, top[1] - 0.05, top[2] + 0.02, 1, 6);
+    },
+  },
+  // Undergrowth between the trunks.
+  'bush:a': {
+    size: 0.5,
+    build(g) { crown(g, [[0, 0.16, 0, 0.2, M.leafDark], [0.17, 0.13, 0.05, 0.15, M.leaf], [-0.15, 0.12, -0.06, 0.14, M.leafLight]], 0.8); },
+  },
+  'bush:b': {
+    size: 0.45,
+    build(g) { crown(g, [[0, 0.14, 0, 0.18, M.leafOlive], [0.13, 0.1, -0.08, 0.13, M.leafDark], [-0.1, 0.18, 0.06, 0.1, M.leafLight]], 0.85); },
+  },
+  'bush:fern': {
+    size: 0.5,
+    build(g) {
+      for (let k = 0; k < 6; k++) {
+        const a = (k / 6) * Math.PI * 2;
+        frond(g, [0, 0.04, 0], [Math.cos(a) * 0.3, 0.14, Math.sin(a) * 0.3], k % 2 ? M.leafLight : M.leaf, 0.07);
+      }
     },
   },
   'rock:a': {

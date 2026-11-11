@@ -1,7 +1,7 @@
 /* Command Front service worker: cache-first, versioned. Hand-maintained list —
    add every file the game loads; ?debug warns at startup about any that are missing.
    Bump CACHE whenever a listed file changes. */
-const CACHE = 'command-front-v51';
+const CACHE = 'command-front-v52';
 
 const PRECACHE = [
   './',
@@ -596,6 +596,7 @@ const PRECACHE = [
   './src/render/structureBaker.js',
   './src/render/structures.js',
   './src/render/terrainChunks.js',
+  './src/render/groundFx.js',
   './src/render/terrainTiles.js',
   './src/render/units.js',
   './src/render/healthPips.js',

@@ -45,6 +45,13 @@ import { enterFullscreen } from '../ui/fullscreen.js';
 /** Why a full production queue is not moving, by line hold (sim/systems/production.js). */
 /** Remembers on this device whether the control-group column is folded. */
 const GROUPS_FOLDED_KEY = 'cf-groups-folded';
+/** Remembers on this device whether the command bar is folded to its tab. */
+const BAR_FOLDED_KEY = 'cf-bar-folded';
+
+/** A yes/no choice kept on this device. @param {string} key */
+const remembered = (key) => { try { return localStorage.getItem(key) === '1'; } catch { return false; } };
+/** @param {string} key @param {boolean} on */
+const remember = (key, on) => { try { localStorage.setItem(key, on ? '1' : '0'); } catch { /* private mode: not remembered */ } };
 
 const QUEUE_STUCK = Object.freeze({
   funds: 'waiting for money', exit: 'the factory exit is blocked', pad: 'no free pad', factory: 'no factory', paused: 'it is paused', requires: 'a required building is missing',
@@ -109,8 +116,9 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
     hash: debug ? hashWorld(world) : null,
     sel: /** @type {import('../ui/commandBar.js').SelectionInfo} */ ({ count: 0, types: [] }),
     groups: selection.groupSizes(),
-    groupsCollapsed: (() => { try { return localStorage.getItem(GROUPS_FOLDED_KEY) === '1'; } catch { return false; } })(),
+    groupsCollapsed: remembered(GROUPS_FOLDED_KEY),
     barTop: false,
+    barFolded: remembered(BAR_FOLDED_KEY),
     addMode: false,
     card: /** @type {{ name: string, hp: number, maxHp: number, owner: string } | null} */ (null),
     radial: /** @type {{ x: number, y: number, options: { id: string, label: string }[] } | null} */ (null),
@@ -275,7 +283,7 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
     toggle: () => {
       const groupsCollapsed = !store.get().groupsCollapsed;
       store.set({ groupsCollapsed });
-      try { localStorage.setItem(GROUPS_FOLDED_KEY, groupsCollapsed ? '1' : '0'); } catch { /* private mode: not remembered */ }
+      remember(GROUPS_FOLDED_KEY, groupsCollapsed);
     },
     centre: (/** @type {number} */ n) => { selectStructure(0); selection.recall(n); centreOnGroup(n); },
     /** Shift + number (desktop): add the group to the selection. @param {number} n */
@@ -287,7 +295,14 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
     },
   };
   const refreshSelection = () => store.set({ sel: intents.summary(), groups: selection.groupSizes() });
+  /** Fold the command bar to a tab, or bring it back. */
+  const foldBar = () => {
+    const barFolded = !store.get().barFolded;
+    store.set({ barFolded });
+    remember(BAR_FOLDED_KEY, barFolded);
+  };
   const cmdActs = {
+    fold: foldBar,
     stop: () => intents.simple('stop'),
     scatter: () => intents.simple('scatter'),
     same: () => intents.selectSameType(),
@@ -345,6 +360,7 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
     rally: () => { if (selectedStructure) { enterTarget(null); modes.rally(selectedStructure); } },
     primary: () => { if (selectedStructure) issue('primary', { id: selectedStructure }); },
     deselect: () => selectStructure(0),
+    fold: foldBar,
   };
   /** @type {import('../ui/sidebar.js').SidebarActions} */
   const buildActs = {
