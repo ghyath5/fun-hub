@@ -28,6 +28,8 @@ node --test 'tests/*.test.mjs'        # about 30 s
   most with a sea reaching every base; the AI plays one and builds a navy.
 * `readability.test.mjs` — units drawn bigger as the view zooms out and at
   the size chosen in Settings; attack spots and the arrows to them.
+* `cashButton.test.mjs` — the optional cash button pays only the one human
+  playing against the computer, never the AI or a two-phone match.
 * `importmap.mjs` — lets tests import modules that use the page's import map
   (`simplex-noise`, …).
 * `rules.test.mjs` — building, power, refining, production, selling, capture,

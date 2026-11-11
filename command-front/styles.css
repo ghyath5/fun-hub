@@ -56,6 +56,11 @@ body { overflow: hidden; overscroll-behavior: none; -webkit-tap-highlight-color:
 }
 .icon-btn:disabled { opacity: .35; }
 .icon-btn:active { background: var(--rule); }
+/* Cash button (setup option): refills from the left while it cools down */
+.cash-btn { position: relative; overflow: hidden; flex: none; color: #8fe06a; border-color: #8fe06a; font-family: var(--mono); }
+.cash-btn:disabled { opacity: 1; color: var(--muted); border-color: var(--rule); }
+.cash-btn.cooling::before { content: ''; position: absolute; inset: 0; background: #8fe06a33; transform-origin: left; animation: cash-refill var(--cooldown) linear both; }
+@keyframes cash-refill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 
 .toasts { position: absolute; top: calc(40px + var(--sat)); left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 6px; align-items: center; pointer-events: none; }
 .toast {

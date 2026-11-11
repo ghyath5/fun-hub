@@ -12,7 +12,7 @@ import { Sidebar } from './sidebar.js';
 import { Minimap } from './minimap.js';
 import { LinkCard } from './linkCard.js';
 import { t, int } from '../lib/i18n.js';
-import { GAME_SPEEDS } from '../data/rules.js';
+import { CASH_BUTTON, GAME_SPEEDS } from '../data/rules.js';
 
 /** A map's name in the current language ("Huge 128×128 #42": the size word is translated). @param {string} name */
 const mapLabel = (name) => name.replace(/^[A-Za-z][A-Za-z ]*?(?= \d|$)/, (w) => t(w));
@@ -20,6 +20,8 @@ const mapLabel = (name) => name.replace(/^[A-Za-z][A-Za-z ]*?(?= \d|$)/, (w) => 
 /**
  * @typedef {object} HudState
  * @property {number} credits
+ * @property {boolean} cashButton    The cash button is on for this match and this player may press it
+ * @property {boolean} cashReady     Not cooling down from the last press
  * @property {number} powerProduced
  * @property {number} powerDrain
  * @property {number} powerPreview     Change the structure being placed would make (0 = none)
@@ -64,6 +66,7 @@ const mapLabel = (name) => name.replace(/^[A-Za-z][A-Za-z ]*?(?= \d|$)/, (w) => 
  * @typedef {object} HudActions
  * @property {() => void} pause
  * @property {() => void} resume
+ * @property {() => void} cash   the cash button
  * @property {(speed: string) => void} [speed]  change the game speed (single player)
  * @property {(at: {x: number, y: number}) => void} jump
  * @property {() => void} fullscreen
@@ -139,6 +142,17 @@ function Credits({ value }) {
 }
 
 /**
+ * The cash button (setup option, against the computer only): each press adds
+ * CASH_BUTTON.amount, then it refills for CASH_BUTTON.cooldownMs.
+ * @param {{ ready: boolean, press: () => void }} props
+ */
+function CashButton({ ready, press }) {
+  const label = `+$${int(CASH_BUTTON.amount)}`;
+  return html`<button class=${`icon-btn cash-btn ${ready ? '' : 'cooling'}`} disabled=${!ready} aria-label=${t('Add {amount} credits', { amount: `$${int(CASH_BUTTON.amount)}` })}
+    style=${`--cooldown:${CASH_BUTTON.cooldownMs}ms`} onClick=${press}><span dir="ltr">${label}</span></button>`;
+}
+
+/**
  * @param {{ store: ReturnType<typeof import('./store.js').createStore<HudState>>, actions: HudActions }} props
  */
 function Hud({ store, actions }) {
@@ -147,6 +161,7 @@ function Hud({ store, actions }) {
   return html`
     <header class="topbar panel">
       <${Credits} value=${s.credits} />
+      ${s.cashButton ? html`<${CashButton} ready=${s.cashReady} press=${actions.cash} />` : null}
       <${PowerBar} produced=${s.powerProduced} drain=${s.powerDrain} preview=${s.powerPreview} />
       ${s.powers.map((p) => html`<${PowerButton} key=${p.id} p=${p} fire=${actions.power} />`)}
       ${s.intel ? html`<span class="intel" title=${t('Spy intelligence')}>${s.intel}</span>` : null}

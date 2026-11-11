@@ -85,6 +85,8 @@ const ui = {
   'Fog of war': 'ضباب الحرب',
   Crates: 'الصناديق',
   'Short game': 'مباراة قصيرة',
+  'Cash button (+{amount})': 'زر المال (+{amount})',
+  'Add {amount} credits': 'أضف {amount} إلى الرصيد',
   'Game speed': 'سرعة اللعب',
   'Mouse and keyboard': 'الفأرة ولوحة المفاتيح',
   'Left click': 'نقرة يسرى',

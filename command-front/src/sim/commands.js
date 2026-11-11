@@ -26,6 +26,7 @@ import { ticks } from '../core/fixed.js';
 import { TRANSPORT, SPECIALS } from '../data/rules.js';
 import { firePower } from './systems/supportPowers.js';
 import { eliminate } from './systems/victory.js';
+import { pressCashButton } from './cashButton.js';
 import { T } from '../data/terrain.js';
 
 /** @typedef {import('../types.js').Command} Command */
@@ -53,6 +54,7 @@ export const COMMAND_TYPES = Object.freeze({
   depot: 'entity',       // { id } — damaged vehicles: repair at this Service Depot
   power: 'power',        // { power, x?, y?, id?, unit? } — fire a ready support power
   surrender: 'none',     // the issuing player leaves the match
+  cash: 'none',          // the cash button: the lone human gets CASH_BUTTON.amount
   deploy: 'none',        // MCVs: unfold into a Construction Yard
   stop: 'none',
   scatter: 'none',
@@ -246,6 +248,7 @@ export function applyCommand(w, c) {
     eliminate(w, c.playerId, 'surrendered');
     return true;
   }
+  if (c.type === 'cash') return pressCashButton(w, c.playerId);
   if (c.type === 'power') {
     const done = firePower(w, c.playerId, c.target?.power, c.target ?? {});
     if (done) w.events.emit('commandApplied', w.tick, { type: c.type, playerId: c.playerId, ids: [] });

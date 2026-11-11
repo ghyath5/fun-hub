@@ -1,7 +1,7 @@
 /* Command Front service worker: cache-first, versioned. Hand-maintained list —
    add every file the game loads; ?debug warns at startup about any that are missing.
    Bump CACHE whenever a listed file changes. */
-const CACHE = 'command-front-v50';
+const CACHE = 'command-front-v51';
 
 const PRECACHE = [
   './',
@@ -618,6 +618,7 @@ const PRECACHE = [
   './src/render3d/models/units.js',
   './src/save/serialize.js',
   './src/sim/air.js',
+  './src/sim/cashButton.js',
   './src/sim/dig.js',
   './src/sim/infest.js',
   './src/sim/baseCommands.js',

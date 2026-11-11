@@ -386,6 +386,9 @@ export const AI = Object.freeze({
   },
 });
 
+/** The optional cash button (setup screen, against the computer only): what a press adds and how often it can be pressed. */
+export const CASH_BUTTON = Object.freeze({ amount: 1000, cooldownMs: 2000 });
+
 /** "MCV + 2 light vehicles + 4 Riflemen" starting option (section 18), per faction. */
 export const STARTING_FORCE = Object.freeze({
   mcv: { coalition: ['mcv'], union: ['mcv'] },
@@ -408,6 +411,7 @@ export const SETUP_DEFAULTS = Object.freeze({
   fog: false,              // Fog of war (optional): explored ground out of sight dims and hides what moves there
   crates: false,
   shortGame: false,
+  cashButton: false,       // Single player only: a top-bar button that adds CASH_BUTTON.amount
   speed: 'normal',
   startPositions: 'random',
 });
