@@ -387,7 +387,7 @@ export const AI = Object.freeze({
 });
 
 /** The optional cash button (setup screen, against the computer only): what a press adds and how often it can be pressed. */
-export const CASH_BUTTON = Object.freeze({ amount: 1000, cooldownMs: 2000 });
+export const CASH_BUTTON = Object.freeze({ amount: 500000, cooldownMs: 2000 });
 
 /** "MCV + 2 light vehicles + 4 Riflemen" starting option (section 18), per faction. */
 export const STARTING_FORCE = Object.freeze({
