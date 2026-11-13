@@ -120,6 +120,10 @@ export const inviteInUrl = () => /[#?&]o=([A-Za-z0-9_-]+)/.exec(location.hash + 
 /** The link a guest's camera opens. @param {string} code */
 export const inviteLink = (code) => `${location.href.split('#')[0].split('?')[0]}#o=${code}`;
 
+/** While the link is marked down: how often to look for a fresh heartbeat, and how fresh it must be (ms). */
+const LIVENESS_CHECK_MS = 500;
+const HEARD_RECENTLY_MS = 1500;
+
 /**
  * @typedef {object} LinkEvents
  * @property {() => void} [ready]          Both channels open: paired
@@ -153,6 +157,20 @@ export async function createLink(role, on) {
     }
     on.message?.(d);
   };
+  // Both phones can mark the link down at the same moment (each was busy
+  // building the match and missed the other's heartbeats). Then neither
+  // sends game messages, so the check above never fires, and an ICE restart
+  // on a healthy path changes no state: the match would hang for the full
+  // minute and then give up. Heartbeats keep flowing while down, and the
+  // engine stamps each one in `rxAt`, so one that arrived after the drop
+  // is the same proof of life as a game message.
+  const liveness = setInterval(() => {
+    if (!peer.down || peer.closed) return;
+    if (peer.rxAt > peer.downAt && performance.now() - peer.rxAt < HEARD_RECENTLY_MS) {
+      Duel.Diag.log('heartbeat received while marked down: link is alive');
+      peer._maybeUp();
+    }
+  }, LIVENESS_CHECK_MS);
   peer.ondrop = (/** @type {string} */ why) => on.drop?.(why);
   peer.onresume = () => on.resume?.();
   peer.ongiveup = () => on.giveup?.();
@@ -179,6 +197,7 @@ export async function createLink(role, on) {
     close() {
       if (!open) return;
       open = false;
+      clearInterval(liveness);
       peer.close();
     },
   };
@@ -188,8 +207,40 @@ export async function createLink(role, on) {
 
 /** Draw a QR code for text into an element; false if it does not fit. @param {HTMLElement} el @param {string} text */
 export async function drawQr(el, text) {
-  const Duel = await loadEngine();
-  return Duel.Qr.draw(el, text);
+  await loadEngine();
+  const make = /** @type {any} */ (window).qrcode;
+  let qr;
+  try {
+    // Lowest error correction: a screen is a clean source, and fewer, larger
+    // modules are what a phone camera at arm's length actually needs.
+    qr = make(0, 'L');
+    qr.addData(text, 'Byte');
+    qr.make();
+  } catch {
+    el.textContent = '';
+    return false;
+  }
+  el.innerHTML = qr.createSvgTag({ cellSize: QR_CELL_PX, margin: QR_CELL_PX * QR_QUIET_MODULES, scalable: true });
+  return true;
+}
+
+/** QR drawing: module size in the SVG's own units, and the blank border every reader expects (in modules). */
+const QR_CELL_PX = 4;
+const QR_QUIET_MODULES = 4;
+
+/** Width (px) a camera frame is scaled to before jsQR reads it: enough for a dense code, cheap enough per frame. */
+const SCAN_WIDTH_PX = 960;
+/** Errors from the browser's own QR reader before the scanner stops using it. */
+const NATIVE_FAILURES_ALLOWED = 3;
+
+/** Ask the camera to keep refocusing (a code on a screen is close); cameras that cannot simply ignore it. @param {MediaStream} stream */
+function keepInFocus(stream) {
+  for (const track of stream.getVideoTracks()) {
+    const modes = /** @type {any} */ (track.getCapabilities?.() ?? {}).focusMode;
+    if (Array.isArray(modes) && modes.includes('continuous')) {
+      track.applyConstraints(/** @type {any} */ ({ advanced: [{ focusMode: 'continuous' }] })).catch(() => {});
+    }
+  }
 }
 
 /**
@@ -212,6 +263,7 @@ export async function scanQr(video, found) {
   video.muted = true;
   video.srcObject = stream;
   await video.play().catch(() => {});
+  keepInFocus(stream);
 
   // The browser's own QR reader where there is one (Chrome on Android): faster and better in poor light.
   const W = /** @type {any} */ (window);
@@ -223,6 +275,7 @@ export async function scanQr(video, found) {
   const bx = /** @type {CanvasRenderingContext2D} */ (buf.getContext('2d', { willReadFrequently: true }));
   let alive = true;
   let frame = 0;
+  let nativeFailures = 0;
   const stop = () => {
     if (!alive) return;
     alive = false;
@@ -232,30 +285,41 @@ export async function scanQr(video, found) {
   };
   /** @param {string} raw */
   const hit = (raw) => { if (!alive || !raw) return; stop(); found(Duel.Qr.extract(raw)); };
+  /** The browser's reader; '' when it finds nothing or cannot run (then the frame is read by hand). */
+  const readNative = async () => {
+    try {
+      return String((await native.detect(video))[0]?.rawValue ?? '');
+    } catch {
+      // Present but not working (on Android it needs a system module that may be missing): stop asking.
+      if (++nativeFailures >= NATIVE_FAILURES_ALLOWED) native = null;
+      return '';
+    }
+  };
+  /** Read the current frame with jsQR. @param {number} vw */
+  const readPixels = (vw) => {
+    try {
+      const w = Math.min(SCAN_WIDTH_PX, vw);
+      const h = Math.round((video.videoHeight * w) / vw);
+      buf.width = w;
+      buf.height = h;
+      bx.drawImage(video, 0, 0, w, h);
+      const px = bx.getImageData(0, 0, w, h);
+      // Every few frames also look for light-on-dark codes (a screen in dark mode).
+      return String(W.jsQR(px.data, w, h, { inversionAttempts: frame++ % 4 === 3 ? 'attemptBoth' : 'dontInvert' })?.data ?? '');
+    } catch {
+      return ''; // a frame that could not be read
+    }
+  };
   const tick = async () => {
     if (!alive) return;
     // A stream the system ended (another app took the camera) is reopened.
     if (stream.getVideoTracks().every((t) => t.readyState === 'ended')) {
-      try { stream = await withCamera(openCamera); video.srcObject = stream; await video.play().catch(() => {}); } catch { /* keep trying */ }
+      try { stream = await withCamera(openCamera); video.srcObject = stream; await video.play().catch(() => {}); keepInFocus(stream); } catch { /* keep trying */ }
     }
     const vw = video.videoWidth;
     if (vw && video.readyState >= 2) {
-      try {
-        if (native) {
-          const codes = await native.detect(video);
-          if (codes[0]?.rawValue) { hit(codes[0].rawValue); return; }
-        } else {
-          const w = Math.min(720, vw);
-          const h = Math.round((video.videoHeight * w) / vw);
-          buf.width = w;
-          buf.height = h;
-          bx.drawImage(video, 0, 0, w, h);
-          const px = bx.getImageData(0, 0, w, h);
-          // Every few frames also look for light-on-dark codes (a screen in dark mode).
-          const code = W.jsQR(px.data, w, h, { inversionAttempts: frame++ % 4 === 3 ? 'attemptBoth' : 'dontInvert' });
-          if (code?.data) { hit(code.data); return; }
-        }
-      } catch { /* a frame that could not be read */ }
+      const raw = (native ? await readNative() : '') || readPixels(vw);
+      if (raw) { hit(raw); return; }
     }
     if (alive) requestAnimationFrame(tick);
   };

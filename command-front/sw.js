@@ -1,7 +1,8 @@
 /* Command Front service worker: cache-first, versioned. Hand-maintained list —
    add every file the game loads; ?debug warns at startup about any that are missing.
-   Bump CACHE whenever a listed file changes. */
-const CACHE = 'command-front-v54';
+   Bump CACHE whenever a listed file changes, and BUILD in src/data/build.js with it
+   (two phones compare BUILD before a match; tests/build.test.mjs checks the pair). */
+const CACHE = 'command-front-v55';
 
 const PRECACHE = [
   './',
@@ -533,6 +534,7 @@ const PRECACHE = [
   './src/core/events.js',
   './src/core/fixed.js',
   './src/core/loop.js',
+  './src/data/build.js',
   './src/data/codex.js',
   './src/data/countries.js',
   './src/data/credits.js',
@@ -554,6 +556,7 @@ const PRECACHE = [
   './src/game/matchSetup.js',
   './src/game/session.js',
   './src/game/twoPhones.js',
+  './src/game/update.js',
   './src/input/cameraInput.js',
   './src/input/context.js',
   './src/input/cursors.js',

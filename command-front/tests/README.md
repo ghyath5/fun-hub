@@ -43,6 +43,13 @@ node --test 'tests/*.test.mjs'        # about 30 s
   without an attack ever stalling with the army idle at home.
 
 ## Tuning the computer player
+* `placement.test.mjs` — a READY structure placed where friendly units stand
+  waits for them and is built once; cancelling it meanwhile refunds it and
+  builds nothing.
+* `lockstep.test.mjs` — two phones in lockstep: a speed change lands on the
+  same tick on both, no stall, no order lost or doubled around it.
+* `build.test.mjs` — the build number two phones compare equals the service
+  worker's cache version.
 
 `tools/ai-bench/` plays headless AI-against-AI matches to measure the skill
 levels (see `AI_SKILL` in `src/data/rules.js`):

@@ -68,7 +68,7 @@ const mapLabel = (name) => name.replace(/^[A-Za-z][A-Za-z ]*?(?= \d|$)/, (w) => 
  * @property {() => void} pause
  * @property {() => void} resume
  * @property {() => void} cash   the cash button
- * @property {(speed: string) => void} [speed]  change the game speed (single player)
+ * @property {(speed: string) => void} [speed]  change the game speed (on two phones: for both)
  * @property {(at: {x: number, y: number}) => void} jump
  * @property {() => void} fullscreen
  * @property {Parameters<typeof CommandBar>[0]['act']} cmd
@@ -204,8 +204,8 @@ function Hud({ store, actions }) {
           <h2>${t('Paused')}</h2>
           <p class="muted">${s.online ? t('The other phone waits until you resume.') : mapLabel(s.mapName)}</p>
           <button class="btn primary" onClick=${actions.resume}>${t('Resume')}</button>
-          ${s.online || !actions.speed ? null : html`<div class="speed-pick" role="group" aria-label=${t('Game speed')}>
-            <span class="muted">${t('Game speed')}</span>
+          ${!actions.speed ? null : html`<div class="speed-pick" role="group" aria-label=${t('Game speed')}>
+            <span class="muted">${s.online ? t('Game speed (both phones)') : t('Game speed')}</span>
             <div class="speed-row">${Object.entries(GAME_SPEEDS).map(([id, g]) => html`<button key=${id}
               class=${`btn speed ${s.speed === id ? 'on' : ''}`} aria-pressed=${s.speed === id} onClick=${() => actions.speed?.(id)}>${t(g.name)}</button>`)}</div>
           </div>`}

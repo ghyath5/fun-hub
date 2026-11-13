@@ -145,7 +145,8 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
     hint: /** @type {string | null} */ (hint),
     ended: false,
     online: !!net,
-    link: /** @type {import('../net/netMatch.js').LinkCard} */ (null),
+    // The card as it stands now: the link may have dropped while this match was loading.
+    link: /** @type {import('../net/netMatch.js').LinkCard} */ (net?.card() ?? null),
     linkDismissed: false,
   });
   const toaster = createToaster((toasts) => store.set({ toasts }));
@@ -395,17 +396,20 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
     hooks.autosave?.();
   };
 
+  /** The match runs at a new speed from here on. @param {string} s */
+  const applySpeed = (s) => {
+    if (!Object.hasOwn(GAME_SPEEDS, s)) return;
+    speed = /** @type {keyof typeof GAME_SPEEDS} */ (s);
+    store.set({ speed });
+    hooks.speedChanged?.(speed);
+  };
+
   const hud = mountHud(hudEl, store, {
     pause: () => pauseMatch(),
     cash: pressCash,
     resume: () => { userPaused = false; store.set({ paused: false, confirmSurrender: false }); net?.hold(false); loop.resetClock(); },
-    // Two phones share one speed, set before the match.
-    speed: net ? undefined : (/** @type {string} */ s) => {
-      if (!(s in GAME_SPEEDS)) return;
-      speed = /** @type {keyof typeof GAME_SPEEDS} */ (s);
-      store.set({ speed });
-      hooks.speedChanged?.(speed);
-    },
+    // Two phones share one speed: the request goes through the lockstep and comes back for both (see below).
+    speed: net ? (/** @type {string} */ s) => net.setSpeed(s) : applySpeed,
     save: () => hooks.save?.(),
     load: () => hooks.load?.(),
     exit: () => hooks.exit?.(),
@@ -499,7 +503,10 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
   };
 
   const offEnd = [
-    ...(net ? [net.onCard((link) => store.set({ link }))] : []),
+    ...(net ? [
+      net.onCard((link) => store.set({ link })),
+      net.onSpeed((s) => { applySpeed(s); toaster.show(t('Game speed: {speed}', { speed: t(GAME_SPEEDS[speed].name) })); }),
+    ] : []),
     world.events.on('playerEliminated', (e) => {
       if (e.data.player === human && !world.result) { store.set({ defeated: true, paused: false }); voices.announce('defeat'); }
     }),
