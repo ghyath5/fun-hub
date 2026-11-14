@@ -309,10 +309,13 @@ function repairStep(w, s) {
 /** Placements waiting for friendly units to clear; enemies entering make them fail. @param {World} w */
 function pendingPlacements(w) {
   w.pendingPlacements = w.pendingPlacements.filter((pp) => {
-    const check = checkPlacement(w, pp.owner, pp.type, pp.cx, pp.cy);
     const line = lineFor(w.players[pp.owner], lineOf(pp.type));
+    // The READY item is what gets placed: once it is cancelled (and refunded)
+    // or placed by an earlier wait, there is nothing left to put down.
+    if (line.ready !== pp.type) return false;
+    const check = checkPlacement(w, pp.owner, pp.type, pp.cx, pp.cy);
     if (check.ok && !check.amber) {
-      if (line.ready === pp.type) line.ready = null;
+      line.ready = null;
       placeStructure(w, pp.type, pp.owner, pp.cx, pp.cy);
       return false;
     }

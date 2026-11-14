@@ -24,6 +24,8 @@ import { enqueue, hashWorld } from '../sim/world.js';
  * @property {(world: any) => boolean} ready       May the next tick be stepped?
  * @property {(world: any) => void} step           Inject this tick's commands, step, send our bundle
  * @property {(world: any) => number} rate         Speed multiplier (catch up when trailing)
+ * @property {(speed: string) => void} setSpeed     Ask for a new game speed; both phones switch on the same tick
+ * @property {(fn: (speed: string) => void) => () => void} onSpeed  The shared speed changed (either phone asked)
  * @property {() => boolean} held                  The other phone holds a pause
  * @property {(on: boolean) => void} hold          We pause / resume
  * @property {() => void} leave                    Surrender and leave; the other phone plays on
@@ -38,22 +40,40 @@ import { enqueue, hashWorld } from '../sim/world.js';
 const WAIT_CARD_MS = 700;
 
 /**
+ * A speed change travels in the lockstep like any player command, so both
+ * phones apply it on the same tick; it is taken out before the sim sees it.
+ */
+const SPEED_COMMAND = 'speed';
+
+/**
  * @param {{
  *   room: import('./room.js').Room, me: number, them: number,
- *   ticksPerSecond: number, epoch: number, startTick: number,
+ *   speeds: Record<string, { ticksPerSecond: number }>, speed: string,
+ *   epoch: number, startTick: number,
  *   step: (world: any) => void,
  *   onDesync: (tick: number) => void,
  *   onResyncAsked: () => void,
  * }} o
+ *   speeds: the game speeds by id; speed: the one the match starts at
  * @returns {NetPlay}
  */
-export function createNetMatch({ room, me, them, ticksPerSecond, epoch, startTick, step, onDesync, onResyncAsked }) {
+export function createNetMatch({ room, me, them, speeds, speed, epoch, startTick, step, onDesync, onResyncAsked }) {
+  const delayAt = (/** @type {string} */ id) => delayTicksFor(speeds[id].ticksPerSecond);
   const ls = createLockstep({
     me, them, epoch, startTick,
-    delay: delayTicksFor(ticksPerSecond),
+    delay: delayAt(speed),
     send: (msg) => room.send(msg),
     onDesync: (t) => onDesync(t),
   });
+  /** @type {Set<(speed: string) => void>} */
+  const speedWatchers = new Set();
+  /** The agreed tick for a speed change has come. @param {unknown} id */
+  const applySpeed = (id) => {
+    if (typeof id !== 'string' || !Object.hasOwn(speeds, id) || id === speed) return;
+    speed = id;
+    ls.setDelay(delayAt(id));
+    for (const w of [...speedWatchers]) w(id);
+  };
   let theirHold = false;
   let myHold = false;
   let stalledSince = 0;
@@ -100,11 +120,17 @@ export function createNetMatch({ room, me, them, ticksPerSecond, epoch, startTic
     },
     step(world) {
       const t = world.tick;
-      for (const c of ls.commandsFor(t)) enqueue(world, c);
+      for (const c of ls.commandsFor(t)) {
+        if (c.type === SPEED_COMMAND) applySpeed(c.target?.speed); else enqueue(world, c);
+      }
       step(world);
       ls.stepped(t, () => hashWorld(world));
     },
     rate: (world) => (ls.lead(world.tick) > LOCKSTEP.catchUpLead ? 1.25 : 1),
+    setSpeed(id) {
+      if (Object.hasOwn(speeds, id) && id !== speed) ls.submit({ type: SPEED_COMMAND, target: { speed: id } });
+    },
+    onSpeed(fn) { speedWatchers.add(fn); return () => speedWatchers.delete(fn); },
     held: () => theirHold,
     hold(on) {
       myHold = on;
@@ -126,6 +152,7 @@ export function createNetMatch({ room, me, them, ticksPerSecond, epoch, startTic
       clearInterval(waitTimer);
       offState(); offResume();
       watchers.clear();
+      speedWatchers.clear();
       room.listen(null);
     },
   };

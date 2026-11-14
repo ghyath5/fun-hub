@@ -10,8 +10,9 @@
  * phones, so "both phones against the AI" costs nothing extra on the wire.
  *
  * Lobby messages (reliable channel):
- *   guest → host  { k: 'me', faction, color, country }
- *   host → guest  { k: 'form', form }        after every change
+ *   guest → host  { k: 'me', faction, color, country, build }
+ *   host → guest  { k: 'form', form, build } after every change
+ * (`build` is this phone's BUILD: phones on different builds do not start.)
  *   host → guest  { k: 'start', form, seed, epoch }
  *   host → guest  { k: 'lobby' }             back to the lobby for a rematch
  *   either        { k: 'bye' }               leaving (sent by room.close)
@@ -33,7 +34,9 @@ import { skillOf, skillName } from '../ai/skill.js';
 import { t } from '../lib/i18n.js';
 import { track } from '../lib/progress.js';
 import { showScreen, SetupScreen, EndScreen } from '../ui/screens.js';
-import { TwoPhoneMenu, HostPair, JoinPair, DiagPanel, GuestLobby } from '../ui/pairScreens.js';
+import { TwoPhoneMenu, HostPair, JoinPair, DiagPanel, GuestLobby, BuildMismatch } from '../ui/pairScreens.js';
+import { BUILD, compareBuild } from '../data/build.js';
+import { updateGame } from './update.js';
 
 /** @typedef {import('./matchSetup.js').SetupForm} SetupForm */
 /** @typedef {{ faction: 'coalition' | 'union', color: string, country?: string }} PhoneChoice */
@@ -109,10 +112,28 @@ export function createTwoPhones(app) {
     redraw();
   }
 
+  /**
+   * Lobby gate: true when the other phone runs this build. Otherwise the
+   * pairing ends here and the screen says which phone has to update.
+   * @param {unknown} theirBuild
+   */
+  function sameBuild(theirBuild) {
+    const verdict = compareBuild(theirBuild);
+    if (verdict === 'same') return true;
+    diagnostics.log(`build mismatch: this phone ${BUILD}, the other ${theirBuild ?? 'unknown'}`);
+    // Let the other phone read our build (already sent) before the room closes.
+    const r = room;
+    setTimeout(() => { if (room === r) closeRoom(); }, 300);
+    phase = 'menu';
+    redraw = () => show(html`<${BuildMismatch} mineOlder=${verdict === 'mineOlder'} act=${{ update: updateGame, leave: open }} />`);
+    redraw();
+    return false;
+  }
+
   /** Watch the room for the other phone leaving or the link dying outside a match. @param {import('../net/room.js').Room} r */
   function watchRoom(r) {
     roomOffs.push(r.onState((s) => {
-      if (phase === 'match') return; // the match shows its own cards
+      if (phase === 'match' || phase === 'menu') return; // the match shows its own cards; a notice is already up
       if (s === 'gone') notice('Lost the other phone', 'The link did not come back. Both phones need the same WiFi.');
       else if (s === 'open' || s === 'down') redraw();
     }));
@@ -169,8 +190,11 @@ export function createTwoPhones(app) {
     let reply = /** @type {string | null} */ (null);
     let status = code ? 'Reading the invite…' : '';
     let camera = !!navigator.mediaDevices?.getUserMedia;
+    /** An invite read before the link was ready to answer it (the camera can beat the engine loading). */
+    let early = code;
     const consume = async (/** @type {string} */ c) => {
-      if (!room || stage === 'reply') return;
+      if (stage === 'reply') return;
+      if (!room) { early = c; status = 'Reading the invite…'; redraw(); return; }
       stage = 'reply'; status = 'Making the reply code…'; redraw();
       try {
         reply = await track(room.answer(c));
@@ -204,7 +228,7 @@ export function createTwoPhones(app) {
         if (s === 'open' && phase === 'pairing') guestLobby();
         else if (s === 'failed' && phase === 'pairing') { status = 'Could not reach the host — open Diagnostics.'; redraw(); }
       }));
-      if (code) await consume(code);
+      if (early) await consume(early);
     } catch (e) {
       notice('Two phones cannot start here', String(/** @type {any} */ (e)?.message ?? e));
     }
@@ -226,9 +250,11 @@ export function createTwoPhones(app) {
     form = form ?? hostStartForm();
     let error = '';
     const r = room;
-    const publish = () => { if (form) { r.send({ k: 'form', form }); app.prefs.set({ form }); } };
+    const publish = () => { if (form) { r.send({ k: 'form', form, build: BUILD }); app.prefs.set({ form }); } };
     r.listen((msg) => {
+      if (phase !== 'lobby') return;
       if (msg?.k === 'me' && form) {
+        if (!sameBuild(msg.build)) return;
         const [remote, ...rest] = form.opponents;
         form = normaliseForm({ ...form, opponents: [{ ...remote, faction: msg.faction, color: msg.color, country: typeof msg.country === 'string' ? msg.country : '', remote: true }, ...rest] }, maxPlayersOf(form, maps));
         publish();
@@ -259,10 +285,11 @@ export function createTwoPhones(app) {
     if (!room) return;
     phase = 'lobby';
     const r = room;
-    const sendMe = () => { r.send({ k: 'me', ...me }); app.prefs.set({ me }); };
+    const sendMe = () => { r.send({ k: 'me', ...me, build: BUILD }); app.prefs.set({ me }); };
     r.listen((msg) => {
+      if (phase !== 'lobby') return;
       switch (msg?.k) {
-        case 'form': hostForm = msg.form; redraw(); break;
+        case 'form': if (sameBuild(msg.build)) { hostForm = msg.form; redraw(); } break;
         case 'start': epoch = msg.epoch ?? 0; launch(msg.form, msg.seed, null); break;
         case 'bye': notice('The host left', 'Join again when the host is ready.'); break;
         default: break;
@@ -295,7 +322,7 @@ export function createTwoPhones(app) {
     const f = current.form;
     net = createNetMatch({
       room: r, me: myId(), them: 1 - myId(), epoch, startTick: world.tick,
-      ticksPerSecond: GAME_SPEEDS[f.speed].ticksPerSecond,
+      speeds: GAME_SPEEDS, speed: f.speed,
       step,
       onDesync: (t) => {
         console.warn(`[two phones] desync at tick ${t}`);
@@ -308,6 +335,8 @@ export function createTwoPhones(app) {
       exit: leave,
       retry: () => r.retry(),
       ended: (/** @type {any} */ result) => ended(result),
+      // Kept with the match, so a resync restarts at the speed being played.
+      speedChanged: (/** @type {SetupForm['speed']} */ speed) => { if (current) current = { ...current, form: { ...current.form, speed } }; },
     });
   }
 
@@ -316,7 +345,7 @@ export function createTwoPhones(app) {
     const s = app.session();
     if (!room || !s || room.role !== 'host') return;
     epoch++;
-    const bytes = pack({ snapshot: snapshot(s.world), epoch });
+    const bytes = pack({ snapshot: snapshot(s.world), epoch, speed: current?.form.speed });
     room.sendBlob('sync', bytes);
     fromSync(bytes);
   }
@@ -325,6 +354,7 @@ export function createTwoPhones(app) {
   async function fromSync(bytes) {
     const data = unpack(bytes);
     epoch = data.epoch;
+    if (current && Object.hasOwn(GAME_SPEEDS, data.speed)) current = { ...current, form: { ...current.form, speed: data.speed } };
     app.stop();
     await play(restore(data.snapshot));
   }

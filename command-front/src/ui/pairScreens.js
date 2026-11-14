@@ -166,6 +166,24 @@ export function JoinPair({ phase, reply, status, camera, act }) {
 }
 
 /**
+ * The two phones run different builds of the game, so they cannot play
+ * together. The phone that is behind gets the Update button.
+ * @param {{ mineOlder: boolean, act: { update: () => void, leave: () => void } }} p
+ */
+export function BuildMismatch({ mineOlder, act }) {
+  const [updating, setUpdating] = useState(false);
+  return html`<div class="screen menu pair"><div class="notice-card panel" role="alert">
+    <h1>${t('Different game versions')}</h1>
+    <p class="muted">${mineOlder
+      ? t('This phone has an older version of the game. Update it, then pair the two phones again.')
+      : t('The other phone has an older version of the game. On that phone tap Update (or close the game, wait a minute and open it again), then pair again.')}</p>
+    ${mineOlder ? html`<button class="btn primary" disabled=${updating} onClick=${() => { setUpdating(true); act.update(); }}>
+      ${updating ? html`<span class="spin"></span> ${t('Updating…')}` : t('Update')}</button>` : null}
+    <button class=${`btn ${mineOlder ? '' : 'primary'}`} disabled=${updating} onClick=${act.leave}>${t('OK')}</button>
+  </div></div>`;
+}
+
+/**
  * The pairing engine's connection log — the first thing to read when two
  * phones will not link.
  * @param {{ text: string, stun: boolean, act: { close: () => void, copy: () => void, stun: () => void, refresh: () => void } }} p

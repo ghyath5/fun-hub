@@ -91,6 +91,15 @@ export function createLockstep({ me, them, delay, startTick = 0, epoch = 0, send
     /** Their input stream has ended (left or abandoned). */
     get theyLeft() { return theirEnd !== null; },
 
+    /**
+     * Change the input delay (the match speed changed). Both phones must call
+     * this while applying the same tick, before `stepped` for it.
+     * @param {number} ticks
+     */
+    setDelay(ticks) {
+      delay = Math.max(1, Math.floor(ticks));
+    },
+
     /** Queue a local command; it rides in the next bundle. @param {WireCommand} cmd */
     submit(cmd) {
       if (finished) return;
@@ -130,8 +139,11 @@ export function createLockstep({ me, them, delay, startTick = 0, epoch = 0, send
      * hash tick, our world hash. @param {number} t @param {() => string | number} hash
      */
     stepped(t, hash) {
-      if (!finished) {
-        const due = t + delay;
+      // Normally one bundle. After the delay grew there are several ticks to
+      // cover (commands ride in the first, the rest are empty); after it
+      // shrank there are none until the stream catches up, and commands wait.
+      while (!finished && lastSent < t + delay) {
+        const due = lastSent + 1;
         const c = pending;
         pending = [];
         mine.set(due, c);
