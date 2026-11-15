@@ -374,6 +374,8 @@ export const AI_STYLES = Object.freeze({
 export const AI = Object.freeze({
   shared: {
     armyMax: 80,              // most combat units it keeps (phone performance; the same at every level)
+    armyBudget: 240,          // … shared out between computer players when there are many (8 computers: 30 each)
+    armyMin: 30,
     fleetSize: 4,             // warships it keeps when water links its base to an enemy's
     repairMinCredits: 500,
     stagingDistance: 15,
@@ -402,7 +404,6 @@ export const SETUP_DEFAULTS = Object.freeze({
   map: 'generated',
   opponents: 1,
   skill: 5,
-  teams: 'ffa',
   startingCredits: 5000,
   startingCreditsOptions: [2500, 5000, 10000],
   startingUnits: 'mcv',

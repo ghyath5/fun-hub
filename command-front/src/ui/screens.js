@@ -10,8 +10,10 @@ import { CREDITS } from '../data/credits.js';
 import { CountryButton, Flag } from './countryPicker.js';
 import { COUNTRIES } from '../data/countries.js';
 import { CASH_BUTTON, GAME_SPEEDS, SETUP_DEFAULTS, SIM } from '../data/rules.js';
-import { COLORS, ORE_GROWTH_OPTIONS, maxPlayersOf } from '../game/matchSetup.js';
-import { GENERATOR } from '../map/generator.js';
+import { COLORS, ORE_GROWTH_OPTIONS, maxPlayersOf, playersOf } from '../game/matchSetup.js';
+import { GENERATOR, capacityOf } from '../map/generator.js';
+import { MAX_OPPONENTS, applyPreset, sidesProblem, teamForNewOpponent } from '../game/teams.js';
+import { SidesPanel, TeamPick } from './sides.js';
 import { LANGS, LANG_NAMES, t, int } from '../lib/i18n.js';
 import { READABILITY } from '../data/ui.js';
 import { SKILL_MIN, SKILL_MAX, skillName } from '../ai/skill.js';
@@ -99,21 +101,25 @@ export function CreditsScreen({ onBack }) {
   </div>`;
 }
 
-/** Team options for a form: 2 v 2 needs four players; on two phones, "both phones against the AI". @param {SetupForm} form @param {boolean} online */
-export function teamOptions(form, online) {
-  const ais = form.opponents.filter((o) => !o.remote).length;
-  const out = [{ value: 'ffa', label: t('Free-for-all') }];
-  if (online && ais >= 1 && form.opponents.length >= 2) out.push({ value: 'coop', label: t('Both phones vs the AI') });
-  else if (!online && form.opponents.length === 3) out.push({ value: '2v2', label: t('2 v 2 (you + first AI)') });
-  return out;
-}
-
 /** The cash-button rule's name, with what a press adds. */
 const cashLabel = () => t('Cash button (+{amount})', { amount: `$${int(CASH_BUTTON.amount)}` });
 
-/** @param {{ o: import('../game/matchSetup.js').OpponentForm }} p */
-const RemoteSlot = ({ o }) => html`<div class="opp remote">${colorDot(o.color)}<${Flag} id=${o.country} /><b>${t('Phone 2')}</b>
-  <span class="muted">${factionName(o.faction)} · ${cap(o.color)} · ${t('chosen on their phone')}</span></div>`;
+/**
+ * The second phone's seat: its player picks faction and colour; the host picks its team.
+ * @param {{ o: import('../game/matchSetup.js').OpponentForm, form: SetupForm, onTeam: (team: number) => void }} p
+ */
+const RemoteSlot = ({ o, form, onTeam }) => html`<div class="opp remote">${colorDot(o.color)}<${Flag} id=${o.country} /><b>${t('Phone 2')}</b>
+  <span class="muted">${factionName(o.faction)} · ${cap(o.color)} · ${t('chosen on their phone')}</span>
+  <${TeamPick} form=${form} value=${o.team ?? 1} label=${t('Phone 2 team')} onPick=${onTeam} /></div>`;
+
+/** A new AI opponent: the next free colour and country, a mid skill, and a team that keeps the sides even. @param {SetupForm} form */
+const newOpponent = (form) => ({
+  faction: /** @type {'coalition' | 'union'} */ (form.opponents.length % 2 ? 'coalition' : 'union'),
+  color: COLORS.find((c) => c !== form.color && !form.opponents.some((o) => o.color === c)) ?? COLORS[0],
+  country: COUNTRIES.find((c) => c.id !== form.country && !form.opponents.some((o) => o.country === c.id))?.id ?? '',
+  skill: SETUP_DEFAULTS.skill,
+  team: teamForNewOpponent(form),
+});
 
 /**
  * @param {{ form: SetupForm, maps: { id: string, name: string, maxPlayers: number }[], error: string,
@@ -124,12 +130,14 @@ export function SetupScreen({ form, maps, error, onChange, onStart, onBack, onli
   const set = (/** @type {Partial<SetupForm>} */ patch) => onChange({ ...form, ...patch });
   const generated = form.map === 'generated';
   const maxPlayers = maxPlayersOf(form, maps);
+  const room = Math.min(MAX_OPPONENTS, maxPlayers - 1);
+  const problem = sidesProblem(form);
   const opp = (/** @type {number} */ k, /** @type {any} */ patch) => set({ opponents: form.opponents.map((o, i) => (i === k ? { ...o, ...patch } : o)) });
   return html`<div class="screen setup">
     <header class="screen-head">
       <button class="btn" onClick=${onBack}>${online ? t('‹ Leave') : t('‹ Back')}</button>
       <h2>${online ? t('Two phones') : t('Skirmish')}</h2>
-      <button class="btn primary" onClick=${onStart}>${t('Start')}</button>
+      <button class="btn primary" disabled=${!!problem} onClick=${() => { if (!problem) onStart(); }}>${t('Start')}</button>
     </header>
     ${error ? html`<p class="setup-error" role="alert">${t(error)}</p>` : null}
     <div class="setup-body">
@@ -141,9 +149,7 @@ export function SetupScreen({ form, maps, error, onChange, onStart, onBack, onli
           <${Row} label=${t('Seed')}><input type="number" inputmode="numeric" value=${form.genSeed} min="1"
             onChange=${(/** @type {any} */ e) => set({ genSeed: Math.max(1, e.target.value | 0) })} /></${Row}>
           <${Row} label=${t('Size')}><${Select} label=${t('Size')} value=${form.genSize} onChange=${(v) => set({ genSize: v })}
-            options=${GENERATOR.sizes.map((s) => ({ value: s.size, label: `${t(s.name)} ${s.size} × ${s.size}` }))} /></${Row}>
-          <${Row} label=${t('Bases')}><${Select} label=${t('Bases')} value=${maxPlayers} onChange=${(v) => set({ genPlayers: v })}
-            options=${[{ value: 2, label: t('2 players') }, ...(form.genSize >= GENERATOR.minSizeFor4 ? [{ value: 4, label: t('4 players') }] : [])]} /></${Row}>` : null}
+            options=${GENERATOR.sizes.filter((s) => capacityOf(s.size) >= playersOf(form)).map((s) => ({ value: s.size, label: `${t(s.name)} ${s.size} × ${s.size}` }))} /></${Row}>` : null}
         <${Row} label=${t('Start positions')}><${Select} label=${t('Start positions')} value=${form.startPositions} onChange=${(v) => set({ startPositions: v })}
           options=${[{ value: 'random', label: t('Random') }, { value: 'fixed', label: t('Fixed') }]} /></${Row}>
         <h3>${t('You')}</h3>
@@ -152,20 +158,21 @@ export function SetupScreen({ form, maps, error, onChange, onStart, onBack, onli
         <${Row} label=${t('Colour')}>${colorDot(form.color)}<${Select} label=${t('Your colour')} value=${form.color} onChange=${(v) => set({ color: v })}
           options=${COLORS.map((c) => ({ value: c, label: cap(c) }))} /></${Row}>
         <div class="row"><span class="row-label">${t('Country')}</span><span class="row-ctl"><${CountryButton} label=${t('Your country')} value=${form.country} onPick=${(v) => set({ country: v })} /></span></div>
-        <h3>${t('Opponents')}</h3>
-        ${form.opponents.map((o, k) => o.remote ? html`<${RemoteSlot} key=${k} o=${o} />` : html`<div class="opp" key=${k}>
+        <${Row} label=${t('Team')}><${TeamPick} form=${form} value=${form.team ?? 0} label=${t('Your team')} onPick=${(v) => set({ team: v })} /></${Row}>
+        <h3>${t('Opponents ({n} of {max})', { n: form.opponents.length, max: room })}</h3>
+        ${form.opponents.map((o, k) => o.remote ? html`<${RemoteSlot} key=${k} o=${o} form=${form} onTeam=${(v) => opp(k, { team: v })} />` : html`<div class="opp" key=${k}>
           ${colorDot(o.color)}
           <${CountryButton} compact label=${t('Opponent {n} country', { n: k + 1 })} value=${o.country} onPick=${(v) => opp(k, { country: v })} />
           <${Select} label=${t('Opponent {n} faction', { n: k + 1 })} value=${o.faction} onChange=${(v) => opp(k, { faction: v })} options=${FACTION_IDS.map((f) => ({ value: f, label: factionName(f) }))} />
           <${Select} label=${t('Opponent {n} colour', { n: k + 1 })} value=${o.color} onChange=${(v) => opp(k, { color: v })} options=${COLORS.map((c) => ({ value: c, label: cap(c) }))} />
+          <${TeamPick} form=${form} value=${o.team ?? k + 1} label=${t('Opponent {n} team', { n: k + 1 })} onPick=${(v) => opp(k, { team: v })} />
           ${form.opponents.filter((x) => !x.remote).length > (online ? 0 : 1) ? html`<button class="cmd" aria-label=${t('Remove opponent')} onClick=${() => set({ opponents: form.opponents.filter((_, i) => i !== k) })}>✕</button>` : null}
           <${SkillSlider} label=${t('Opponent {n} skill', { n: k + 1 })} value=${o.skill} onChange=${(v) => opp(k, { skill: v })} />
         </div>`)}
-        ${form.opponents.length + 1 < maxPlayers ? html`<button class="btn" onClick=${() => set({ opponents: [...form.opponents, {
-          faction: form.opponents.length % 2 ? 'coalition' : 'union', color: COLORS.find((c) => c !== form.color && !form.opponents.some((o) => o.color === c)) ?? 'green',
-          country: COUNTRIES.find((c) => c.id !== form.country && !form.opponents.some((o) => o.country === c.id))?.id ?? '', skill: SETUP_DEFAULTS.skill }] })}>${t('+ Add AI opponent')}</button>` : null}
-        ${teamOptions(form, online).length > 1 ? html`<${Row} label=${t('Teams')}><${Select} label=${t('Teams')} value=${form.teams} onChange=${(v) => set({ teams: v })}
-          options=${teamOptions(form, online)} /></${Row}>` : null}
+        ${form.opponents.length < room ? html`<button class="btn" onClick=${() => set({ opponents: [...form.opponents, newOpponent(form)] })}>${t('+ Add AI opponent')}</button>`
+          : room < MAX_OPPONENTS ? html`<p class="muted hint">${t('This map has room for {n} players. Choose Generated for up to {max}.', { n: maxPlayers, max: MAX_OPPONENTS + 1 })}</p>` : null}
+        <h3>${t('Sides')}</h3>
+        <${SidesPanel} form=${form} onChange=${(id) => onChange(applyPreset(form, id))} />
       </section>
       <section class="setup-col">
         <h3>${t('Rules')}</h3>

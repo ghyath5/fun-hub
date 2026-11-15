@@ -20,7 +20,7 @@ import { ticks } from '../core/fixed.js';
 import { spiral } from '../sim/nav.js';
 import { SCOUTS } from './buildOrders.js';
 import { baseCentre } from './placement.js';
-import { issue, isPlane, isVehicle, fleetOf, liveUnits, cellOf, dist2, centroid, fightValueOf, towards, ownStructures } from './common.js';
+import { issue, isPlane, isVehicle, fleetOf, liveUnits, cellOf, dist2, centroid, fightValueOf, towards, ownStructures, armyCap } from './common.js';
 import { forceAround, foeArmy, openingNow } from './intel.js';
 import { chooseTarget, chooseApproach, chooseRaidTarget, enemyStarts } from './tactics.js';
 import { chance, jitter } from './dice.js';
@@ -192,7 +192,7 @@ function endWave(w, ai, cfg, outcome, sendHome) {
 function considerAttack(w, ai, cfg, style, army) {
   if (w.tick < ai.nextWaveAt) return;
   const free = freeUnits(ai, army);
-  const atCap = army.length >= AI.shared.armyMax - 2;
+  const atCap = army.length >= armyCap(w) - 2;
   const minWave = Math.max(3, Math.round(cfg.minWave * style.waveSize));
   if (!free.length || (free.length < minWave && !atCap)) return;
   const from = cellOf(free[0]);

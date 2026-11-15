@@ -382,6 +382,17 @@ html.too-small .card.too-small { display: grid; }
 .opp .skill { flex: 1 1 100%; display: flex; flex-direction: column; gap: 2px; padding-inline-start: 18px; }
 .opp .skill-head { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; }
 .opp .skill input[type=range] { width: 100%; min-height: 28px; margin: 0; accent-color: var(--accent); }
+.opp .team-pick, .row .team-pick { min-width: 84px !important; }
+.hint { font-size: 12px; margin: 6px 0; }
+.sides .presets { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
+.sides .presets .chip { height: 30px; padding: 0 10px; font: 13px var(--mono); }
+.sides .presets .chip.on { border-color: var(--accent); color: var(--accent); }
+.side-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.side-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 13px; }
+.side-list .vs { flex: 1 1 100%; font-size: 11px; color: var(--muted, #8a8a7a); text-transform: uppercase; letter-spacing: 0.08em; }
+.side-list .side-letter { min-width: 18px; color: var(--accent); }
+.side-list .side-seat { display: inline-flex; align-items: center; gap: 4px; }
+.side-list .side-skill { margin-inline-start: auto; font-size: 11px; }
 .slot-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; max-width: 560px; }
 .slot { display: flex; align-items: center; gap: 10px; padding: 8px 10px; }
 .slot-text { flex: 1; display: flex; flex-direction: column; gap: 2px; }

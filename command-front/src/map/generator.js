@@ -1,10 +1,12 @@
 // @ts-check
 /**
  * Seeded map generator (section 17). The same seed and settings always give
- * the same map. One sector is authored — half the map for 2 players (180°
- * rotation), a quarter for 4 (mirrored on both axes) — by working only in
+ * the same map. For 2 and 4 players one sector is authored — half the map
+ * (180° rotation) or a quarter (mirrored on both axes) — by working only in
  * "canonical" cells and copying every other cell from its canonical twin, so
- * the result is symmetric by construction.
+ * the result is symmetric by construction. For 3 and 5–9 players no mirror
+ * fits, so the bases stand evenly round a ring about the centre, each with
+ * the same home ore field toward the centre, and the rest is authored freely.
  *
  * Feature counts scale with the map's area, so a big map is a bigger
  * battlefield rather than the same few features stretched out.
@@ -30,16 +32,18 @@ import { ECONOMY } from '../data/rules.js';
 /** @typedef {import('../types.js').MapData} MapData */
 
 export const GENERATOR = Object.freeze({
-  /** Square sizes on offer, with their names in the setup screen. */
+  /** Square sizes on offer, with their names in the setup screen and the most bases each has room for. */
   sizes: Object.freeze([
-    { size: 48, name: 'Small' },
-    { size: 64, name: 'Medium' },
-    { size: 96, name: 'Large' },
-    { size: 128, name: 'Huge' },
-    { size: 160, name: 'Giant' },
-    { size: 200, name: 'Vast' },
-    { size: 256, name: 'Colossal' },
+    { size: 48, name: 'Small', players: 2 },
+    { size: 64, name: 'Medium', players: 4 },
+    { size: 96, name: 'Large', players: 6 },
+    { size: 128, name: 'Huge', players: 9 },
+    { size: 160, name: 'Giant', players: 9 },
+    { size: 200, name: 'Vast', players: 9 },
+    { size: 256, name: 'Colossal', players: 9 },
   ]),
+  /** Most players a generated map holds. */
+  maxPlayers: 9,
   /** Smallest size with room for four bases. */
   minSizeFor4: 64,
   maxTries: 20,
@@ -68,16 +72,50 @@ const MINE_CODES = Object.freeze({ M: 'oreMine', G: 'gemMine' });
  * @typedef {object} GenOptions
  * @property {number} seed
  * @property {number} size     one of GENERATOR.sizes
- * @property {2 | 4} players
+ * @property {number} players  2–9 (as many as the size has room for)
  */
 
-/** Player count a generated map supports at a size. @param {number} size @param {number} [wanted] */
+/** Most bases a generated map of a size has room for. @param {number} size */
+export const capacityOf = (size) => GENERATOR.sizes.find((s) => s.size === size)?.players
+  ?? (size >= 128 ? GENERATOR.maxPlayers : size >= 96 ? 6 : size >= 64 ? 4 : 2);
+
+/** Player count a generated map supports at a size: as many as wanted, up to the size's room. @param {number} size @param {number} [wanted] */
 export function playersForSize(size, wanted = 2) {
-  return wanted === 4 && size >= GENERATOR.minSizeFor4 ? 4 : 2;
+  return Math.max(2, Math.min(Math.round(wanted) || 2, capacityOf(size)));
 }
 
-/** Canonical twin of a cell under the map's symmetry. @param {number} N @param {2 | 4} players */
+/** Smallest offered size with room for this many players. @param {number} players */
+export const smallestSizeFor = (players) => (GENERATOR.sizes.find((s) => s.players >= players) ?? GENERATOR.sizes[GENERATOR.sizes.length - 1]).size;
+
+/** Is the map mirrored (2 or 4 players) rather than laid out round a ring? @param {number} players */
+const mirrored = (players) => players === 2 || players === 4;
+
+/**
+ * cos and sin of a fraction of a full turn, from plain arithmetic (Taylor
+ * series on a quarter turn) so every phone works out the same start cells.
+ * @param {number} turn @returns {[number, number]}
+ */
+function turnPoint(turn) {
+  const f = turn - Math.floor(turn);
+  const quarter = Math.floor(f * 4);
+  const a = (f * 4 - quarter) * (Math.PI / 2);
+  const a2 = a * a;
+  let sin = a;
+  let cos = 1;
+  let ts = a;
+  let tc = 1;
+  for (let k = 1; k <= 7; k++) {
+    ts *= -a2 / ((2 * k) * (2 * k + 1));
+    tc *= -a2 / ((2 * k - 1) * (2 * k));
+    sin += ts;
+    cos += tc;
+  }
+  return /** @type {[number, number]} */ ([[cos, sin], [-sin, cos], [-cos, -sin], [sin, -cos]][quarter]);
+}
+
+/** Canonical twin of a cell under the map's symmetry (itself on a ring map). @param {number} N @param {number} players */
 function canonOf(N, players) {
+  if (!mirrored(players)) return (/** @type {number} */ x, /** @type {number} */ y) => [x, y];
   if (players === 4) return (/** @type {number} */ x, /** @type {number} */ y) => [Math.min(x, N - 1 - x), Math.min(y, N - 1 - y)];
   return (/** @type {number} */ x, /** @type {number} */ y) => {
     const s = x + y;
@@ -86,8 +124,9 @@ function canonOf(N, players) {
   };
 }
 
-/** Every symmetric copy of a cell (including itself). @param {number} N @param {2 | 4} players */
+/** Every symmetric copy of a cell (including itself). @param {number} N @param {number} players */
 function imagesOf(N, players) {
+  if (!mirrored(players)) return (/** @type {number} */ x, /** @type {number} */ y) => [[x, y]];
   return (/** @type {number} */ x, /** @type {number} */ y) => (players === 4
     ? [[x, y], [N - 1 - x, y], [x, N - 1 - y], [N - 1 - x, N - 1 - y]]
     : [[x, y], [N - 1 - x, N - 1 - y]]);
@@ -96,14 +135,22 @@ function imagesOf(N, players) {
 /**
  * Start positions for a size and player count. With a sea the bases stand
  * further in, leaving room for a coast between the edge and the base square.
- * @param {number} N @param {2 | 4} players @param {boolean} [sea]
+ * 2 and 4 players take the corners; other counts stand evenly round a ring
+ * (turned a random part of one step, so maps differ).
+ * @param {number} N @param {number} players @param {boolean} sea @param {{ int: (n: number) => number }} rng
  */
-function startsFor(N, players, sea = false) {
+function startsFor(N, players, sea, rng) {
   const s = Math.max(sea ? VALIDATION.baseArea / 2 + GENERATOR.seaDepth[0] + 3 : 8, Math.round(N * 0.16));
   const far = N - 1 - s;
-  return players === 4
-    ? [{ x: s, y: s }, { x: far, y: s }, { x: s, y: far }, { x: far, y: far }]
-    : [{ x: s, y: s }, { x: far, y: far }];
+  if (players === 4) return [{ x: s, y: s }, { x: far, y: s }, { x: s, y: far }, { x: far, y: far }];
+  if (players === 2) return [{ x: s, y: s }, { x: far, y: far }];
+  const c = (N - 1) / 2;
+  const radius = c - s;
+  const turn = rng.int(1000) / 1000 / players;
+  return Array.from({ length: players }, (_, i) => {
+    const [cos, sin] = turnPoint(i / players + turn);
+    return { x: Math.round(c + radius * cos), y: Math.round(c + radius * sin) };
+  });
 }
 
 /**
@@ -112,7 +159,7 @@ function startsFor(N, players, sea = false) {
  */
 export function generateDoc(o) {
   const N = o.size;
-  const players = /** @type {2 | 4} */ (playersForSize(N, o.players));
+  const players = playersForSize(N, o.players);
   const rng = createRng(`map:${o.seed}:${N}:${players}`);
   const noise = createNoise(rng);
   const trees = createNoise(rng);
@@ -126,7 +173,7 @@ export function generateDoc(o) {
   /** Codes of canonical cells (full grid; only canonical cells are authored). */
   const g = Array.from({ length: N }, () => new Array(N).fill('.'));
   const hasSea = rng.float() < GENERATOR.seaChance;
-  const starts = startsFor(N, players, hasSea);
+  const starts = startsFor(N, players, hasSea, rng);
   const home = starts[0];
   const centre = (N - 1) / 2;
   const R = VALIDATION.baseArea / 2; // the base square reaches 6 cells from its start
@@ -249,6 +296,13 @@ export function generateDoc(o) {
   };
   const lakes = N >= 64 ? rng.int(3) : rng.int(2);
   for (let k = 0; k < lakes; k++) {
+    if (!mirrored(players)) {
+      // A ring map has no sector to place by: anywhere clear of the bases.
+      const lx = 4 + rng.int(N - 8);
+      const ly = 4 + rng.int(N - 8);
+      if (!inBase(lx, ly, 6)) lake(lx, ly, 2 + rng.int(N >= 64 ? 3 : 2));
+      continue;
+    }
     const lx = Math.round(home.x + (centre - home.x) * (0.45 + rng.int(30) / 100)) + rng.int(7) - 3;
     const ly = Math.round(home.y + (centre - home.y) * (0.2 + rng.int(60) / 100)) + rng.int(7) - 3;
     lake(lx, ly, 2 + rng.int(N >= 64 ? 3 : 2));
@@ -286,18 +340,29 @@ export function generateDoc(o) {
   };
 
   // Home field: just outside the base square, toward the centre on one axis.
-  const towardX = Math.sign(centre - home.x) || 1;
-  const towardY = Math.sign(centre - home.y) || 1;
-  const side = rng.int(2);
   const hr = GENERATOR.homeFieldRadius;
   const reach = R + hr;
-  if (side === 0) field(home.x + towardX * reach, home.y + rng.int(3) - 1, hr, 'o');
-  else field(home.x + rng.int(3) - 1, home.y + towardY * reach, hr, 'o');
-  // Gems near the centre: a pair across it (2 players) or a ring of four (4 players).
+  if (mirrored(players)) {
+    const towardX = Math.sign(centre - home.x) || 1;
+    const towardY = Math.sign(centre - home.y) || 1;
+    const side = rng.int(2);
+    if (side === 0) field(home.x + towardX * reach, home.y + rng.int(3) - 1, hr, 'o');
+    else field(home.x + rng.int(3) - 1, home.y + towardY * reach, hr, 'o');
+  } else {
+    // Every base on a ring gets the same field: on the axis that points most toward the centre.
+    for (const s of starts) {
+      const dx = centre - s.x;
+      const dy = centre - s.y;
+      if (Math.abs(dx) >= Math.abs(dy)) field(s.x + Math.sign(dx) * reach, s.y, hr, 'o');
+      else field(s.x, s.y + Math.sign(dy) * reach, hr, 'o');
+    }
+  }
+  // Gems near the centre: a pair across it (2 players), a ring of four (4 players) or one in the middle (a ring map).
   if (players === 4) field(Math.round(centre - 4), Math.round(centre - 4), GENERATOR.gemFieldRadius, '*');
-  else field(Math.round(centre - 3), Math.round(centre + 3), GENERATOR.gemFieldRadius, '*');
-  // Expansion fields spread over the sector, more on bigger maps.
-  const sectorCells = (N * N) / players;
+  else if (players === 2) field(Math.round(centre - 3), Math.round(centre + 3), GENERATOR.gemFieldRadius, '*');
+  else field(Math.round(centre), Math.round(centre), GENERATOR.gemFieldRadius, '*');
+  // Expansion fields spread over the sector (the whole map on a ring map), more on bigger maps.
+  const sectorCells = (N * N) / (mirrored(players) ? players : 1);
   const wanted = Math.max(1, Math.round(sectorCells / GENERATOR.cellsPerField));
   let placed = 0;
   for (let attempt = 0; attempt < wanted * 30 && placed < wanted; attempt++) {

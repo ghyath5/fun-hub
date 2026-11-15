@@ -9,7 +9,8 @@
  */
 import { html, useEffect, useRef, useState } from 'htm/preact';
 import { FACTIONS, PLAYER_COLORS } from '../data/factions.js';
-import { COLORS, maxPlayersOf } from '../game/matchSetup.js';
+import { COLORS, playersOf } from '../game/matchSetup.js';
+import { SidesPanel } from './sides.js';
 import { CountryButton, Flag } from './countryPicker.js';
 import { drawQr, scanQr, extractCode, CameraError, diagnostics } from '../net/link.js';
 import { t } from '../lib/i18n.js';
@@ -214,8 +215,7 @@ export function DiagPanel({ text, stun, act }) {
 export function GuestLobby({ form, maps, me, onMe, onLeave }) {
   const mine = form?.opponents.find((o) => o.remote);
   const color = mine?.color ?? me.color;
-  const mapName = !form ? '…' : form.map === 'generated' ? t('Generated ({size} × {size}, {n} players, seed {seed})', { size: form.genSize, n: maxPlayersOf(form, maps), seed: form.genSeed }) : t(maps.find((m) => m.id === form.map)?.name ?? form.map);
-  const teams = form?.teams === 'coop' ? t('Both phones vs the AI') : form?.teams === '2v2' ? '2 v 2' : t('Free-for-all');
+  const mapName = !form ? '…' : form.map === 'generated' ? t('Generated ({size} × {size}, {n} players, seed {seed})', { size: form.genSize, n: playersOf(form), seed: form.genSeed }) : t(maps.find((m) => m.id === form.map)?.name ?? form.map);
   return html`<div class="screen setup guest-lobby">
     <header class="screen-head"><button class="btn" onClick=${onLeave}>${t('‹ Leave')}</button><h2>${t('Two phones')}</h2><span class="muted">${t('Waiting for the host to start')}</span></header>
     <div class="setup-body">
@@ -238,7 +238,8 @@ export function GuestLobby({ form, maps, me, onMe, onLeave }) {
           <div class="row"><span class="row-label">${t('Map')}</span><span>${mapName}</span></div>
           <div class="row"><span class="row-label">${t('Host')}</span><span>${dot(form.color)} <${Flag} id=${form.country} /> ${t(FACTIONS[form.faction].name)}</span></div>
           ${form.opponents.filter((o) => !o.remote).map((o, i) => html`<div class="row" key=${i}><span class="row-label">${t('AI {n}', { n: i + 1 })}</span><span>${dot(o.color)} <${Flag} id=${o.country} /> ${t(FACTIONS[o.faction].name)} · ${t('Skill')} ${skillOf(o)} · ${t(skillName(skillOf(o)))}</span></div>`)}
-          <div class="row"><span class="row-label">${t('Teams')}</span><span>${teams}</span></div>
+          <h3>${t('Sides')}</h3>
+          <${SidesPanel} form=${form} viewer="guest" />
           <div class="row"><span class="row-label">${t('Credits · speed')}</span><span>$${form.startingCredits.toLocaleString('en-US')} · ${cap(form.speed)}</span></div>` : html`<p class="muted">${t('Waiting for the host…')}</p>`}
       </section>
     </div>
