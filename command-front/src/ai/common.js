@@ -4,6 +4,7 @@
  * the way a human's taps do, finding its own units and buildings, and plain
  * cell geometry (integers only, so two phones always agree).
  */
+import { AI } from '../data/rules.js';
 import { UNITS } from '../data/units.js';
 import { isqrt } from '../core/fixed.js';
 
@@ -73,4 +74,15 @@ export function towards(a, b, cells) {
   const d = Math.max(1, isqrt(dx * dx + dy * dy));
   const s = Math.min(d, cells);
   return { x: a.x + Math.trunc((dx * s) / d), y: a.y + Math.trunc((dy * s) / d) };
+}
+
+/**
+ * Most combat units one computer player keeps: AI.shared.armyMax, shared
+ * out when many computer players are in the match (phone performance). The
+ * same for every skill level.
+ * @param {World} w
+ */
+export function armyCap(w) {
+  const computers = w.players.filter((p) => !p.human && p.alive).length;
+  return Math.max(AI.shared.armyMin, Math.min(AI.shared.armyMax, Math.floor(AI.shared.armyBudget / Math.max(1, computers))));
 }

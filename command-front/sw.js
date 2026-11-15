@@ -2,7 +2,7 @@
    add every file the game loads; ?debug warns at startup about any that are missing.
    Bump CACHE whenever a listed file changes, and BUILD in src/data/build.js with it
    (two phones compare BUILD before a match; tests/build.test.mjs checks the pair). */
-const CACHE = 'command-front-v55';
+const CACHE = 'command-front-v56';
 
 const PRECACHE = [
   './',
@@ -551,6 +551,7 @@ const PRECACHE = [
   './src/game/app.js',
   './src/game/bench.js',
   './src/game/showcase.js',
+  './src/game/teams.js',
   './src/game/customSounds.js',
   './src/game/mapForForm.js',
   './src/game/matchSetup.js',
@@ -692,6 +693,7 @@ const PRECACHE = [
   './src/ui/pairScreens.js',
   './src/ui/press.js',
   './src/ui/screens.js',
+  './src/ui/sides.js',
   './src/ui/sidebar.js',
   './src/ui/store.js',
   './src/ui/toasts.js',

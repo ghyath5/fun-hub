@@ -13,7 +13,7 @@ import { WARHEADS } from '../data/warheads.js';
 import { countOwned } from '../sim/catalog.js';
 import { structureDef, isActive } from '../sim/entities/structures.js';
 import { FLEETS, UNIT_QUEUE_AHEAD, STRUCTURE_RESERVE } from './buildOrders.js';
-import { issue, ownStructures, fleetOf, isCombatType, fightValueOf } from './common.js';
+import { issue, ownStructures, fleetOf, isCombatType, fightValueOf, armyCap } from './common.js';
 import { rolesOf } from '../sim/entities/structures.js';
 import { startable, stillBuilding, navalWorld } from './base.js';
 import { foeMakeUp, foeArmyValue } from './intel.js';
@@ -184,7 +184,7 @@ export function manageProduction(w, ai, cfg, style, army) {
   const outgunned = cfg.level >= 2 && foeArmyValue(ai) > fightValueOf(army);
   if (settingUp && !ai.threatAt && !outgunned && army.length >= Math.round(cfg.earlyGuard)) return;
   if (!factory && stillBuilding(w, ai, cfg, style) && p.cash + p.stored < STRUCTURE_RESERVE) return;
-  if (army.length >= AI.shared.armyMax) return;
+  if (army.length >= armyCap(w)) return;
   // While Harvesters are short, the vehicle line is theirs.
   const harvestersShort = harvesters < wantHarvesters;
   /** @type {Record<string, number>} */

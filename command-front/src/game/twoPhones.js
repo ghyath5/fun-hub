@@ -24,6 +24,7 @@ import { openRoom } from '../net/room.js';
 import { createNetMatch } from '../net/netMatch.js';
 import { diagnostics } from '../net/link.js';
 import { defaultForm, normaliseForm, startMatch, maxPlayersOf } from './matchSetup.js';
+import { teamForNewOpponent } from './teams.js';
 import { mapForForm } from './mapForForm.js';
 import { snapshot, restore } from '../save/serialize.js';
 import { pack, unpack } from '../lib/storage.js';
@@ -239,7 +240,7 @@ export function createTwoPhones(app) {
   function hostStartForm() {
     const saved = app.prefs.get().form ?? defaultForm();
     const ais = saved.opponents.filter((o) => !o.remote);
-    const remote = saved.opponents.find((o) => o.remote) ?? { faction: me.faction, color: 'red', skill: SETUP_DEFAULTS.skill };
+    const remote = saved.opponents.find((o) => o.remote) ?? { faction: me.faction, color: 'red', skill: SETUP_DEFAULTS.skill, team: teamForNewOpponent({ ...saved, opponents: ais }) };
     const f = { ...saved, opponents: [{ ...remote, remote: true }, ...ais] };
     return normaliseForm(f, maxPlayersOf(f, maps));
   }
