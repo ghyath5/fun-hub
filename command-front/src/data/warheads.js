@@ -4,7 +4,7 @@
  * @type {Record<import('../types.js').WarheadId, Record<import('../types.js').ArmorId, number>>}
  */
 export const WARHEADS = {
-  SA:          { none: 100, wood: 50,  light: 60,  heavy: 10,  concrete: 25 },
+  SA:          { none: 100, wood: 25,  light: 60,  heavy: 10,  concrete: 25 }, // bullets chip at buildings, no more
   HE:          { none: 90,  wood: 75,  light: 60,  heavy: 25,  concrete: 100 },
   AP:          { none: 50,  wood: 75,  light: 75,  heavy: 100, concrete: 50 },
   Fire:        { none: 90,  wood: 100, light: 60,  heavy: 25,  concrete: 50 },

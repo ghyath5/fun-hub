@@ -16,7 +16,8 @@ import { FLEETS, UNIT_QUEUE_AHEAD, STRUCTURE_RESERVE } from './buildOrders.js';
 import { issue, ownStructures, fleetOf, isCombatType, fightValueOf, armyCap } from './common.js';
 import { rolesOf } from '../sim/entities/structures.js';
 import { startable, stillBuilding, navalWorld } from './base.js';
-import { foeMakeUp, foeArmyValue } from './intel.js';
+import { foeMakeUp, foeThreat } from './intel.js';
+import { baseCentre } from './placement.js';
 import { chance, pickOne } from './dice.js';
 
 /** @typedef {import('../sim/world.js').World} World */
@@ -34,6 +35,13 @@ const BUILDINGS_SHARE = 0.3;
 const TOUGHNESS = 0.4;
 /** Units of a line it spreads production over. */
 const MIX_WIDTH = 4;
+/** Money in hand below which a queued refinery or Harvester holds back new soldiers. */
+const ECONOMY_RESERVE = 1000;
+
+/** Is a refinery or Harvester queued (not yet paid for in full)? @param {any} p */
+const economyQueued = (p) => [...(p.lines.structures?.queue ?? []), ...(p.lines.vehicles?.queue ?? [])]
+  .some((q) => q.type === 'harvester' || structureDef(q.type)?.role === 'refinery');
+
 /** Money it wants in hand before it spends on an Engineer. */
 const ENGINEER_CREDITS = 1500;
 /** Most Harvesters it sends to one refinery. */
@@ -173,6 +181,8 @@ export function manageProduction(w, ai, cfg, style, army) {
     issue(w, ai, 'build', [], { type: 'harvester', count: 1 });
     return;
   }
+  // Economy down (see rescueEconomy): nothing else until it earns again.
+  if (ai.saving) return;
   // Fewer Harvesters than refineries and short of money: every credit goes to the Harvester.
   if (harvesters < Math.min(wantHarvesters, refineries) && p.cash + p.stored < UNITS.harvester.cost) return;
   // No army before the first Refinery stands. Until the economy is going — a War Factory, two refineries,
@@ -181,9 +191,11 @@ export function manageProduction(w, ai, cfg, style, army) {
   const factory = hasFactory(w, ai.pid);
   const settingUp = !factory || refineries < Math.min(2, Math.round(cfg.refineries)) || harvesters < Math.min(wantHarvesters, refineries * 2);
   // A player who reads the enemy (Novice and up) stops being greedy once it has seen a bigger army than its own.
-  const outgunned = cfg.level >= 2 && foeArmyValue(ai) > fightValueOf(army);
+  const outgunned = cfg.level >= 2 && foeThreat(w, ai, baseCentre(w, ai.pid)) > fightValueOf(army);
   if (settingUp && !ai.threatAt && !outgunned && army.length >= Math.round(cfg.earlyGuard)) return;
   if (!factory && stillBuilding(w, ai, cfg, style) && p.cash + p.stored < STRUCTURE_RESERVE) return;
+  // A refinery or Harvester waiting to be paid for comes first (from Novice up): no new soldiers until it is, unless the base is under attack.
+  if (cfg.level >= 2 && !ai.threatAt && p.cash + p.stored < ECONOMY_RESERVE && economyQueued(p)) return;
   if (army.length >= armyCap(w)) return;
   // While Harvesters are short, the vehicle line is theirs.
   const harvestersShort = harvesters < wantHarvesters;

@@ -321,6 +321,7 @@ export const AI_SKILL = Object.freeze({
   powerHeadroom:         [0.95, 1.05, 1.15], // < 1: notices power only once it runs short
   siloAt:                [1.01, 0.9, 0.8],  // storage share that prompts a silo (> 1: never)
   repairBelow:           [0.35, 0.6, 0.75],
+  recoverySeconds:       [75, 20, 3],       // how long it takes to see its income is gone and act (cancel, sell, rebuild)
   // Information
   scoutSeconds:          [0, 240, 150],     // seconds between scouting runs (0: never after the first look)
   memorySeconds:         [20, 90, 240],     // how long it remembers enemy units it saw

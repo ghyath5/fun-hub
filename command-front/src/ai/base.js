@@ -11,14 +11,15 @@ import { AI } from '../data/rules.js';
 import { UNITS } from '../data/units.js';
 import { T } from '../data/terrain.js';
 import { ticks } from '../core/fixed.js';
-import { itemInfo, countOwned, lineOf } from '../sim/catalog.js';
+import { itemInfo, itemDef, countOwned, lineOf } from '../sim/catalog.js';
 import { structureDef, rolesOf } from '../sim/entities/structures.js';
 import { checkDeploy } from '../sim/placement.js';
+import { sellRefund } from '../sim/formulas/economy.js';
 import { spiral } from '../sim/nav.js';
 import { BUILD_ORDER } from './buildOrders.js';
 import { choosePlacement, baseCentre, orePatch } from './placement.js';
 import { issue, ownStructures, ownUnits, dist2 } from './common.js';
-import { foeArmyValue } from './intel.js';
+import { foeThreat } from './intel.js';
 import { chance, jitter } from './dice.js';
 
 /** @typedef {import('../sim/world.js').World} World */
@@ -121,31 +122,84 @@ function nextBuild(w, ai, cfg, style, line, armyValue) {
 /** Cheap guns put up in a hurry when an attack is coming, best first. */
 const EMERGENCY_GUNS = Object.freeze(['pillbox', 'sentryGun', 'flameTower', 'gunTurret']);
 
-/** Seconds between buildings sold to pay for a refinery. */
-const RESCUE_TICKS = ticks(30);
+/** Seconds between buildings sold to pay for the economy. */
+const RESCUE_TICKS = ticks(15);
+
+/** What it sells, in order, when cancelling is not enough: anything optional, then these (never the yard). */
+const SELL_ORDER = Object.freeze(['power', 'barracks', 'factory']);
+
+/** Credits still owed on an item: its price less what has already gone into it. @param {any} p @param {string} type */
+function stillOwed(p, type) {
+  const lines = Object.values(p.lines).filter(Boolean);
+  if (lines.some((l) => l.ready === type)) return 0;
+  const spent = lines.flatMap((l) => l.queue).filter((q) => q.type === type).reduce((m, q) => Math.max(m, q.spent), 0);
+  return Math.max(0, itemDef(type).cost - spent);
+}
 
 /**
- * No refinery (or no Harvester) and no money for one: sell the dearest
- * building it can spare (never the yard, power, factories or barracks) to
- * pay for it.
- * @param {World} w @param {any} ai
+ * What it needs to earn again, or null while ore is coming in (or before it
+ * has ever earned: the opening follows its build order): a refinery
+ * (which brings its own Harvester, so one being built counts), else a
+ * Harvester, else a factory to build one.
+ * @param {World} w @param {any} ai @returns {string | null}
  */
-function rescueEconomy(w, ai) {
-  const p = w.players[ai.pid];
+function economyNeed(w, ai) {
   const own = ownStructures(w, ai.pid);
-  if (own.some((s) => s.selling) || w.tick < (ai.soldAt ?? 0) + RESCUE_TICKS) return;
-  const hasRefinery = own.some((s) => structureDef(s.type).role === 'refinery');
-  const hasHarvester = ownUnits(w, ai.pid).some((u) => u.harv);
-  const hasFactory = rolesOf(w, ai.pid).has('factory');
-  const need = !hasRefinery ? structureDef('refinery').cost ?? 0
-    : hasHarvester ? 0
-    : hasFactory ? UNITS.harvester.cost : structureDef('warFactory').cost ?? 0;
-  if (!need || p.cash + p.stored >= need) return;
-  const spare = own.filter((s) => !s.buildUp && !['yard', 'power', 'factory', 'barracks'].includes(structureDef(s.type).role) && !structureDef(s.type).wall)
-    .sort((a, b) => (structureDef(b.type).cost ?? 0) - (structureDef(a.type).cost ?? 0) || a.id - b.id)[0];
-  if (!spare) return;
-  issue(w, ai, 'sell', [], { id: spare.id });
+  const roles = rolesOf(w, ai.pid);
+  if (!roles.has('yard')) return null; // its yard comes first (manageYard)
+  if (!w.players[ai.pid].stats.creditsHarvested) return null; // the opening is the build order's business
+  const refineries = own.filter((s) => structureDef(s.type).role === 'refinery');
+  if (!refineries.length) return roles.has('power') ? 'refinery' : 'powerPlant';
+  if (refineries.some((s) => s.buildUp > 0) || ownUnits(w, ai.pid).some((u) => u.harv)) return null;
+  return roles.has('factory') ? 'harvester' : 'warFactory';
+}
+
+/**
+ * Losing its refinery or Harvesters with no money left for new ones would
+ * leave a player stuck for the rest of the match. Once it notices (sooner
+ * with skill) it gets out the way a person does: until it earns again it
+ * spends on nothing else; it
+ * cancels whatever else is part-paid (a cancel refunds in full); and when
+ * that is still not enough it sells a building — anything optional first,
+ * then a spare power plant, the barracks and last the factory — picking the
+ * cheapest whose refund covers the gap. The yard, the last power plant and
+ * whatever the missing piece needs are kept.
+ * @param {World} w @param {any} ai @param {SkillProfile} cfg @returns {string | null} what it is saving for
+ */
+function rescueEconomy(w, ai, cfg) {
+  const need = economyNeed(w, ai);
+  if (!need) { ai.brokeAt = 0; ai.saving = null; return null; }
+  if (!ai.brokeAt) ai.brokeAt = w.tick;
+  ai.saving = w.tick - ai.brokeAt >= ticks(cfg.recoverySeconds) ? need : null;
+  if (!ai.saving) return null;
+  const p = w.players[ai.pid];
+  let gap = stillOwed(p, need) - (p.cash + p.stored);
+  if (gap <= 0) return need;
+  for (const [line, l] of Object.entries(p.lines)) {
+    for (const q of l?.queue ?? []) {
+      if (q.type === need) continue;
+      issue(w, ai, 'cancel', [], { line, type: q.type });
+      gap -= q.spent;
+    }
+  }
+  const own = ownStructures(w, ai.pid);
+  if (gap <= 0 || own.some((s) => s.selling) || w.tick < (ai.soldAt ?? 0) + RESCUE_TICKS) return need;
+  const keep = new Set(['yard', 'refinery', ...(need === 'refinery' ? [] : ['factory'])]);
+  const powerPlants = own.filter((s) => structureDef(s.type).role === 'power').length;
+  const tier = (/** @type {any} */ s) => {
+    const role = structureDef(s.type).role;
+    if (keep.has(role) || (role === 'power' && powerPlants <= 1)) return -1;
+    return SELL_ORDER.indexOf(role) + 1; // 0: optional
+  };
+  const spare = own.filter((s) => !s.buildUp && !structureDef(s.type).wall && tier(s) >= 0);
+  if (!spare.length) return need;
+  const first = Math.min(...spare.map(tier));
+  const worth = (/** @type {any} */ s) => sellRefund(structureDef(s.type).cost ?? 0, s.hp, s.maxHp);
+  const pool = spare.filter((s) => tier(s) === first).sort((a, b) => worth(a) - worth(b) || a.id - b.id);
+  const pick = pool.find((s) => worth(s) >= gap) ?? pool[pool.length - 1];
+  issue(w, ai, 'sell', [], { id: pick.id });
   ai.soldAt = w.tick;
+  return need;
 }
 
 /** Is there anything left on the structures line of its build order? @param {World} w @param {any} ai @param {SkillProfile} cfg @param {Style} style */
@@ -196,7 +250,7 @@ function placeFor(w, ai, cfg, type) {
  */
 export function manageBase(w, ai, cfg, style, armyValue) {
   const p = w.players[ai.pid];
-  rescueEconomy(w, ai);
+  const saving = rescueEconomy(w, ai, cfg);
   for (const line of /** @type {const} */ (['structures', 'defenses'])) {
     const l = p.lines[line];
     if (l?.ready) {
@@ -214,8 +268,13 @@ export function manageBase(w, ai, cfg, style, armyValue) {
       continue;
     }
     if (l?.queue.length) continue;
+    // Economy down: only the missing piece is built.
+    if (saving) {
+      if (line === lineOf(saving) && startable(w, ai.pid, saving)) issue(w, ai, 'build', [], { type: saving, count: 1 });
+      continue;
+    }
     // A Regular and up who sees a bigger army coming puts a gun up straight away.
-    if (line === 'defenses' && cfg.level >= 4 && countDefenses(w, ai.pid) < 2 && (ai.threatAt || foeArmyValue(ai) * 10 > armyValue * 13)) {
+    if (line === 'defenses' && cfg.level >= 4 && countDefenses(w, ai.pid) < 2 && (ai.threatAt || foeThreat(w, ai, baseCentre(w, ai.pid)) * 10 > armyValue * 13)) {
       const gun = EMERGENCY_GUNS.find((t) => startable(w, ai.pid, t));
       if (gun) { issue(w, ai, 'build', [], { type: gun, count: 1 }); continue; }
     }
@@ -237,7 +296,7 @@ export function manageBase(w, ai, cfg, style, armyValue) {
 /** Repair damaged buildings while it has money to spare. @param {World} w @param {any} ai @param {SkillProfile} cfg */
 export function manageRepairs(w, ai, cfg) {
   const p = w.players[ai.pid];
-  if (p.cash + p.stored <= AI.shared.repairMinCredits) return;
+  if (ai.saving || p.cash + p.stored <= AI.shared.repairMinCredits) return;
   for (const s of ownStructures(w, ai.pid)) {
     if (s.repairing || s.selling || s.buildUp) continue;
     if (s.hp * 100 < s.maxHp * Math.round(cfg.repairBelow * 100)) issue(w, ai, 'repair', [], { id: s.id, on: true });

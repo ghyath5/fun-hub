@@ -82,6 +82,27 @@ export const foeArmy = (ai) => ai.seen.filter((/** @type {Sighting} */ s) => isC
 /** What it believes the enemy army is worth. @param {any} ai */
 export const foeArmyValue = (ai) => foeArmy(ai).reduce((a, s) => a + s.value, 0);
 
+/** Cells round its base within which any enemy army counts as a threat to it. */
+const NEAR_BASE = 30;
+
+/**
+ * How big a threat the enemy is to this base: the strongest single enemy
+ * army it remembers, or all the enemy armies near its base if that is more.
+ * (With several enemies, adding up every army on the map would leave it
+ * always feeling outnumbered, starving its economy for soldiers.)
+ * @param {World} w @param {any} ai @param {Cell} base
+ */
+export function foeThreat(w, ai, base) {
+  /** @type {Map<number, number>} */
+  const byOwner = new Map();
+  let near = 0;
+  for (const s of foeArmy(ai)) {
+    byOwner.set(s.owner, (byOwner.get(s.owner) ?? 0) + s.value);
+    if (dist2(s, base) <= NEAR_BASE * NEAR_BASE) near += s.value;
+  }
+  return Math.max(near, ...byOwner.values(), 0);
+}
+
 /** Remembered enemy Harvesters. @param {any} ai @returns {Sighting[]} */
 export const foeHarvesters = (ai) => ai.seen.filter((/** @type {Sighting} */ s) => UNITS[s.type].tags.includes('harvester'));
 

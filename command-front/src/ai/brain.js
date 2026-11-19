@@ -81,8 +81,12 @@ export function createAiState(w, pid, skill) {
     deployAt: 0,
     /** When each Harvester was last sent running from an attack. @type {Record<string, number>} */
     fled: {},
-    /** Last tick it sold a building to pay for a refinery. */
+    /** Last tick it sold a building to pay for its economy. */
     soldAt: 0,
+    /** When it found its income gone (0: earning). */
+    brokeAt: 0,
+    /** What it is saving for once it has noticed its economy is down. @type {string | null} */
+    saving: null,
     /** When a support power became ready. @type {Record<string, number>} */
     readySince: {},
     nextThinkAt: 1 + pid * 3,
