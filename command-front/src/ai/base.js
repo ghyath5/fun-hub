@@ -136,9 +136,25 @@ function stillOwed(p, type) {
   return Math.max(0, itemDef(type).cost - spent);
 }
 
+/** Credits its queues will still take for everything but this item. @param {any} p @param {string} type */
+const committedBesides = (p, type) => Object.values(p.lines).flatMap((l) => l?.queue ?? []).filter((q) => q.type !== type)
+  .reduce((sum, q) => sum + itemDef(q.type).cost - q.spent, 0);
+
 /**
- * What it needs to earn again, or null while ore is coming in (or before it
- * has ever earned: the opening follows its build order): a refinery
+ * Before its first ore: what its money leaves over once the first refinery and
+ * everything already queued are paid for (null once it has earned, or has its
+ * refinery). The opening never spends that refinery's money elsewhere.
+ * @param {World} w @param {any} ai @returns {number | null}
+ */
+function openingSpare(w, ai) {
+  const p = w.players[ai.pid];
+  if (p.stats.creditsHarvested) return null;
+  const need = economyNeed(w, ai);
+  return need ? p.cash + p.stored - stillOwed(p, need) - committedBesides(p, need) : null;
+}
+
+/**
+ * What it needs to earn again, or null while ore is coming in: a refinery
  * (which brings its own Harvester, so one being built counts), else a
  * Harvester, else a factory to build one.
  * @param {World} w @param {any} ai @returns {string | null}
@@ -147,7 +163,6 @@ function economyNeed(w, ai) {
   const own = ownStructures(w, ai.pid);
   const roles = rolesOf(w, ai.pid);
   if (!roles.has('yard')) return null; // its yard comes first (manageYard)
-  if (!w.players[ai.pid].stats.creditsHarvested) return null; // the opening is the build order's business
   const refineries = own.filter((s) => structureDef(s.type).role === 'refinery');
   if (!refineries.length) return roles.has('power') ? 'refinery' : 'powerPlant';
   if (refineries.some((s) => s.buildUp > 0) || ownUnits(w, ai.pid).some((u) => u.harv)) return null;
@@ -156,8 +171,10 @@ function economyNeed(w, ai) {
 
 /**
  * Losing its refinery or Harvesters with no money left for new ones would
- * leave a player stuck for the rest of the match. Once it notices (sooner
- * with skill) it gets out the way a person does: until it earns again it
+ * leave a player stuck for the rest of the match — and so would an opening
+ * that spends the refinery's money on barracks and soldiers (with $2500 to
+ * start). Once it notices (sooner with skill) it gets out the way a person
+ * does: until it earns again it
  * spends on nothing else; it
  * cancels whatever else is part-paid (a cancel refunds in full); and when
  * that is still not enough it sells a building — anything optional first,
@@ -168,13 +185,18 @@ function economyNeed(w, ai) {
  */
 function rescueEconomy(w, ai, cfg) {
   const need = economyNeed(w, ai);
-  if (!need) { ai.brokeAt = 0; ai.saving = null; return null; }
-  if (!ai.brokeAt) ai.brokeAt = w.tick;
-  ai.saving = w.tick - ai.brokeAt >= ticks(cfg.recoverySeconds) ? need : null;
-  if (!ai.saving) return null;
   const p = w.players[ai.pid];
-  let gap = stillOwed(p, need) - (p.cash + p.stored);
-  if (gap <= 0) return need;
+  let gap = need ? stillOwed(p, need) - (p.cash + p.stored) : 0;
+  if (!need) { ai.brokeAt = 0; ai.saving = null; return null; }
+  if (!p.stats.creditsHarvested) {
+    // The opening: the build order runs things, but nothing it has queued may eat the first refinery's money.
+    ai.saving = gap + committedBesides(p, need) > 0 ? need : null;
+    if (!ai.saving || gap <= 0) return ai.saving;
+  } else {
+    if (!ai.brokeAt) ai.brokeAt = w.tick;
+    ai.saving = w.tick - ai.brokeAt >= ticks(cfg.recoverySeconds) ? need : null;
+    if (!ai.saving || gap <= 0) return ai.saving;
+  }
   for (const [line, l] of Object.entries(p.lines)) {
     for (const q of l?.queue ?? []) {
       if (q.type === need) continue;
@@ -285,6 +307,12 @@ export function manageBase(w, ai, cfg, style, armyValue) {
     if (line === 'structures') {
       if (p.capacity > 0 && p.stored * 100 >= p.capacity * Math.round(cfg.siloAt * 100) && startable(w, ai.pid, 'silo')) next = 'silo';
       next = powerFirst(w, ai, cfg, next) ?? next;
+    }
+    // The opening: what the money left over the first refinery cannot cover waits until the refinery is up.
+    const spare = openingSpare(w, ai);
+    if (next && spare !== null && itemDef(next).cost > spare) {
+      const need = /** @type {string} */ (economyNeed(w, ai));
+      next = line === lineOf(need) && startable(w, ai.pid, need) ? need : null;
     }
     if (next) {
       issue(w, ai, 'build', [], { type: next, count: 1 });

@@ -47,7 +47,7 @@ const shielded = (w, e) => e.aegisUntil > w.tick;
  * What entering this structure would do for this unit, or '' if it cannot.
  * Relation is judged now, so a building captured a moment ago is judged as its new owner's.
  * @param {World} w @param {any} u @param {any} s
- * @returns {'' | 'repair' | 'capture' | 'sabotage' | 'bridge' | 'infiltrate' | 'steal'}
+ * @returns {'' | 'repair' | 'capture' | 'bridge' | 'infiltrate' | 'steal'}
  */
 export function enterEffect(w, u, s) {
   if (!s || s.dead || s.kind !== 'structure') return '';
@@ -59,9 +59,8 @@ export function enterEffect(w, u, s) {
       return b && !b.alive ? 'bridge' : '';
     }
     if (own) return s.hp < s.maxHp ? 'repair' : '';
-    if (def.wall || def.line === 'defenses' || def.capturable === false) return '';
-    if (s.owner < 0) return 'capture';
-    return s.hp * 100 <= s.maxHp * Math.round(SPECIALS.engineerCaptureAtOrBelow * 100) ? 'capture' : 'sabotage';
+    // Any other enemy or neutral building is his the moment he walks in (defences and walls cannot be taken).
+    return def.wall || def.line === 'defenses' || def.capturable === false ? '' : 'capture';
   }
   if (own || s.owner < 0 || def.wall) return '';
   if (isSpy(u)) return 'infiltrate';
@@ -107,11 +106,6 @@ function resolveEntry(w, u, s) {
       if (s.owner >= 0 && (structureDef(s.type).power ?? 0) > 0) w.players[s.owner].powerDirty = true;
       break;
     case 'capture': captureStructure(w, s, u.owner); break;
-    case 'sabotage': {
-      const amount = Math.min(Math.floor((s.maxHp * Math.round(SPECIALS.engineerDamageFraction * 100)) / 100), s.hp - 1);
-      if (amount > 0) w.damage.push({ victim: s.id, amount, attacker: u.id, owner: u.owner });
-      break;
-    }
     case 'bridge': {
       const b = w.bridges.find((/** @type {any} */ br) => br.hut && br.hut[0] === s.cx && br.hut[1] === s.cy);
       if (b) repairBridge(w, b);

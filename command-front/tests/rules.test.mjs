@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { sandbox, openMap, squad, order, run, live, invariants, spawnUnit, placeStructure, STRUCTURES, UNITS, TPS, L } from './harness.mjs';
 import { lineFor } from '../src/sim/systems/production.js';
-import { SPECIALS } from '../src/data/rules.js';
+import { enterEffect } from '../src/sim/specials.js';
 
 const structuresOf = (w, pid, type) => w.entities.all().filter((e) => e.kind === 'structure' && !e.dead && e.owner === pid && (!type || e.type === type));
 const unitsOf = (w, pid, type) => w.entities.all().filter((e) => e.kind === 'unit' && !e.dead && e.owner === pid && (!type || e.type === type));
@@ -111,19 +111,22 @@ test('selling a structure refunds part of its price and removes it', () => {
   assert.equal(invariants(w), null);
 });
 
-test('an Engineer sabotages a sound enemy building and captures a battered one', () => {
+test('an Engineer captures an enemy building at any health, and it is then fully his side\'s', () => {
   const w = sandbox({ seed: 8 });
-  const a = placeStructure(w, 'powerPlant', 1, 20, 20, { buildUp: false });
-  const b = placeStructure(w, 'powerPlant', 1, 30, 20, { buildUp: false });
-  b.hp = Math.floor(b.maxHp * SPECIALS.engineerCaptureAtOrBelow);
+  const factory = placeStructure(w, 'warFactory', 1, 20, 20, { buildUp: false });
+  const tower = placeStructure(w, 'pillbox', 1, 40, 30, { buildUp: false });
   const e1 = spawnUnit(w, 'engineer', 0, 16, 21);
-  const e2 = spawnUnit(w, 'engineer', 0, 26, 21);
-  order(w, 0, 'enter', [e1.id], { id: a.id });
-  order(w, 0, 'enter', [e2.id], { id: b.id });
+  assert.equal(enterEffect(w, e1, tower), '', 'defences cannot be taken');
+  order(w, 0, 'enter', [e1.id], { id: factory.id });
   assert.equal(run(w, 20 * TPS, invariants), null);
-  assert.equal(a.owner, 1, 'full-health building stays theirs');
-  assert.ok(a.hp < a.maxHp, 'but is sabotaged');
-  assert.equal(b.owner, 0, 'battered building captured');
+  assert.equal(factory.owner, 0, 'a full-health War Factory is taken');
+  assert.equal(factory.hp, factory.maxHp, 'unharmed');
+  // It is his to command: he can sell it.
+  const cash = w.players[0].cash;
+  order(w, 0, 'sell', [], { id: factory.id });
+  run(w, 10 * TPS);
+  assert.ok(factory.dead || !w.entities.get(factory.id), 'sold');
+  assert.ok(w.players[0].cash > cash, 'refund paid to the captor');
 });
 
 test('enemy infantry scatter from a tank, or are crushed when ordered into it', () => {

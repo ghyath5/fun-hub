@@ -9,12 +9,29 @@ import './importmap.mjs';
 
 const { defaultForm, normaliseForm, matchOptions } = await import('../src/game/matchSetup.js');
 const { mapForForm } = await import('../src/game/mapForForm.js');
+const { teamForNewOpponent, applyPreset } = await import('../src/game/teams.js');
 
 /** A generated-map match of AIs of these skills, all against all (the human seat stays idle). */
 async function freeForAll(skills, seed) {
   const form = normaliseForm({ ...defaultForm(), genSeed: seed, opponents: skills.map((skill, k) => ({ faction: k % 2 ? 'coalition' : 'union', color: 'red', skill, team: k + 2 })) }, 9);
   const { map } = await mapForForm(form, []);
   const o = matchOptions(form, map, seed * 13 + 1);
+  return createMatch(map, { ...o, settings: { ...o.settings, victory: false } });
+}
+
+/**
+ * The setup screen's way: opponents added one by one, each given its own
+ * side, colour and flag, then everyone against you.
+ */
+async function allAgainstMe(skills, seed, opts = {}) {
+  let form = { ...defaultForm(), genSeed: seed, ...opts };
+  form.opponents = [];
+  for (const [k, skill] of skills.entries()) {
+    form = { ...form, opponents: [...form.opponents, { faction: k % 2 ? 'coalition' : 'union', color: ['red', 'green', 'yellow', 'purple', 'orange', 'teal', 'pink', 'white'][k], country: 'sy', skill, team: teamForNewOpponent(form) }] };
+  }
+  form = normaliseForm(applyPreset(form, 'oneVsAll'), 9);
+  const { map } = await mapForForm(form, []);
+  const o = matchOptions(form, map, seed * 7 + 3);
   return createMatch(map, { ...o, settings: { ...o.settings, victory: false } });
 }
 
@@ -47,5 +64,26 @@ test('a computer that loses its refinery and Harvesters gets its economy back', 
     if (!own(w, p.id).some((e) => e.type === 'constructionYard')) continue; // beaten by a neighbour meanwhile
     assert.ok(p.stats.creditsHarvested > earned.get(p.id), `player ${p.id} (skill ${w.ai[p.id].skill}) never earned again`);
     assert.ok(own(w, p.id).some((e) => e.harv), `player ${p.id} has no Harvester again`);
+  }
+});
+
+test('everyone against me with $2500 to start: every computer gets its refinery up and earns', async () => {
+  // These setups once left some opponents with a yard, a power plant and a barracks, spending the refinery's money on soldiers.
+  for (const [skills, seed] of [[[2, 2, 2, 2, 2], 3], [[10, 10, 10, 10, 10, 10, 10], 6], [[1, 4, 7, 10, 1], 5]]) {
+    const w = await allAgainstMe(skills, seed, { startingCredits: 2500 });
+    for (let t = 0; t < 6 * 60 * TPS; t++) step(w);
+    for (const p of computers(w)) {
+      assert.ok(p.stats.creditsHarvested > 0, `seed ${seed}: player ${p.id} (skill ${w.ai[p.id].skill}) never earned`);
+      assert.ok(buildings(w, p.id) >= 5, `seed ${seed}: player ${p.id} stopped at ${buildings(w, p.id)} buildings`);
+    }
+  }
+});
+
+test('at tech level 1, with no War Factory to be had, the computers still raise armies', async () => {
+  const w = await allAgainstMe([5, 5, 5], 4, { techLevel: 1 });
+  for (let t = 0; t < 8 * 60 * TPS; t++) step(w);
+  for (const p of computers(w)) {
+    const army = own(w, p.id).filter((e) => e.kind === 'unit' && !e.harv).length;
+    assert.ok(army >= 15, `player ${p.id} has ${army} soldiers and $${p.cash + p.stored} unspent`);
   }
 });

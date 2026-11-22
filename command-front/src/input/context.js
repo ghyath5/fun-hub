@@ -25,7 +25,7 @@ const role = (/** @type {any} */ t) => (t.kind === 'structure' ? structureDef(t.
 export const CONTEXT_RULES = /** @type {ContextRule[]} */ ([
   { command: 'unload', who: (u) => !!u.harv, on: (w, u, t) => own(u, t) && role(t) === 'refinery' && t.buildUp === 0 },
   { command: 'depot', who: isVehicle, on: (w, u, t) => own(u, t) && t.type === 'serviceDepot' && u.hp < u.maxHp && t.buildUp === 0 },
-  // Specialists: Engineers repair, capture or sabotage; Spies infiltrate; Thieves steal; Commandos plant C4.
+  // Specialists: Engineers repair or capture; Spies infiltrate; Thieves steal; Commandos plant C4.
   { command: 'enter', who: (u) => UNITS[u.type].tags.some((g) => g === 'engineer' || g === 'spy' || g === 'thief'), on: (w, u, t) => !!enterEffect(w, u, t) },
   { command: 'c4', who: (u) => UNITS[u.type].tags.includes('c4'), on: (w, u, t) => canC4(w, u, t) },
   // Passengers tap their own transport.

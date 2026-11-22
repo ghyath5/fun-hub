@@ -149,8 +149,6 @@ export const COMBAT = Object.freeze({
 });
 
 export const SPECIALS = Object.freeze({
-  engineerCaptureAtOrBelow: 0.25,
-  engineerDamageFraction: 0.33,
   spyIntelSeconds: 180,
   sonarPulseSeconds: 30,
   spyRevealRadius: 10,

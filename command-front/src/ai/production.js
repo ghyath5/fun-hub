@@ -10,7 +10,7 @@ import { AI, PRODUCTION } from '../data/rules.js';
 import { UNITS } from '../data/units.js';
 import { WEAPONS } from '../data/weapons.js';
 import { WARHEADS } from '../data/warheads.js';
-import { countOwned } from '../sim/catalog.js';
+import { countOwned, techLevelOf } from '../sim/catalog.js';
 import { structureDef, isActive } from '../sim/entities/structures.js';
 import { FLEETS, UNIT_QUEUE_AHEAD, STRUCTURE_RESERVE } from './buildOrders.js';
 import { issue, ownStructures, fleetOf, isCombatType, fightValueOf, armyCap } from './common.js';
@@ -189,11 +189,14 @@ export function manageProduction(w, ai, cfg, style, army) {
   // two Harvesters each — only a small guard, unless the base is under attack (a green player trains more, delaying it all).
   if (!refineries) return;
   const factory = hasFactory(w, ai.pid);
-  const settingUp = !factory || refineries < Math.min(2, Math.round(cfg.refineries)) || harvesters < Math.min(wantHarvesters, refineries * 2);
+  // At a low tech level with no War Factory to be had, setting up is done without one (and its extra Harvesters).
+  const factoryAllowed = factory || techLevelOf('warFactory') <= w.settings.techLevel;
+  const settingUp = (!factory && factoryAllowed) || refineries < Math.min(2, Math.round(cfg.refineries))
+    || (factory && harvesters < Math.min(wantHarvesters, refineries * 2));
   // A player who reads the enemy (Novice and up) stops being greedy once it has seen a bigger army than its own.
   const outgunned = cfg.level >= 2 && foeThreat(w, ai, baseCentre(w, ai.pid)) > fightValueOf(army);
   if (settingUp && !ai.threatAt && !outgunned && army.length >= Math.round(cfg.earlyGuard)) return;
-  if (!factory && stillBuilding(w, ai, cfg, style) && p.cash + p.stored < STRUCTURE_RESERVE) return;
+  if (!factory && factoryAllowed && stillBuilding(w, ai, cfg, style) && p.cash + p.stored < STRUCTURE_RESERVE) return;
   // A refinery or Harvester waiting to be paid for comes first (from Novice up): no new soldiers until it is, unless the base is under attack.
   if (cfg.level >= 2 && !ai.threatAt && p.cash + p.stored < ECONOMY_RESERVE && economyQueued(p)) return;
   if (army.length >= armyCap(w)) return;

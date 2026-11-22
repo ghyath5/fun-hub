@@ -454,7 +454,7 @@ export function micro(w, ai, cfg, army) {
   issue(w, ai, 'attack', able, { id: target.id });
 }
 
-/** Engineers take damaged enemy buildings near the front. @param {World} w @param {any} ai @param {SkillProfile} cfg */
+/** Engineers take the most valuable enemy building near the front. @param {World} w @param {any} ai @param {SkillProfile} cfg */
 export function captures(w, ai, cfg) {
   if (cfg.captureSense < 0.6) return;
   const engineers = w.entities.all().filter((u) => u.kind === 'unit' && u.owner === ai.pid && !u.dead && !u.inside && u.type === 'engineer' && !u.task);
@@ -464,11 +464,12 @@ export function captures(w, ai, cfg) {
   for (const e of w.entities.all()) {
     if (e.kind !== 'structure' || e.dead || e.owner < 0 || w.allied(e.owner, ai.pid) || !w.visibleTo(ai.pid, e)) continue;
     const d = structureDef(e.type);
-    if (d.line === 'defenses' || d.capturable === false || e.hp * 4 > e.maxHp) continue;
+    if (d.wall || d.line === 'defenses' || d.capturable === false) continue;
     if (dist2({ x: e.cx, y: e.cy }, front) > 20 * 20) continue;
-    if (!best || e.hp < best.hp) best = e;
+    const worth = d.cost ?? 0;
+    if (!best || worth > best.worth || (worth === best.worth && e.id < best.e.id)) best = { e, worth };
   }
-  if (best) issue(w, ai, 'enter', [engineers[0].id], { id: best.id });
+  if (best) issue(w, ai, 'enter', [engineers[0].id], { id: best.e.id });
 }
 
 // ---- Air strikes and support powers -----------------------------------------
