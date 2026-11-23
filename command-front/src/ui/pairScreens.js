@@ -27,13 +27,11 @@ export function TwoPhoneMenu({ act }) {
   return html`<div class="screen menu pair">
     <div class="menu-mark small"><span>TWO</span><b>PHONES</b></div>
     <p class="pair-lead">${t('Play each other — or team up against the AI — on two phones on the same WiFi. No app, no account; once linked the phones talk straight to each other.')}</p>
-    <div class="menu-buttons">
-      <button class="btn primary" onClick=${act.host}>${t('Host a match')}</button>
-      <p class="pair-sub">${t('Shows a code for the other phone')}</p>
-      <button class="btn" onClick=${act.join}>${t('Join a match')}</button>
-      <p class="pair-sub">${t("Scan the host's code")}</p>
-      <button class="btn" onClick=${act.back}>${t('‹ Back')}</button>
+    <div class="choice-grid">
+      <button class="choice primary" onClick=${act.host}><b>${t('Host a match')}</b><span>${t('Shows a code for the other phone')}</span></button>
+      <button class="choice" onClick=${act.join}><b>${t('Join a match')}</b><span>${t("Scan the host's code")}</span></button>
     </div>
+    <button class="btn back-btn" onClick=${act.back}>${t('‹ Back')}</button>
   </div>`;
 }
 
@@ -210,17 +208,20 @@ export function DiagPanel({ text, stun, act }) {
  * The guest's lobby: the host's choices, read-only, and this phone's own
  * faction and colour.
  * @param {{ form: SetupForm | null, maps: { id: string, name: string, maxPlayers: number }[], me: { faction: 'coalition' | 'union', color: string, country?: string },
- *   onMe: (me: { faction: 'coalition' | 'union', color: string, country?: string }) => void, onLeave: () => void }} p
+ *   onMe: (me: { faction: 'coalition' | 'union', color: string, country?: string }) => void, onLeave: () => void,
+ *   title?: string, you?: string, hostName?: string, banner?: any }} p
+ *   title, you, hostName, banner: an internet lobby — its heading, this player's heading, the host's name, and the strip under the heading
  */
-export function GuestLobby({ form, maps, me, onMe, onLeave }) {
+export function GuestLobby({ form, maps, me, onMe, onLeave, title, you, hostName, banner = null }) {
   const mine = form?.opponents.find((o) => o.remote);
   const color = mine?.color ?? me.color;
   const mapName = !form ? '…' : form.map === 'generated' ? t('Generated ({size} × {size}, {n} players, seed {seed})', { size: form.genSize, n: playersOf(form), seed: form.genSeed }) : t(maps.find((m) => m.id === form.map)?.name ?? form.map);
   return html`<div class="screen setup guest-lobby">
-    <header class="screen-head"><button class="btn" onClick=${onLeave}>${t('‹ Leave')}</button><h2>${t('Two phones')}</h2><span class="muted">${t('Waiting for the host to start')}</span></header>
+    <header class="screen-head"><button class="btn" onClick=${onLeave}>${t('‹ Leave')}</button><h2>${title ?? t('Two phones')}</h2><span class="muted head-note">${t('Waiting for the host to start')}</span></header>
+    ${banner}
     <div class="setup-body">
       <section class="setup-col">
-        <h3>${t('You (Phone 2)')}</h3>
+        <h3>${you ?? t('You (Phone 2)')}</h3>
         <label class="row"><span class="row-label">${t('Faction')}</span><span class="row-ctl">
           <select aria-label=${t('Your faction')} value=${me.faction} onChange=${(/** @type {any} */ e) => onMe({ ...me, faction: e.target.value })}>
             ${FACTION_IDS.map((f) => html`<option value=${f}>${t(FACTIONS[f].name)}</option>`)}
@@ -236,10 +237,10 @@ export function GuestLobby({ form, maps, me, onMe, onLeave }) {
         <h3>${t("The host's setup")}</h3>
         ${form ? html`
           <div class="row"><span class="row-label">${t('Map')}</span><span>${mapName}</span></div>
-          <div class="row"><span class="row-label">${t('Host')}</span><span>${dot(form.color)} <${Flag} id=${form.country} /> ${t(FACTIONS[form.faction].name)}</span></div>
+          <div class="row"><span class="row-label" dir="auto">${hostName ?? t('Host')}</span><span>${dot(form.color)} <${Flag} id=${form.country} /> ${t(FACTIONS[form.faction].name)}</span></div>
           ${form.opponents.filter((o) => !o.remote).map((o, i) => html`<div class="row" key=${i}><span class="row-label">${t('AI {n}', { n: i + 1 })}</span><span>${dot(o.color)} <${Flag} id=${o.country} /> ${t(FACTIONS[o.faction].name)} · ${t('Skill')} ${skillOf(o)} · ${t(skillName(skillOf(o)))}</span></div>`)}
           <h3>${t('Sides')}</h3>
-          <${SidesPanel} form=${form} viewer="guest" />
+          <${SidesPanel} form=${form} viewer="guest" seatLabels=${hostName ? { host: hostName } : undefined} />
           <div class="row"><span class="row-label">${t('Credits · speed')}</span><span>$${form.startingCredits.toLocaleString('en-US')} · ${cap(form.speed)}</span></div>` : html`<p class="muted">${t('Waiting for the host…')}</p>`}
       </section>
     </div>

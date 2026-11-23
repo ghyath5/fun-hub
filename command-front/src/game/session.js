@@ -145,6 +145,7 @@ export async function createSession({ world, human, hudEl, worldEl, audio, speed
     hint: /** @type {string | null} */ (hint),
     ended: false,
     online: !!net,
+    internet: !!(/** @type {any} */ (net)?.internet),
     // The card as it stands now: the link may have dropped while this match was loading.
     link: /** @type {import('../net/netMatch.js').LinkCard} */ (net?.card() ?? null),
     linkDismissed: false,

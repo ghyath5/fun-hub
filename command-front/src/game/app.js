@@ -20,6 +20,9 @@ import { VICTORY } from '../data/rules.js';
 import { FACTIONS } from '../data/factions.js';
 import { skillOf, skillName } from '../ai/skill.js';
 import { createTwoPhones } from './twoPhones.js';
+import { createOnline } from './onlinePlay.js';
+import { serverUrls, statsUrl } from '../data/online.js';
+import { PATHS, parseRoute, setRoute, onRouteChange } from '../lib/route.js';
 import { inviteInUrl } from '../net/link.js';
 import { autoFullscreen, enterFullscreen, needsHomeScreen } from '../ui/fullscreen.js';
 import { setLanguages, browserLang, textLang, voiceLang, t, list as listOf } from '../lib/i18n.js';
@@ -44,7 +47,7 @@ export async function startApp({ hudEl, worldEl, screensEl, debug }) {
   customSounds.load().catch((e) => console.warn('[audio] custom sounds', e));
   /** What the last custom-sound import did, for the settings screen. */
   let soundsNote = '';
-  /** @type {AppSettings & { form?: SetupForm, played?: boolean, mpForm?: SetupForm, mpMe?: { faction: 'coalition' | 'union', color: string } }} */
+  /** @type {AppSettings & { form?: SetupForm, played?: boolean, mpForm?: SetupForm, mpMe?: { faction: 'coalition' | 'union', color: string }, onlineName?: string }} */
   let settings = { ...defaultSettings(), ...(await loadSettings().catch(() => ({}))) };
   let form = normaliseForm({ ...defaultForm(), ...(settings.form ?? {}) }, 4);
   /** @type {Awaited<ReturnType<typeof createSession>> | null} */
@@ -74,10 +77,28 @@ export async function startApp({ hudEl, worldEl, screensEl, debug }) {
   const fullscreen = autoFullscreen(() => settings.autoFullscreen !== false);
 
   // ---- Screens.
+  /** Players on the online server, for the menu's badge (null until known). @type {number | null} */
+  let onlineCount = null;
+  /** Which screen the menu function last drew, so a late head-count only redraws the menu itself. */
+  let onMenu = false;
+  /** Ask the online server how many players are connected; quietly nothing when it cannot be reached. */
+  const countOnline = async () => {
+    const url = serverUrls()[0];
+    if (!url) return;
+    try {
+      const res = await fetch(statsUrl(url), { signal: AbortSignal.timeout(4000), cache: 'no-store' });
+      const n = (await res.json())?.online;
+      if (Number.isFinite(n) && n !== onlineCount) { onlineCount = n; if (onMenu && !session) menu(); }
+    } catch { /* offline, or no server: the menu just shows no number */ }
+  };
+
   const menu = async () => {
     const saves = await track(listSaves()).catch(() => []);
-    showScreen(screensEl, html`<${MainMenu} hasAutosave=${saves.some((s) => s.slot === 'auto')} homeScreenHint=${needsHomeScreen()}
-      act=${{ skirmish: setup, twoPhones: () => twoPhones.open(), resume: () => loadSlot('auto'), load: () => slots('load', menu), settings: () => settingsScreen(menu), credits: () => showScreen(screensEl, html`<${CreditsScreen} onBack=${menu} />`) }} />`);
+    onMenu = true;
+    setRoute('', { replace: true });
+    showScreen(screensEl, html`<${MainMenu} hasAutosave=${saves.some((s) => s.slot === 'auto')} homeScreenHint=${needsHomeScreen()} online=${onlineCount}
+      act=${{ skirmish: () => { onMenu = false; setup(); }, online: () => go({ name: 'online' }), twoPhones: () => go({ name: 'wifi' }), resume: () => loadSlot('auto'), load: () => { onMenu = false; slots('load', menu); }, settings: () => { onMenu = false; settingsScreen(menu); }, credits: () => { onMenu = false; showScreen(screensEl, html`<${CreditsScreen} onBack=${menu} />`); } }} />`);
+    if (onlineCount === null) countOnline();
   };
 
   const setup = () => {
@@ -199,6 +220,7 @@ export async function startApp({ hudEl, worldEl, screensEl, debug }) {
    */
   async function begin(world, m, hint, net = null, online = null) {
     stopSession();
+    onMenu = false;
     fullscreen.request();
     showScreen(screensEl, null);
     document.documentElement.classList.add('in-match');
@@ -246,6 +268,46 @@ export async function startApp({ hudEl, worldEl, screensEl, debug }) {
     menu,
   });
 
+  const online = createOnline({
+    screensEl,
+    maps,
+    prefs: {
+      get: () => ({ form: settings.mpForm, me: settings.mpMe, name: settings.onlineName }),
+      set: (p) => {
+        if (p.form) settings.mpForm = p.form;
+        if (p.me) settings.mpMe = p.me;
+        if (p.name) settings.onlineName = p.name;
+        persist();
+      },
+    },
+    play: (world, m, net, hooks) => begin(world, m, null, net, hooks),
+    stop: stopSession,
+    session: () => session,
+    menu: () => { menu(); },
+  });
+
+  // ---- Addresses (lib/route.js): each entry screen has one, so a link opens it.
+  /**
+   * Open the screen for a route, and show its address.
+   * @param {import('../lib/route.js').Route} route @param {boolean} [history] reached with Back or Forward
+   */
+  function go(route, history = false) {
+    onMenu = false;
+    if (route.name === 'wifi') {
+      online.shut();
+      setRoute(PATHS.wifi);
+      twoPhones.open();
+    } else if (route.name === 'menu') {
+      online.shut();
+      menu();
+    } else {
+      if (route.name === 'online') setRoute(PATHS.online);
+      online.open(route, { history });
+    }
+  }
+  // Back, Forward or an edited address. A match in progress has its own Back handling (the back guard).
+  onRouteChange((route) => { if (!session) go(route, true); });
+
   /** @param {{ tick: number, draw: boolean, winners: number[] }} result */
   function ended(result) {
     if (!session) return;
@@ -274,9 +336,12 @@ export async function startApp({ hudEl, worldEl, screensEl, debug }) {
   }
   // A phone that scanned the host's invite QR opens the game at …/#o=<code>.
   const invite = inviteInUrl();
+  const entry = parseRoute();
   if (invite) {
     history.replaceState(null, '', location.pathname);
     twoPhones.joinWith(invite);
+  } else if (entry.name !== 'menu') {
+    go(entry);
   } else {
     await menu();
   }

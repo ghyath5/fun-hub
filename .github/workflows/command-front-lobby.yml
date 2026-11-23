@@ -1,0 +1,49 @@
+# Deploys the Command Front lobby server (command-front/server) to Cloudflare Workers.
+#
+# Needs one repository secret (Settings → Secrets and variables → Actions):
+#   CLOUDFLARE_API_TOKEN   a Cloudflare API token made from the "Edit Cloudflare Workers" template
+# and, only if the token can see more than one account:
+#   CLOUDFLARE_ACCOUNT_ID
+name: Command Front lobby server
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'command-front/server/**'
+      - '.github/workflows/command-front-lobby.yml'
+
+concurrency:
+  group: command-front-lobby
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: command-front/server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Test
+        run: |
+          node --test ../tests/onlineHub.test.mjs ../tests/onlineReliable.test.mjs ../tests/onlineRoom.test.mjs
+          npm test
+      - name: Deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::error::Add the CLOUDFLARE_API_TOKEN repository secret, then run this workflow again."
+            exit 1
+          fi
+          npx wrangler deploy | tee deploy.log
+          url=$(grep -o 'https://[a-z0-9.-]*workers\.dev' deploy.log | head -1)
+          echo "### Lobby server deployed" >> "$GITHUB_STEP_SUMMARY"
+          echo "Address for \`command-front/src/data/online.js\`: \`${url/https:/wss:}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "LOBBY_URL=${url/https:/wss:}"
