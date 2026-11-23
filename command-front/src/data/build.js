@@ -7,7 +7,7 @@
  * Must equal the number in sw.js's CACHE name; bump both together
  * (tests/build.test.mjs fails when they differ).
  */
-export const BUILD = 59;
+export const BUILD = 60;
 
 /**
  * How another phone's build compares with this one. A phone that sends no

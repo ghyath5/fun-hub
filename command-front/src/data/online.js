@@ -9,7 +9,7 @@
  */
 export const ONLINE = Object.freeze({
   /** Lobby servers, e.g. ['wss://command-front-lobby.example.workers.dev']. */
-  servers: /** @type {string[]} */ ([]),
+  servers: /** @type {string[]} */ (['wss://command-front-lobby.ghiath-dar.workers.dev']),
 
   /**
    * Try to connect the two players straight to each other (WebRTC) once they
