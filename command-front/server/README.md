@@ -32,6 +32,11 @@ npx wrangler deploy
 It prints an address such as `https://command-front-lobby.<your-subdomain>.workers.dev`.
 The game needs it as `wss://…` — see *Point the game at it* below.
 
+The repository also deploys it for you: `.github/workflows/command-front-lobby.yml`
+runs the tests and `wrangler deploy` whenever this folder changes, using the
+`CLOUDFLARE_API_TOKEN` repository secret (a Cloudflare token made from the
+"Edit Cloudflare Workers" template). The run's summary shows the address.
+
 Settings live in `wrangler.toml`:
 
 * `ORIGINS` — the pages allowed to connect. Leave it as the game's address so
