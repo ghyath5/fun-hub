@@ -30,22 +30,23 @@ export function TeamPick({ form, value, onPick, label }) {
 /**
  * Seat names for the read-out: "you" is this phone's player.
  * @param {SetupForm} form @param {'host' | 'guest'} viewer
+ * @param {{ host?: string, remote?: string }} [names] what to call the other human's seat (an online player's name) instead of "Host" / "Phone 2"
  */
-function seatNames(form, viewer) {
+function seatNames(form, viewer, names = {}) {
   let ai = 0;
   return [
-    viewer === 'host' ? t('You') : t('Host'),
-    ...form.opponents.map((o) => (o.remote ? (viewer === 'guest' ? t('You') : t('Phone 2')) : t('AI {n} ({skill})', { n: ++ai, skill: o.skill }))),
+    viewer === 'host' ? t('You') : names.host ?? t('Host'),
+    ...form.opponents.map((o) => (o.remote ? (viewer === 'guest' ? t('You') : names.remote ?? t('Phone 2')) : t('AI {n} ({skill})', { n: ++ai, skill: o.skill }))),
   ];
 }
 
 /**
  * The presets (host only) and the sides.
- * @param {{ form: SetupForm, viewer?: 'host' | 'guest', onChange?: (preset: string) => void }} p
+ * @param {{ form: SetupForm, viewer?: 'host' | 'guest', onChange?: (preset: string) => void, seatLabels?: { host?: string, remote?: string } }} p
  */
-export function SidesPanel({ form, viewer = 'host', onChange }) {
+export function SidesPanel({ form, viewer = 'host', onChange, seatLabels }) {
   const sides = sidesOf(form);
-  const names = seatNames(form, viewer);
+  const names = seatNames(form, viewer, seatLabels);
   const colors = [form.color, ...form.opponents.map((o) => o.color)];
   const current = presetOf(form);
   const problem = sidesProblem(form);

@@ -23,12 +23,20 @@ const COPY = {
   resync: { title: 'Re-syncing…', note: 'The two phones disagreed about the battle. Copying the host’s match across.', spin: true },
 };
 
-/** @param {{ card: import('../net/netMatch.js').LinkCard, dismissed: boolean, act: LinkActions }} p */
-export function LinkCard({ card, dismissed, act }) {
+/** The same cards for a match over the internet: the other player is not in the room, and WiFi is not the cure. */
+const COPY_INTERNET = {
+  ...COPY,
+  reconnecting: { title: 'Reconnecting…', note: 'The match is held exactly where it was. Waiting for the connection to the other player.', spin: true },
+  lost: { title: 'Lost the other player', note: 'The connection did not come back on its own. Check your internet, then try again — or play on without them.', spin: false },
+  resync: { title: 'Re-syncing…', note: 'The two players disagreed about the battle. Copying the host’s match across.', spin: true },
+};
+
+/** @param {{ card: import('../net/netMatch.js').LinkCard, dismissed: boolean, act: LinkActions, internet?: boolean }} p  internet: an online match (wording only) */
+export function LinkCard({ card, dismissed, act, internet = false }) {
   if (!card) return null;
-  if (card === 'waiting') return html`<div class="link-wait panel" role="status"><span class="spin"></span>${t('Waiting for the other phone…')}</div>`;
+  if (card === 'waiting') return html`<div class="link-wait panel" role="status"><span class="spin"></span>${internet ? t('Waiting for the other player…') : t('Waiting for the other phone…')}</div>`;
   if (card === 'left' && dismissed) return null;
-  const c = COPY[card];
+  const c = (internet ? COPY_INTERNET : COPY)[card];
   return html`<div class="sheet-backdrop link-backdrop">
     <div class="sheet panel link-card" role="alertdialog" aria-label=${t(c.title)}>
       ${c.spin ? html`<span class="spin big"></span>` : null}

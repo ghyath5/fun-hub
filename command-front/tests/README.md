@@ -51,6 +51,19 @@ node --test 'tests/*.test.mjs'        # about 30 s
 * `build.test.mjs` — the build number two phones compare equals the service
   worker's cache version.
 
+* `onlineHub.test.mjs` — the online lobby server's logic (`server/hub.js`):
+  head-count, the game list, joining, quick match, relaying, seats held across
+  a dropped connection, limits.
+* `onlineReliable.test.mjs` — online messages arrive once and in order over a
+  path that drops, repeats and reorders them; the input delay chosen for a
+  measured round trip.
+* `onlineRoom.test.mjs` — the game's lobby client and online room against the
+  real hub over in-memory sockets: listing, joining, relaying, drops, silent
+  network death, giving up and coming back, leaving, seats lost.
+
+`server/` has its own socket tests and `tools/online-e2e/` plays online matches
+in two real browsers; see `server/README.md`.
+
 `tools/ai-bench/` plays headless AI-against-AI matches to measure the skill
 levels (see `AI_SKILL` in `src/data/rules.js`):
 

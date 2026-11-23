@@ -1,0 +1,20 @@
+{
+  "name": "command-front-lobby",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Command Front online lobby: who is online, open games, and the link between two players",
+  "scripts": {
+    "start": "node node.mjs",
+    "test": "node --test --test-force-exit test/*.test.mjs",
+    "deploy": "wrangler deploy",
+    "dev:worker": "wrangler dev --port 8787"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  },
+  "engines": { "node": ">=20" }
+}

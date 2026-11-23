@@ -2,7 +2,7 @@
    add every file the game loads; ?debug warns at startup about any that are missing.
    Bump CACHE whenever a listed file changes, and BUILD in src/data/build.js with it
    (two phones compare BUILD before a match; tests/build.test.mjs checks the pair). */
-const CACHE = 'command-front-v58';
+const CACHE = 'command-front-v59';
 
 const PRECACHE = [
   './',
@@ -540,6 +540,7 @@ const PRECACHE = [
   './src/data/credits.js',
   './src/data/factions.js',
   './src/data/lang/ar.js',
+  './src/data/online.js',
   './src/data/rules.js',
   './src/data/sounds.js',
   './src/data/structures.js',
@@ -550,6 +551,7 @@ const PRECACHE = [
   './src/data/weapons.js',
   './src/game/app.js',
   './src/game/bench.js',
+  './src/game/onlinePlay.js',
   './src/game/showcase.js',
   './src/game/teams.js',
   './src/game/customSounds.js',
@@ -576,6 +578,7 @@ const PRECACHE = [
   './src/lib/pathfinder.js',
   './src/lib/rng.js',
   './src/lib/progress.js',
+  './src/lib/route.js',
   './src/lib/storage.js',
   './src/main.js',
   './src/map/generator.js',
@@ -585,6 +588,10 @@ const PRECACHE = [
   './src/net/link.js',
   './src/net/lockstep.js',
   './src/net/netMatch.js',
+  './src/net/online/direct.js',
+  './src/net/online/lobbyClient.js',
+  './src/net/online/reliable.js',
+  './src/net/online/room.js',
   './src/net/room.js',
   './src/render/app.js',
   './src/render/art.js',
@@ -686,6 +693,7 @@ const PRECACHE = [
   './src/ui/linkCard.js',
   './src/ui/menus.js',
   './src/ui/loadingBar.js',
+  './src/ui/onlineScreens.js',
   './src/ui/threats.js',
   './src/ui/threatArrows.js',
   './src/ui/minimap.js',

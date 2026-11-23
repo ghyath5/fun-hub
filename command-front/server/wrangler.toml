@@ -1,0 +1,18 @@
+name = "command-front-lobby"
+main = "worker.js"
+compatibility_date = "2025-09-01"
+
+[vars]
+# Pages allowed to open a connection (comma-separated). Empty allows any page.
+ORIGINS = "https://funhub.super-dar.com"
+# Where the hub runs: weur (West Europe) and me (Middle East) suit players around the Mediterranean.
+# Others: enam, wnam, sam, eeur, apac, oc, afr. https://developers.cloudflare.com/durable-objects/reference/data-location/
+LOCATION_HINT = "weur"
+
+[[durable_objects.bindings]]
+name = "LOBBY"
+class_name = "Lobby"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Lobby"]

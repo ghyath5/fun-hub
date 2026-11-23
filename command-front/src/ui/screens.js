@@ -65,10 +65,11 @@ const Toggle = ({ checked, onChange, label }) => html`<input type="checkbox" cla
   onChange=${(/** @type {any} */ e) => onChange(e.target.checked)} />`;
 
 /**
- * @param {{ hasAutosave: boolean, homeScreenHint?: boolean, act: { skirmish: () => void, twoPhones: () => void, resume: () => void, load: () => void, settings: () => void, credits: () => void } }} p
+ * @param {{ hasAutosave: boolean, homeScreenHint?: boolean, online?: number | null, act: { skirmish: () => void, online: () => void, twoPhones: () => void, resume: () => void, load: () => void, settings: () => void, credits: () => void } }} p
  *   homeScreenHint: iPhone Safari, where only Add to Home Screen removes the browser bars
+ *   online: players on the online server right now (null: not known)
  */
-export function MainMenu({ hasAutosave, homeScreenHint = false, act }) {
+export function MainMenu({ hasAutosave, homeScreenHint = false, online = null, act }) {
   return html`<div class="screen menu">
     <div class="menu-mark"><span>COMMAND</span><b>FRONT</b></div>
     <p class="menu-sub">${t('Classic real-time strategy · skirmish')}</p>
@@ -76,6 +77,7 @@ export function MainMenu({ hasAutosave, homeScreenHint = false, act }) {
       <button class="btn primary" onClick=${act.skirmish}>${t('Skirmish')}</button>
       <button class="btn" disabled=${!hasAutosave} onClick=${act.resume}>${t('Continue')}</button>
       <button class="btn" onClick=${act.load}>${t('Load game')}</button>
+      <button class="btn with-badge" onClick=${act.online}>${t('Play online')}${online ? html`<span class="count-badge" aria-label=${t('{n} players online', { n: online })}><i></i>${online}</span>` : null}</button>
       <button class="btn" onClick=${act.twoPhones}>${t('Two phones · WiFi')}</button>
       <button class="btn" onClick=${act.settings}>${t('Settings')}</button>
       <button class="btn" onClick=${act.credits}>${t('Credits')}</button>
@@ -106,11 +108,12 @@ const cashLabel = () => t('Cash button (+{amount})', { amount: `$${int(CASH_BUTT
 
 /**
  * The second phone's seat: its player picks faction and colour; the host picks its team.
- * @param {{ o: import('../game/matchSetup.js').OpponentForm, form: SetupForm, onTeam: (team: number) => void }} p
+ * @param {{ o: import('../game/matchSetup.js').OpponentForm, form: SetupForm, onTeam: (team: number) => void, remote?: { name: string, note?: string } }} p
+ *   remote: an online player's seat — their name, and a note in place of their choices while the seat is empty
  */
-const RemoteSlot = ({ o, form, onTeam }) => html`<div class="opp remote">${colorDot(o.color)}<${Flag} id=${o.country} /><b>${t('Phone 2')}</b>
-  <span class="muted">${factionName(o.faction)} · ${cap(o.color)} · ${t('chosen on their phone')}</span>
-  <${TeamPick} form=${form} value=${o.team ?? 1} label=${t('Phone 2 team')} onPick=${onTeam} /></div>`;
+const RemoteSlot = ({ o, form, onTeam, remote }) => html`<div class=${`opp remote${remote?.note ? ' empty' : ''}`}>${colorDot(o.color)}<${Flag} id=${o.country} /><b dir="auto">${remote?.name ?? t('Phone 2')}</b>
+  <span class="muted">${remote?.note || `${factionName(o.faction)} · ${cap(o.color)} · ${remote ? t('their choice') : t('chosen on their phone')}`}</span>
+  <${TeamPick} form=${form} value=${o.team ?? 1} label=${remote ? t('Their team') : t('Phone 2 team')} onPick=${onTeam} /></div>`;
 
 /** A new AI opponent: the next free colour and country, a mid skill, and a team that keeps the sides even. @param {SetupForm} form */
 const newOpponent = (form) => ({
@@ -123,10 +126,13 @@ const newOpponent = (form) => ({
 
 /**
  * @param {{ form: SetupForm, maps: { id: string, name: string, maxPlayers: number }[], error: string,
- *   onChange: (f: SetupForm) => void, onStart: () => void, onBack: () => void, online?: boolean }} p
- *   online: the host's lobby in a two-phone match (opponent 1 is the other phone)
+ *   onChange: (f: SetupForm) => void, onStart: () => void, onBack: () => void, online?: boolean,
+ *   title?: string, banner?: any, remote?: { name: string, note?: string }, startBlocked?: string }} p
+ *   online: the host's lobby in a two-player match (opponent 1 is the other player)
+ *   title, banner, remote, startBlocked: an internet lobby — its heading, the strip under the heading,
+ *   the other player's name, and why the match cannot start yet ('' when it can)
  */
-export function SetupScreen({ form, maps, error, onChange, onStart, onBack, online = false }) {
+export function SetupScreen({ form, maps, error, onChange, onStart, onBack, online = false, title, banner = null, remote, startBlocked = '' }) {
   const set = (/** @type {Partial<SetupForm>} */ patch) => onChange({ ...form, ...patch });
   const generated = form.map === 'generated';
   const maxPlayers = maxPlayersOf(form, maps);
@@ -136,9 +142,11 @@ export function SetupScreen({ form, maps, error, onChange, onStart, onBack, onli
   return html`<div class="screen setup">
     <header class="screen-head">
       <button class="btn" onClick=${onBack}>${online ? t('‹ Leave') : t('‹ Back')}</button>
-      <h2>${online ? t('Two phones') : t('Skirmish')}</h2>
-      <button class="btn primary" disabled=${!!problem} onClick=${() => { if (!problem) onStart(); }}>${t('Start')}</button>
+      <h2>${title ?? (online ? t('Two phones') : t('Skirmish'))}</h2>
+      <button class="btn primary" disabled=${!!problem || !!startBlocked} title=${startBlocked} onClick=${() => { if (!problem && !startBlocked) onStart(); }}>${t('Start')}</button>
     </header>
+    ${banner}
+    ${startBlocked ? html`<p class="start-wait" role="status">${startBlocked}</p>` : null}
     ${error ? html`<p class="setup-error" role="alert">${t(error)}</p>` : null}
     <div class="setup-body">
       <section class="setup-col">
@@ -160,7 +168,7 @@ export function SetupScreen({ form, maps, error, onChange, onStart, onBack, onli
         <div class="row"><span class="row-label">${t('Country')}</span><span class="row-ctl"><${CountryButton} label=${t('Your country')} value=${form.country} onPick=${(v) => set({ country: v })} /></span></div>
         <${Row} label=${t('Team')}><${TeamPick} form=${form} value=${form.team ?? 0} label=${t('Your team')} onPick=${(v) => set({ team: v })} /></${Row}>
         <h3>${t('Opponents ({n} of {max})', { n: form.opponents.length, max: room })}</h3>
-        ${form.opponents.map((o, k) => o.remote ? html`<${RemoteSlot} key=${k} o=${o} form=${form} onTeam=${(v) => opp(k, { team: v })} />` : html`<div class="opp" key=${k}>
+        ${form.opponents.map((o, k) => o.remote ? html`<${RemoteSlot} key=${k} o=${o} form=${form} remote=${remote} onTeam=${(v) => opp(k, { team: v })} />` : html`<div class="opp" key=${k}>
           ${colorDot(o.color)}
           <${CountryButton} compact label=${t('Opponent {n} country', { n: k + 1 })} value=${o.country} onPick=${(v) => opp(k, { country: v })} />
           <${Select} label=${t('Opponent {n} faction', { n: k + 1 })} value=${o.faction} onChange=${(v) => opp(k, { faction: v })} options=${FACTION_IDS.map((f) => ({ value: f, label: factionName(f) }))} />
@@ -172,7 +180,7 @@ export function SetupScreen({ form, maps, error, onChange, onStart, onBack, onli
         ${form.opponents.length < room ? html`<button class="btn" onClick=${() => set({ opponents: [...form.opponents, newOpponent(form)] })}>${t('+ Add AI opponent')}</button>`
           : room < MAX_OPPONENTS ? html`<p class="muted hint">${t('This map has room for {n} players. Choose Generated for up to {max}.', { n: maxPlayers, max: MAX_OPPONENTS + 1 })}</p>` : null}
         <h3>${t('Sides')}</h3>
-        <${SidesPanel} form=${form} onChange=${(id) => onChange(applyPreset(form, id))} />
+        <${SidesPanel} form=${form} seatLabels=${remote ? { remote: remote.name } : undefined} onChange=${(id) => onChange(applyPreset(form, id))} />
       </section>
       <section class="setup-col">
         <h3>${t('Rules')}</h3>

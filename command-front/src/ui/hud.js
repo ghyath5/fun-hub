@@ -58,6 +58,7 @@ const mapLabel = (name) => name.replace(/^[A-Za-z][A-Za-z ]*?(?= \d|$)/, (w) => 
  * @property {string | null} hint    First-match hint
  * @property {boolean} ended
  * @property {boolean} online      Two-phone match: no saves, shared pause
+ * @property {boolean} [internet]  …played over the internet, not one WiFi (wording only)
  * @property {string} speed         Game speed (a GAME_SPEEDS key)
  * @property {import('../net/netMatch.js').LinkCard} link  The other phone's state
  * @property {boolean} [linkDismissed]
@@ -202,10 +203,10 @@ function Hud({ store, actions }) {
       <div class="sheet-backdrop">
         <div class="sheet panel" role="dialog" aria-label=${t('Paused')}>
           <h2>${t('Paused')}</h2>
-          <p class="muted">${s.online ? t('The other phone waits until you resume.') : mapLabel(s.mapName)}</p>
+          <p class="muted">${s.internet ? t('The other player waits until you resume.') : s.online ? t('The other phone waits until you resume.') : mapLabel(s.mapName)}</p>
           <button class="btn primary" onClick=${actions.resume}>${t('Resume')}</button>
           ${!actions.speed ? null : html`<div class="speed-pick" role="group" aria-label=${t('Game speed')}>
-            <span class="muted">${s.online ? t('Game speed (both phones)') : t('Game speed')}</span>
+            <span class="muted">${s.internet ? t('Game speed (both players)') : s.online ? t('Game speed (both phones)') : t('Game speed')}</span>
             <div class="speed-row">${Object.entries(GAME_SPEEDS).map(([id, g]) => html`<button key=${id}
               class=${`btn speed ${s.speed === id ? 'on' : ''}`} aria-pressed=${s.speed === id} onClick=${() => actions.speed?.(id)}>${t(g.name)}</button>`)}</div>
           </div>`}
@@ -222,7 +223,7 @@ function Hud({ store, actions }) {
           <button class="btn" onClick=${actions.exit}>${s.online ? t('Leave the match') : t('Exit to menu')}</button>
         </div>
       </div>` : null}
-    ${s.online && actions.link ? html`<${LinkCard} card=${s.link} dismissed=${!!s.linkDismissed} act=${actions.link} />` : null}
+    ${s.online && actions.link ? html`<${LinkCard} card=${s.link} dismissed=${!!s.linkDismissed} internet=${!!s.internet} act=${actions.link} />` : null}
   `;
 }
 
